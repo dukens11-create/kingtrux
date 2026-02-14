@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/truck_profile.dart';
-import '../state/app_state.dart';
+import '../../models/truck_profile.dart';
+import '../../state/app_state.dart';
 
 /// Bottom sheet for configuring truck profile
 class TruckProfileSheet extends StatefulWidget {

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import '../config.dart';
@@ -89,7 +90,7 @@ class HereRoutingService {
     final thirdDim = (header.value >> 4) & 7;
     final thirdDimPrecision = (header.value >> 7) & 15;
     
-    final precisionFactor = pow(10, precision).toDouble();
+    final precisionFactor = math.pow(10, precision).toDouble();
 
     int thirdDimValue = 0;
 
@@ -154,14 +155,4 @@ class _DecodeResult {
   final int index;
 
   _DecodeResult(this.value, this.index);
-}
-
-// Helper function for power calculation
-num pow(num base, num exponent) {
-  if (exponent == 0) return 1;
-  num result = base;
-  for (int i = 1; i < exponent; i++) {
-    result *= base;
-  }
-  return result;
 }
