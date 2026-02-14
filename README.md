@@ -1,0 +1,3 @@
+# kingtrux
+
+Truck GPS application - initializing...
