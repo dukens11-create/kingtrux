@@ -31,7 +31,7 @@ A Flutter-based mobile application for truck drivers with advanced routing, POI 
 2. Verify installation: `flutter doctor`
 3. Install platform-specific tools:
    - **Android**: Android Studio, Android SDK (API 21+)
-   - **iOS**: Xcode 14+, CocoaPods
+   - **iOS**: Xcode 15+, CocoaPods
 
 ### API Keys Required
 You'll need to obtain API keys from:
