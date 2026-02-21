@@ -38,7 +38,10 @@ class HereRoutingService {
       },
     );
 
-    final response = await http.get(url);
+    final response = await http.get(url).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw Exception('HERE Routing API request timed out after 30 seconds'),
+    );
 
     if (response.statusCode != 200) {
       throw Exception('HERE Routing API error: ${response.statusCode} - ${response.body}');

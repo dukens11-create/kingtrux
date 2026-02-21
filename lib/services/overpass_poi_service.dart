@@ -42,6 +42,9 @@ class OverpassPoiService {
     final response = await http.post(
       Uri.parse(Config.overpassApiUrl),
       body: query,
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw Exception('Overpass API request timed out after 30 seconds'),
     );
 
     if (response.statusCode != 200) {
