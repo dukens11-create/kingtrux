@@ -24,7 +24,10 @@ class WeatherService {
       },
     );
 
-    final response = await http.get(url);
+    final response = await http.get(url).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw Exception('OpenWeather API request timed out after 30 seconds'),
+    );
 
     if (response.statusCode != 200) {
       throw Exception('OpenWeather API error: ${response.statusCode} - ${response.body}');
