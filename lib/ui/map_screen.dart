@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +7,7 @@ import '../state/app_state.dart';
 import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/route_summary_card.dart';
+import 'preview_gallery_page.dart';
 
 /// Main map screen with Google Maps integration
 class MapScreen extends StatefulWidget {
@@ -31,7 +33,17 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('KINGTRUX'),
+        title: kDebugMode
+            ? GestureDetector(
+                onLongPress: () => Navigator.push<void>(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const PreviewGalleryPage(),
+                  ),
+                ),
+                child: const Text('KINGTRUX'),
+              )
+            : const Text('KINGTRUX'),
         actions: [
           // My Location button
           IconButton(

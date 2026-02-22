@@ -109,9 +109,41 @@ flutter build ios --release \
   --dart-define=OPENWEATHER_API_KEY=xxx
 ```
 
-## Usage Guide
+## UI Preview Gallery
 
-1. **Start the app** - Your current location will be automatically detected
+The app ships a built-in **UI Preview Gallery** that renders key components in
+both light and dark themes — no API keys required.
+
+### Opening the preview
+
+The preview screen is only available in **debug / profile** builds.
+
+| Method | Steps |
+|--------|-------|
+| Long-press gesture | Long-press the **"KINGTRUX"** title in the app bar. |
+
+> The long-press gesture is compiled away in release builds (`kDebugMode`
+> guard), so normal users never see it.
+
+### Toggling light / dark theme
+
+Once inside the preview, tap the **sun / moon icon** (light_mode / dark_mode) in the top-right
+corner of the app bar to switch between light and dark themes.
+
+### What's shown
+
+| Section | Description |
+|---------|-------------|
+| Map Screen Shell | Full layout with weather pill overlay; map widget replaced by a placeholder so no Google Maps API key is needed. |
+| Route Card – Empty State | The card as seen before a route is calculated. |
+| Route Card – With Route | Pre-populated distance / duration values. |
+| Route Card – Loading State | Spinner shown while a route is being fetched. |
+| Layer Sheet (POI Toggles) | Switch list tiles for Fuel and Rest Area layers. |
+| Buttons & FAB Cluster | `ElevatedButton`, `OutlinedButton`, `FilledButton`, `FloatingActionButton`, and `FilterChip` samples. |
+| Loading / Empty / Error States | Stand-alone status placeholders. |
+| Open Sheets | Buttons that open the live Layer Sheet and Truck Profile Sheet modals. |
+
+## Usage Guide1. **Start the app** - Your current location will be automatically detected
 2. **View weather** - Current weather conditions display at the top
 3. **Set destination** - Long-press anywhere on the map to set destination
 4. **Configure truck** - Tap the tune icon (⚙️) to set truck profile
@@ -143,6 +175,7 @@ kingtrux/
 │   │   └── app_state.dart
 │   └── ui/               # UI components
 │       ├── map_screen.dart
+│       ├── preview_gallery_page.dart  # Debug-only UI preview
 │       └── widgets/
 │           ├── layer_sheet.dart
 │           ├── route_summary_card.dart

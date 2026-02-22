@@ -20,6 +20,13 @@ class KingTruxApp extends StatelessWidget {
           ),
           useMaterial3: true,
         ),
+        darkTheme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.amber,
+            brightness: Brightness.dark,
+          ),
+          useMaterial3: true,
+        ),
         home: const MapScreen(),
         debugShowCheckedModeBanner: false,
       ),
