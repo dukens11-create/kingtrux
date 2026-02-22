@@ -60,7 +60,7 @@ abstract final class AppTheme {
         titleTextStyle: _textTheme.titleLarge?.copyWith(color: cs.onSurface),
       );
 
-  static CardTheme _cardTheme(ColorScheme cs) => CardTheme(
+  static CardThemeData _cardTheme(ColorScheme cs) => CardThemeData(
         elevation: elevationCard,
         color: cs.surfaceContainerLow,
         margin: const EdgeInsets.all(spaceMD),
