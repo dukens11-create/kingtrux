@@ -27,11 +27,36 @@ A Flutter-based mobile application for truck drivers with advanced routing, POI 
 ## Prerequisites
 
 ### Flutter Installation
-1. Install Flutter SDK (3.4.0 or higher): https://docs.flutter.dev/get-started/install
+1. Install Flutter SDK (3.27.0 or higher): https://docs.flutter.dev/get-started/install
 2. Verify installation: `flutter doctor`
 3. Install platform-specific tools:
-   - **Android**: Android Studio, Android SDK (API 21+)
+   - **Android**: Android Studio, Android SDK (API 21+), **JDK 17** (required)
    - **iOS**: Xcode 15+, CocoaPods
+
+### Android Toolchain Requirements
+
+Android builds require **JDK 17** (Java 17). Using an older JDK (e.g., JDK 8 or 11)
+causes Kotlin compilation errors in the Flutter Gradle plugin (e.g. `Unresolved reference:
+filePermissions`).
+
+| Component | Required version |
+|-----------|-----------------|
+| JDK | **17** (Temurin / OpenJDK) |
+| Gradle | 8.7 |
+| Android Gradle Plugin (AGP) | 8.3.0 |
+| Kotlin Gradle Plugin | 1.9.25 |
+| Android SDK compile / target | 34 |
+
+Install JDK 17 via [Eclipse Temurin](https://adoptium.net/) or your OS package manager:
+```bash
+# macOS (Homebrew)
+brew install temurin@17
+
+# Ubuntu / Debian
+sudo apt-get install -y temurin-17-jdk
+```
+
+Make sure `JAVA_HOME` points to JDK 17 before running `flutter build apk`.
 
 ### API Keys Required
 You'll need to obtain API keys from:
@@ -215,8 +240,9 @@ Key packages used (see `pubspec.yaml` for complete list):
 
 ### Build Errors
 - Run `flutter clean` and `flutter pub get`
-- Verify Flutter version: `flutter --version` (requires Flutter 3.24+ / Dart 3.5+)
+- Verify Flutter version: `flutter --version` (requires Flutter 3.27+ / Dart 3.6+)
 - Check platform-specific requirements with `flutter doctor`
+- **Android JDK**: Ensure JDK 17 is installed and `JAVA_HOME` is set to JDK 17. Using JDK 8/11 causes Kotlin compilation errors (`Unresolved reference: filePermissions`) in the Flutter Gradle plugin.
 - **iOS**: The shared Xcode scheme is committed at `ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme`. If you see `no schemes available for Runner.xcodeproj`, ensure that file is present and not listed in `.gitignore`.
 
 ## Contributing
