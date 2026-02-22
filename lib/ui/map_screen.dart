@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -9,6 +10,7 @@ import 'theme/dark_map_style.dart';
 import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/route_summary_card.dart';
+import 'preview_gallery_page.dart';
 
 /// Main map screen with Google Maps integration
 class MapScreen extends StatefulWidget {
@@ -137,13 +139,29 @@ class _MapScreenState extends State<MapScreen> {
   // AppBar
   // ---------------------------------------------------------------------------
   PreferredSizeWidget _buildAppBar(ColorScheme cs) => AppBar(
-        title: Row(
-          children: [
-            Icon(Icons.local_shipping_rounded, color: cs.primary, size: 26),
-            const SizedBox(width: AppTheme.spaceSM),
-            const Text('KINGTRUX'),
-          ],
-        ),
+        title: kDebugMode
+            ? GestureDetector(
+                onLongPress: () => Navigator.push<void>(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const PreviewGalleryPage(),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.local_shipping_rounded, color: cs.primary, size: 26),
+                    const SizedBox(width: AppTheme.spaceSM),
+                    const Text('KINGTRUX'),
+                  ],
+                ),
+              )
+            : Row(
+                children: [
+                  Icon(Icons.local_shipping_rounded, color: cs.primary, size: 26),
+                  const SizedBox(width: AppTheme.spaceSM),
+                  const Text('KINGTRUX'),
+                ],
+              ),
       );
 
   // ---------------------------------------------------------------------------
