@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../models/poi.dart';
 import '../state/app_state.dart';
+import 'theme/app_theme.dart';
+import 'theme/dark_map_style.dart';
 import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/route_summary_card.dart';
@@ -17,83 +20,111 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   GoogleMapController? _mapController;
-  
+  bool _darkMapApplied = false;
+
   @override
   void initState() {
     super.initState();
-    // Initialize app state
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AppState>().init();
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncMapStyle();
+  }
+
+  /// Apply dark/light map style to match app theme.
+  Future<void> _syncMapStyle() async {
+    final controller = _mapController;
+    if (controller == null) return;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (isDark && !_darkMapApplied) {
+      await controller.setMapStyle(kDarkMapStyle);
+      _darkMapApplied = true;
+    } else if (!isDark && _darkMapApplied) {
+      await controller.setMapStyle(null);
+      _darkMapApplied = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('KINGTRUX'),
-        actions: [
-          // My Location button
-          IconButton(
-            icon: const Icon(Icons.my_location),
-            onPressed: _onMyLocationPressed,
-            tooltip: 'Refresh location',
-          ),
-          // Truck profile button
-          IconButton(
-            icon: const Icon(Icons.tune),
-            onPressed: _onTruckProfilePressed,
-            tooltip: 'Truck profile',
-          ),
-          // Layers button
-          IconButton(
-            icon: const Icon(Icons.layers),
-            onPressed: _onLayersPressed,
-            tooltip: 'POI layers',
-          ),
-        ],
-      ),
+      extendBodyBehindAppBar: true,
+      appBar: _buildAppBar(cs),
       body: Consumer<AppState>(
         builder: (context, state, _) {
+          // Show full-screen loader while acquiring first location fix.
           if (state.myLat == null || state.myLng == null) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return _buildInitialLoader(cs);
           }
 
           return Stack(
             children: [
-              // Google Map
+              // ── Google Map ──────────────────────────────────────────────
               GoogleMap(
                 initialCameraPosition: CameraPosition(
                   target: LatLng(state.myLat!, state.myLng!),
                   zoom: 12,
                 ),
-                onMapCreated: (controller) {
+                onMapCreated: (controller) async {
                   _mapController = controller;
+                  await _syncMapStyle();
                 },
                 onLongPress: _onMapLongPress,
                 markers: _buildMarkers(state),
                 polylines: _buildPolylines(state),
                 myLocationEnabled: true,
                 myLocationButtonEnabled: false,
+                padding: EdgeInsets.only(
+                  top: MediaQuery.of(context).padding.top + kToolbarHeight,
+                  bottom: 180,
+                ),
               ),
-              
-              // Weather pill (top overlay)
+
+              // ── Route / POI loading indicator (non-blocking) ────────────
+              if (state.isLoadingRoute || state.isLoadingPois)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceMD,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: _LoadingBadge(
+                      label: state.isLoadingRoute ? 'Calculating route…' : 'Loading POIs…',
+                    ),
+                  ),
+                ),
+
+              // ── Weather pill ────────────────────────────────────────────
               if (state.weatherAtCurrentLocation != null)
                 Positioned(
-                  top: 16,
-                  left: 16,
-                  right: 16,
-                  child: _buildWeatherPill(state),
+                  top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceSM,
+                  left: AppTheme.spaceMD,
+                  right: AppTheme.spaceMD,
+                  child: _buildWeatherPill(state, cs),
                 ),
-              
-              // Route summary card (bottom overlay)
+
+              // ── FAB cluster (bottom-right) ──────────────────────────────
               Positioned(
+                right: AppTheme.spaceMD,
+                bottom: 200,
+                child: _MapActionCluster(
+                  onRecenter: _onMyLocationPressed,
+                  onLayers: _onLayersPressed,
+                  onTruckProfile: _onTruckProfilePressed,
+                ),
+              ),
+
+              // ── Route summary card (bottom overlay) ─────────────────────
+              const Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
-                child: const RouteSummaryCard(),
+                child: RouteSummaryCard(),
               ),
             ],
           );
@@ -102,11 +133,80 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  /// Build markers for map
+  // ---------------------------------------------------------------------------
+  // AppBar
+  // ---------------------------------------------------------------------------
+  PreferredSizeWidget _buildAppBar(ColorScheme cs) => AppBar(
+        title: Row(
+          children: [
+            Icon(Icons.local_shipping_rounded, color: cs.primary, size: 26),
+            const SizedBox(width: AppTheme.spaceSM),
+            const Text('KINGTRUX'),
+          ],
+        ),
+      );
+
+  // ---------------------------------------------------------------------------
+  // Full-screen initial loading state
+  // ---------------------------------------------------------------------------
+  Widget _buildInitialLoader(ColorScheme cs) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: cs.primary),
+            const SizedBox(height: AppTheme.spaceMD),
+            Text(
+              'Acquiring location…',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
+      );
+
+  // ---------------------------------------------------------------------------
+  // Weather pill
+  // ---------------------------------------------------------------------------
+  Widget _buildWeatherPill(AppState state, ColorScheme cs) {
+    final weather = state.weatherAtCurrentLocation!;
+    return Card(
+      elevation: AppTheme.elevationCard,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spaceMD,
+          vertical: AppTheme.spaceXS + 2,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_outlined, size: 18, color: cs.primary),
+            const SizedBox(width: AppTheme.spaceSM),
+            Flexible(
+              child: Text(
+                '${weather.summary} · '
+                '${weather.temperatureCelsius.toStringAsFixed(1)}°C · '
+                '${weather.windSpeedMs.toStringAsFixed(1)} m/s',
+                style: Theme.of(context).textTheme.bodySmall,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Markers
+  // ---------------------------------------------------------------------------
   Set<Marker> _buildMarkers(AppState state) {
     final markers = <Marker>{};
 
-    // Current location marker
     if (state.myLat != null && state.myLng != null) {
       markers.add(
         Marker(
@@ -118,7 +218,6 @@ class _MapScreenState extends State<MapScreen> {
       );
     }
 
-    // Destination marker
     if (state.destLat != null && state.destLng != null) {
       markers.add(
         Marker(
@@ -130,7 +229,6 @@ class _MapScreenState extends State<MapScreen> {
       );
     }
 
-    // POI markers
     for (final poi in state.pois) {
       markers.add(
         Marker(
@@ -140,9 +238,7 @@ class _MapScreenState extends State<MapScreen> {
             title: poi.name,
             snippet: poi.type.name,
           ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            _getPoiColor(poi.type),
-          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(_getPoiColor(poi.type)),
         ),
       );
     }
@@ -150,7 +246,6 @@ class _MapScreenState extends State<MapScreen> {
     return markers;
   }
 
-  /// Get marker color for POI type
   double _getPoiColor(PoiType type) {
     switch (type) {
       case PoiType.fuel:
@@ -162,57 +257,35 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  /// Build polylines for route
+  // ---------------------------------------------------------------------------
+  // Polylines
+  // ---------------------------------------------------------------------------
   Set<Polyline> _buildPolylines(AppState state) {
-    final polylines = <Polyline>{};
-
-    if (state.routeResult != null) {
-      polylines.add(
-        Polyline(
-          polylineId: const PolylineId('route'),
-          points: state.routeResult!.polylinePoints,
-          color: Colors.blue,
-          width: 5,
-        ),
-      );
-    }
-
-    return polylines;
-  }
-
-  /// Build weather pill widget
-  Widget _buildWeatherPill(AppState state) {
-    final weather = state.weatherAtCurrentLocation!;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              '${weather.summary} • ${weather.temperatureCelsius.toStringAsFixed(1)}°C • ${weather.windSpeedMs.toStringAsFixed(1)} m/s',
-              style: const TextStyle(fontSize: 14),
-            ),
-          ],
-        ),
+    if (state.routeResult == null) return {};
+    final cs = Theme.of(context).colorScheme;
+    return {
+      Polyline(
+        polylineId: const PolylineId('route'),
+        points: state.routeResult!.polylinePoints,
+        color: cs.primary,
+        width: 5,
       ),
-    );
+    };
   }
 
-  /// Handle my location button press
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
   Future<void> _onMyLocationPressed() async {
+    HapticFeedback.lightImpact();
     try {
       final state = context.read<AppState>();
       await state.refreshMyLocation();
-      
       if (state.myLat != null && state.myLng != null && _mapController != null) {
-        _mapController!.animateCamera(
+        await _mapController!.animateCamera(
           CameraUpdate.newLatLng(LatLng(state.myLat!, state.myLng!)),
         );
       }
-      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Location updated')),
@@ -222,16 +295,16 @@ class _MapScreenState extends State<MapScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
+            content: Text('Location error: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
     }
   }
 
-  /// Handle truck profile button press
   void _onTruckProfilePressed() {
+    HapticFeedback.selectionClick();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -239,19 +312,19 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  /// Handle layers button press
   void _onLayersPressed() {
+    HapticFeedback.selectionClick();
     showModalBottomSheet(
       context: context,
       builder: (context) => const LayerSheet(),
     );
   }
 
-  /// Handle long press on map to set destination
   Future<void> _onMapLongPress(LatLng position) async {
+    HapticFeedback.mediumImpact();
     final state = context.read<AppState>();
     state.setDestination(position.latitude, position.longitude);
-    
+
     try {
       await state.buildTruckRoute();
       if (mounted) {
@@ -264,7 +337,7 @@ class _MapScreenState extends State<MapScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Route error: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -277,3 +350,111 @@ class _MapScreenState extends State<MapScreen> {
     super.dispose();
   }
 }
+
+// ---------------------------------------------------------------------------
+// Map action FAB cluster
+// ---------------------------------------------------------------------------
+
+/// A vertical cluster of small FABs for map actions.
+class _MapActionCluster extends StatelessWidget {
+  const _MapActionCluster({
+    required this.onRecenter,
+    required this.onLayers,
+    required this.onTruckProfile,
+  });
+
+  final VoidCallback onRecenter;
+  final VoidCallback onLayers;
+  final VoidCallback onTruckProfile;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ClusterFab(
+          icon: Icons.my_location_rounded,
+          tooltip: 'Recenter',
+          onPressed: onRecenter,
+        ),
+        const SizedBox(height: AppTheme.spaceSM),
+        _ClusterFab(
+          icon: Icons.layers_rounded,
+          tooltip: 'POI Layers',
+          onPressed: onLayers,
+        ),
+        const SizedBox(height: AppTheme.spaceSM),
+        _ClusterFab(
+          icon: Icons.local_shipping_rounded,
+          tooltip: 'Truck Profile',
+          onPressed: onTruckProfile,
+        ),
+      ],
+    );
+  }
+}
+
+class _ClusterFab extends StatelessWidget {
+  const _ClusterFab({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingActionButton.small(
+      heroTag: tooltip,
+      tooltip: tooltip,
+      onPressed: onPressed,
+      child: Icon(icon),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Non-blocking loading badge
+// ---------------------------------------------------------------------------
+
+class _LoadingBadge extends StatelessWidget {
+  const _LoadingBadge({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      elevation: AppTheme.elevationSheet,
+      margin: const EdgeInsets.symmetric(horizontal: AppTheme.spaceLG),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spaceMD,
+          vertical: AppTheme.spaceXS + 2,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: cs.primary,
+              ),
+            ),
+            const SizedBox(width: AppTheme.spaceSM),
+            Text(label, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
