@@ -61,7 +61,7 @@ void main() {
       // instance must be present (some may be offstage in the scroll view).
       expect(
         find.text(
-          'Long-press on map to set destination and calculate route',
+          'Long-press anywhere on the map to set a destination',
           skipOffstage: false,
         ),
         findsWidgets,

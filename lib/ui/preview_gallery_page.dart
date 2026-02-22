@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/poi.dart';
 import '../state/app_state.dart';
+import 'theme/app_theme.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/route_summary_card.dart';
 import 'widgets/truck_profile_sheet.dart';
@@ -22,13 +23,7 @@ class PreviewGalleryPage extends StatefulWidget {
 class _PreviewGalleryPageState extends State<PreviewGalleryPage> {
   bool _isDark = false;
 
-  ThemeData get _theme => ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.amber,
-          brightness: _isDark ? Brightness.dark : Brightness.light,
-        ),
-        useMaterial3: true,
-      );
+  ThemeData get _theme => _isDark ? AppTheme.dark : AppTheme.light;
 
   @override
   Widget build(BuildContext context) {
@@ -52,31 +47,31 @@ class _PreviewGalleryPageState extends State<PreviewGalleryPage> {
           create: (_) => AppState(),
           child: Builder(
             builder: (context) => ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppTheme.spaceMD),
               children: [
                 // ── Map screen shell ──────────────────────────────────────────
                 const _SectionHeader(title: 'Map Screen Shell'),
                 const _MapShellPreview(),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppTheme.spaceLG),
 
                 // ── Route / bottom-sheet card ─────────────────────────────────
                 const _SectionHeader(title: 'Route Card – Empty State'),
                 const RouteSummaryCard(),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppTheme.spaceMD),
 
                 const _SectionHeader(title: 'Route Card – With Route'),
                 const _RouteCardWithRoute(),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppTheme.spaceMD),
 
                 const _SectionHeader(title: 'Route Card – Loading State'),
                 const _RouteCardLoading(),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppTheme.spaceLG),
 
                 // ── Layer toggles ─────────────────────────────────────────────
                 const _SectionHeader(title: 'Layer Sheet (POI Toggles)'),
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(AppTheme.spaceSM),
                     child: Consumer<AppState>(
                       builder: (ctx, state, _) => Column(
                         mainAxisSize: MainAxisSize.min,
@@ -101,30 +96,30 @@ class _PreviewGalleryPageState extends State<PreviewGalleryPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppTheme.spaceLG),
 
                 // ── FAB / Button cluster ──────────────────────────────────────
                 const _SectionHeader(title: 'Buttons & FAB Cluster'),
                 const _ButtonClusterPreview(),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppTheme.spaceLG),
 
                 // ── Status states ─────────────────────────────────────────────
                 const _SectionHeader(title: 'Loading State'),
                 const _LoadingPreview(),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppTheme.spaceMD),
 
                 const _SectionHeader(title: 'Empty State'),
                 const _EmptyPreview(),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppTheme.spaceMD),
 
                 const _SectionHeader(title: 'Error State'),
                 const _ErrorPreview(),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppTheme.spaceLG),
 
                 // ── Sheets (open in modal) ────────────────────────────────────
                 const _SectionHeader(title: 'Open Sheets'),
                 const _SheetButtons(),
-                const SizedBox(height: 40),
+                const SizedBox(height: AppTheme.spaceXL + AppTheme.spaceSM),
               ],
             ),
           ),
@@ -146,7 +141,7 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: AppTheme.spaceSM),
       child: Text(
         title,
         style: Theme.of(context)
@@ -179,7 +174,7 @@ class _MapShellPreview extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.map, size: 48, color: Colors.green),
-                    SizedBox(height: 8),
+                    SizedBox(height: AppTheme.spaceSM),
                     Text(
                       'Map Placeholder\n(Google Maps not shown in preview)',
                       textAlign: TextAlign.center,
@@ -191,17 +186,20 @@ class _MapShellPreview extends StatelessWidget {
             ),
             // Weather pill overlay
             Positioned(
-              top: 12,
-              left: 12,
-              right: 12,
+              top: AppTheme.spaceMD,
+              left: AppTheme.spaceMD,
+              right: AppTheme.spaceMD,
               child: Card(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.spaceMD,
+                    vertical: AppTheme.spaceXS + 2,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.cloud, size: 20),
-                      const SizedBox(width: 8),
+                      const Icon(Icons.cloud_outlined, size: 18),
+                      const SizedBox(width: AppTheme.spaceSM),
                       Text(
                         'Partly Cloudy • 18.5°C • 3.2 m/s',
                         style: Theme.of(context).textTheme.bodySmall,
@@ -225,48 +223,51 @@ class _RouteCardWithRoute extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 8,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: AppTheme.elevationSheet,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppTheme.spaceMD),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Icon(Icons.route_rounded,
+                    color: Theme.of(context).colorScheme.primary, size: 28),
+                const SizedBox(width: AppTheme.spaceMD),
                 const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Distance: 142.3 mi',
+                        '142.3 mi',
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      SizedBox(height: 4),
-                      Text('Duration: 2h 18m', style: TextStyle(fontSize: 14)),
+                      SizedBox(height: AppTheme.spaceXS),
+                      Text('2h 18m', style: TextStyle(fontSize: 14)),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.clear),
+                  icon: const Icon(Icons.close_rounded),
                   onPressed: null,
                   tooltip: 'Clear route',
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 8),
+            const Divider(height: AppTheme.spaceLG),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: null,
-                icon: const Icon(Icons.place),
-                label: const Text('Load POIs Near Me (4)'),
+                icon: const Icon(Icons.place_rounded),
+                label: const Text('Nearby POIs (4)'),
               ),
             ),
           ],
@@ -283,12 +284,12 @@ class _RouteCardLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Card(
-      elevation: 8,
+      elevation: AppTheme.elevationSheet,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(12)),
+        borderRadius: BorderRadius.all(Radius.circular(AppTheme.radiusLG)),
       ),
       child: Padding(
-        padding: EdgeInsets.all(32),
+        padding: EdgeInsets.all(AppTheme.spaceXL),
         child: Center(child: CircularProgressIndicator()),
       ),
     );
@@ -303,24 +304,24 @@ class _ButtonClusterPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppTheme.spaceMD),
         child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: AppTheme.spaceMD,
+          runSpacing: AppTheme.spaceMD,
           children: [
             ElevatedButton.icon(
               onPressed: () {},
-              icon: const Icon(Icons.my_location),
+              icon: const Icon(Icons.my_location_rounded),
               label: const Text('My Location'),
             ),
             ElevatedButton.icon(
               onPressed: () {},
-              icon: const Icon(Icons.layers),
+              icon: const Icon(Icons.layers_rounded),
               label: const Text('Layers'),
             ),
             OutlinedButton.icon(
               onPressed: () {},
-              icon: const Icon(Icons.tune),
+              icon: const Icon(Icons.local_shipping_rounded),
               label: const Text('Truck Profile'),
             ),
             FilledButton(
@@ -331,7 +332,7 @@ class _ButtonClusterPreview extends StatelessWidget {
               onPressed: () {},
               heroTag: 'preview_fab_location',
               tooltip: 'My location',
-              child: const Icon(Icons.my_location),
+              child: const Icon(Icons.my_location_rounded),
             ),
             FilterChip(
               label: const Text('Fuel'),
@@ -363,13 +364,13 @@ class _LoadingPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: const Padding(
-        padding: EdgeInsets.all(32),
+        padding: EdgeInsets.all(AppTheme.spaceXL),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               CircularProgressIndicator(),
-              SizedBox(height: 12),
+              SizedBox(height: AppTheme.spaceMD),
               Text('Fetching route…'),
             ],
           ),
@@ -387,19 +388,19 @@ class _EmptyPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppTheme.spaceLG),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.map_outlined,
+                Icons.touch_app_rounded,
                 size: 48,
                 color: Theme.of(context).colorScheme.outline,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppTheme.spaceMD),
               const Text(
-                'Long-press on map to set destination and calculate route',
+                'Long-press anywhere on the map to set a destination',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontStyle: FontStyle.italic),
               ),
@@ -419,11 +420,11 @@ class _ErrorPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppTheme.spaceMD),
         child: Row(
           children: [
             Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppTheme.spaceMD),
             const Expanded(
               child: Text('Route error: Unable to reach HERE Routing API.'),
             ),
@@ -441,7 +442,7 @@ class _SheetButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 12,
+      spacing: AppTheme.spaceMD,
       children: [
         OutlinedButton(
           onPressed: () => showModalBottomSheet<void>(
