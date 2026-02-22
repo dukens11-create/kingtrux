@@ -215,8 +215,9 @@ Key packages used (see `pubspec.yaml` for complete list):
 
 ### Build Errors
 - Run `flutter clean` and `flutter pub get`
-- Verify Flutter version: `flutter --version`
+- Verify Flutter version: `flutter --version` (requires Flutter 3.24+ / Dart 3.5+)
 - Check platform-specific requirements with `flutter doctor`
+- **iOS**: The shared Xcode scheme is committed at `ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme`. If you see `no schemes available for Runner.xcodeproj`, ensure that file is present and not listed in `.gitignore`.
 
 ## Contributing
 Contributions are welcome! Please:
