@@ -143,7 +143,9 @@ corner of the app bar to switch between light and dark themes.
 | Loading / Empty / Error States | Stand-alone status placeholders. |
 | Open Sheets | Buttons that open the live Layer Sheet and Truck Profile Sheet modals. |
 
-## Usage Guide1. **Start the app** - Your current location will be automatically detected
+## Usage Guide
+
+1. **Start the app** - Your current location will be automatically detected
 2. **View weather** - Current weather conditions display at the top
 3. **Set destination** - Long-press anywhere on the map to set destination
 4. **Configure truck** - Tap the tune icon (⚙️) to set truck profile
