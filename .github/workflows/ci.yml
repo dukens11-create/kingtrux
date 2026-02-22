@@ -111,8 +111,7 @@ jobs:
         with:
           path: |
             ~/Library/Caches/CocoaPods
-            ios/Pods
-          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile') }}
           restore-keys: |
             ${{ runner.os }}-pods-
 
@@ -121,6 +120,13 @@ jobs:
 
       - name: Generate iOS Flutter config files
         run: flutter build ios --config-only --debug --no-codesign
+
+      - name: Clean CocoaPods state
+        run: |
+          cd ios
+          pod deintegrate || true
+          rm -rf Pods
+          rm -f Podfile.lock
 
       - name: Install CocoaPods dependencies
         run: cd ios && pod install --repo-update
