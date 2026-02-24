@@ -270,7 +270,13 @@ class _MapScreenState extends State<MapScreen> {
         return BitmapDescriptor.hueOrange;
       case PoiType.restArea:
         return BitmapDescriptor.hueAzure;
-      default:
+      case PoiType.scale:
+        return BitmapDescriptor.hueYellow;
+      case PoiType.gym:
+        return BitmapDescriptor.hueViolet;
+      case PoiType.truckStop:
+        return BitmapDescriptor.hueCyan;
+      case PoiType.parking:
         return BitmapDescriptor.hueGreen;
     }
   }
