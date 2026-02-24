@@ -71,6 +71,10 @@ class OverpassPoiService {
           pois.add(poi);
         }
       }
+      // Brief pause between requests to respect Overpass rate limits.
+      if (point != samples.last) {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      }
     }
 
     return pois;

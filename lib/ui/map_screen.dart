@@ -10,9 +10,11 @@ import 'theme/dark_map_style.dart';
 import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/poi_browser_sheet.dart';
+import 'widgets/poi_detail_sheet.dart';
 import 'widgets/route_summary_card.dart';
 import 'widgets/voice_settings_sheet.dart';
 import 'widgets/alert_banner.dart';
+import 'widgets/trip_planner_sheet.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
 
@@ -121,8 +123,9 @@ class _MapScreenState extends State<MapScreen> {
                 child: _MapActionCluster(
                   onRecenter: _onMyLocationPressed,
                   onLayers: _onLayersPressed,
-                  onBrowsePois: _onBrowsePoisPressed,
+                  onPoiBrowser: _onPoiBrowserPressed,
                   onTruckProfile: _onTruckProfilePressed,
+                  onTripPlanner: _onTripPlannerPressed,
                   onGoPro: _onGoProPressed,
                   isPro: state.isPro,
                 ),
@@ -279,9 +282,10 @@ class _MapScreenState extends State<MapScreen> {
           position: LatLng(poi.lat, poi.lng),
           infoWindow: InfoWindow(
             title: poi.name,
-            snippet: poi.type.name,
+            snippet: PoiDetailSheet.poiLabel(poi.type),
           ),
           icon: BitmapDescriptor.defaultMarkerWithHue(_getPoiColor(poi.type)),
+          onTap: () => _onPoiMarkerTap(poi),
         ),
       );
     }
@@ -361,6 +365,15 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onTripPlannerPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const TripPlannerSheet(),
+    );
+  }
+
   void _onVoiceSettingsPressed() {
     HapticFeedback.selectionClick();
     showModalBottomSheet(
@@ -377,12 +390,20 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  void _onBrowsePoisPressed() {
+  void _onPoiBrowserPressed() {
     HapticFeedback.selectionClick();
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (context) => const PoiBrowserSheet(),
+    );
+  }
+
+  void _onPoiMarkerTap(Poi poi) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => PoiDetailSheet(poi: poi),
     );
   }
 
@@ -434,16 +455,18 @@ class _MapActionCluster extends StatelessWidget {
   const _MapActionCluster({
     required this.onRecenter,
     required this.onLayers,
-    required this.onBrowsePois,
+    required this.onPoiBrowser,
     required this.onTruckProfile,
+    required this.onTripPlanner,
     required this.onGoPro,
     required this.isPro,
   });
 
   final VoidCallback onRecenter;
   final VoidCallback onLayers;
-  final VoidCallback onBrowsePois;
+  final VoidCallback onPoiBrowser;
   final VoidCallback onTruckProfile;
+  final VoidCallback onTripPlanner;
   final VoidCallback onGoPro;
   final bool isPro;
 
@@ -465,15 +488,21 @@ class _MapActionCluster extends StatelessWidget {
         ),
         const SizedBox(height: AppTheme.spaceSM),
         _ClusterFab(
-          icon: Icons.list_alt_rounded,
-          tooltip: 'Browse POIs',
-          onPressed: onBrowsePois,
+          icon: Icons.place_rounded,
+          tooltip: 'POI Browser',
+          onPressed: onPoiBrowser,
         ),
         const SizedBox(height: AppTheme.spaceSM),
         _ClusterFab(
           icon: Icons.local_shipping_rounded,
           tooltip: 'Truck Profile',
           onPressed: onTruckProfile,
+        ),
+        const SizedBox(height: AppTheme.spaceSM),
+        _ClusterFab(
+          icon: Icons.route_rounded,
+          tooltip: 'Trip Planner',
+          onPressed: onTripPlanner,
         ),
         if (!isPro) ...[
           const SizedBox(height: AppTheme.spaceSM),
