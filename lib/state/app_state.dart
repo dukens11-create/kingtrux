@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../models/alert_event.dart';
 import '../models/truck_profile.dart';
 import '../models/route_result.dart';
 import '../models/weather_point.dart';
@@ -12,6 +13,7 @@ import '../services/overpass_poi_service.dart';
 import '../services/weather_service.dart';
 import '../services/truck_profile_service.dart';
 import '../services/revenue_cat_service.dart';
+import '../services/voice_settings_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -22,6 +24,7 @@ class AppState extends ChangeNotifier {
   final WeatherService _weatherService = WeatherService();
   final TruckProfileService _truckProfileService = TruckProfileService();
   final RevenueCatService revenueCatService = RevenueCatService();
+  final VoiceSettingsService _voiceSettingsService = VoiceSettingsService();
   // Lazily initialised on first use; never touched during unit tests unless
   // voice guidance is explicitly invoked.
   FlutterTts? _ttsInstance;
@@ -85,6 +88,23 @@ class AppState extends ChangeNotifier {
     'es-US',
   ];
 
+  // ---------------------------------------------------------------------------
+  // Alerts state
+  // ---------------------------------------------------------------------------
+
+  /// Queue of pending alerts to show. The first element is the active alert.
+  final List<AlertEvent> _alertQueue = [];
+
+  /// The alert currently being shown, or `null` if no alerts are pending.
+  AlertEvent? get currentAlert => _alertQueue.isEmpty ? null : _alertQueue.first;
+
+  /// All pending alerts (including the current one).
+  List<AlertEvent> get alertQueue => List.unmodifiable(_alertQueue);
+
+  // ---------------------------------------------------------------------------
+  // Navigation state helpers
+  // ---------------------------------------------------------------------------
+
   /// The maneuver the driver should execute next.
   NavigationManeuver? get currentManeuver => _navService.currentManeuver;
 
@@ -109,6 +129,14 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading truck profile: $e');
+    }
+    try {
+      final settings = await _voiceSettingsService.load();
+      voiceGuidanceEnabled = settings.enabled;
+      voiceLanguage = settings.language;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading voice settings: $e');
     }
     try {
       await refreshMyLocation();
@@ -323,6 +351,15 @@ class AppState extends ChangeNotifier {
       }
       ..onOffRoute = (dist) {
         debugPrint('Off-route by ${dist.toStringAsFixed(0)} m — rerouting…');
+        addAlert(AlertEvent(
+          id: 'off_route_${DateTime.now().millisecondsSinceEpoch}',
+          type: AlertType.offRoute,
+          title: 'Off Route',
+          message: 'Recalculating route…',
+          severity: AlertSeverity.warning,
+          timestamp: DateTime.now(),
+          speakable: true,
+        ));
         rerouteIfNeeded();
       }
       ..onVoicePrompt = (text) {
@@ -343,6 +380,15 @@ class AppState extends ChangeNotifier {
 
     await _navService.start(route);
     isNavigating = true;
+    addAlert(AlertEvent(
+      id: 'nav_started_${DateTime.now().millisecondsSinceEpoch}',
+      type: AlertType.navigationStarted,
+      title: 'Navigation Started',
+      message: 'Turn-by-turn guidance is active.',
+      severity: AlertSeverity.info,
+      timestamp: DateTime.now(),
+      speakable: false,
+    ));
     notifyListeners();
   }
 
@@ -350,6 +396,15 @@ class AppState extends ChangeNotifier {
   Future<void> stopNavigation() async {
     await _navService.stop();
     isNavigating = false;
+    addAlert(AlertEvent(
+      id: 'nav_stopped_${DateTime.now().millisecondsSinceEpoch}',
+      type: AlertType.navigationStopped,
+      title: 'Navigation Stopped',
+      message: 'Navigation has ended.',
+      severity: AlertSeverity.info,
+      timestamp: DateTime.now(),
+      speakable: false,
+    ));
     notifyListeners();
   }
 
@@ -365,6 +420,9 @@ class AppState extends ChangeNotifier {
         );
       }
     }
+    _voiceSettingsService.saveEnabled(voiceGuidanceEnabled).catchError(
+      (Object e) => debugPrint('Error saving voice enabled: $e'),
+    );
     notifyListeners();
   }
 
@@ -375,6 +433,9 @@ class AppState extends ChangeNotifier {
   void setVoiceLanguage(String language) {
     if (!supportedVoiceLanguages.contains(language)) return;
     voiceLanguage = language;
+    _voiceSettingsService.saveLanguage(language).catchError(
+      (Object e) => debugPrint('Error saving voice language: $e'),
+    );
     notifyListeners();
   }
 
@@ -386,10 +447,54 @@ class AppState extends ChangeNotifier {
     try {
       await buildTruckRoute();
       if (routeResult != null && isNavigating) {
+        addAlert(AlertEvent(
+          id: 'reroute_${DateTime.now().millisecondsSinceEpoch}',
+          type: AlertType.reroute,
+          title: 'Route Updated',
+          message: 'A new route has been calculated.',
+          severity: AlertSeverity.warning,
+          timestamp: DateTime.now(),
+          speakable: true,
+        ));
         await startNavigation();
       }
     } catch (e) {
       debugPrint('Reroute failed: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Alert management
+  // ---------------------------------------------------------------------------
+
+  /// Add [alert] to the queue.
+  ///
+  /// If [voiceGuidanceEnabled] is true and the alert is [AlertEvent.speakable]
+  /// and has [AlertSeverity.warning] or [AlertSeverity.critical] severity,
+  /// the alert message is spoken immediately.
+  void addAlert(AlertEvent alert) {
+    _alertQueue.add(alert);
+    if (voiceGuidanceEnabled &&
+        alert.speakable &&
+        alert.severity != AlertSeverity.info) {
+      _tts
+          .setLanguage(voiceLanguage)
+          .then(
+            (_) => _tts.speak(alert.message),
+            onError: (Object e) => debugPrint('TTS setLanguage error: $e'),
+          )
+          .catchError(
+            (Object e) => debugPrint('TTS alert error: $e'),
+          );
+    }
+    notifyListeners();
+  }
+
+  /// Dismiss (remove) the current front-of-queue alert.
+  void dismissCurrentAlert() {
+    if (_alertQueue.isNotEmpty) {
+      _alertQueue.removeAt(0);
+      notifyListeners();
     }
   }
 

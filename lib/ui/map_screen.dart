@@ -10,6 +10,8 @@ import 'theme/dark_map_style.dart';
 import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/route_summary_card.dart';
+import 'widgets/voice_settings_sheet.dart';
+import 'widgets/alert_banner.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
 
@@ -131,6 +133,14 @@ class _MapScreenState extends State<MapScreen> {
                 right: 0,
                 child: RouteSummaryCard(),
               ),
+
+              // ── Alert banner (below status bar + app bar) ────────────────
+              Positioned(
+                top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceXS,
+                left: 0,
+                right: 0,
+                child: const AlertBanner(),
+              ),
             ],
           );
         },
@@ -165,6 +175,13 @@ class _MapScreenState extends State<MapScreen> {
                   const Text('KINGTRUX'),
                 ],
               ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.record_voice_over_rounded),
+            tooltip: 'Voice Settings',
+            onPressed: _onVoiceSettingsPressed,
+          ),
+        ],
       );
 
   // ---------------------------------------------------------------------------
@@ -339,6 +356,14 @@ class _MapScreenState extends State<MapScreen> {
       context: context,
       isScrollControlled: true,
       builder: (context) => const TruckProfileSheet(),
+    );
+  }
+
+  void _onVoiceSettingsPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => const VoiceSettingsSheet(),
     );
   }
 
