@@ -71,6 +71,8 @@ You'll need to obtain API keys from:
    - Sign up and create a project to get API key
 3. **OpenWeather API**: https://openweathermap.org/api
    - Free tier available
+4. **RevenueCat**: https://app.revenuecat.com/
+   - Free tier available; needed for in-app subscriptions
 
 ## Setup Instructions
 
@@ -97,7 +99,9 @@ Edit `.env` with your actual API keys, then run:
 ```bash
 flutter run \
   --dart-define=HERE_API_KEY=your_here_api_key \
-  --dart-define=OPENWEATHER_API_KEY=your_openweather_api_key
+  --dart-define=OPENWEATHER_API_KEY=your_openweather_api_key \
+  --dart-define=REVENUECAT_IOS_API_KEY=appl_xxx \
+  --dart-define=REVENUECAT_ANDROID_API_KEY=goog_xxx
 ```
 
 #### Google Maps Platform Configuration
@@ -120,10 +124,16 @@ flutter run \
 ### Development Mode
 ```bash
 # Android
-flutter run --dart-define=HERE_API_KEY=xxx --dart-define=OPENWEATHER_API_KEY=xxx
+flutter run \
+  --dart-define=HERE_API_KEY=xxx \
+  --dart-define=OPENWEATHER_API_KEY=xxx \
+  --dart-define=REVENUECAT_ANDROID_API_KEY=goog_xxx
 
 # iOS
-flutter run -d ios --dart-define=HERE_API_KEY=xxx --dart-define=OPENWEATHER_API_KEY=xxx
+flutter run -d ios \
+  --dart-define=HERE_API_KEY=xxx \
+  --dart-define=OPENWEATHER_API_KEY=xxx \
+  --dart-define=REVENUECAT_IOS_API_KEY=appl_xxx
 ```
 
 ### Build Release
@@ -131,17 +141,73 @@ flutter run -d ios --dart-define=HERE_API_KEY=xxx --dart-define=OPENWEATHER_API_
 # Android APK
 flutter build apk --release \
   --dart-define=HERE_API_KEY=xxx \
-  --dart-define=OPENWEATHER_API_KEY=xxx
+  --dart-define=OPENWEATHER_API_KEY=xxx \
+  --dart-define=REVENUECAT_ANDROID_API_KEY=goog_xxx
 
 # iOS
 flutter build ios --release \
   --dart-define=HERE_API_KEY=xxx \
-  --dart-define=OPENWEATHER_API_KEY=xxx
+  --dart-define=OPENWEATHER_API_KEY=xxx \
+  --dart-define=REVENUECAT_IOS_API_KEY=appl_xxx
 ```
 
-## Truck Profile
+## In-App Subscriptions (RevenueCat)
 
-The **Truck Profile** stores your vehicle's physical dimensions and load characteristics locally on your device. No account or API key is required.
+KINGTRUX Pro is gated behind a subscription paywall powered by [RevenueCat](https://www.revenuecat.com/).
+
+### 1. Create a RevenueCat project
+
+1. Sign up / log in at https://app.revenuecat.com/
+2. Create a new **Project** (e.g. `KINGTRUX`).
+3. Add your **iOS App** (Apple App Store) and **Android App** (Google Play Store) to the project.
+4. Copy the **Public SDK key** for each platform.
+
+### 2. Set SDK keys via --dart-define
+
+> RevenueCat Public SDK keys are **safe to ship in the binary** — they are
+> not secrets. Do not hard-code them in source; pass them as build-time
+> constants so different environments (dev, staging, prod) can use different
+> projects.
+
+```bash
+# Development
+flutter run \
+  --dart-define=REVENUECAT_IOS_API_KEY=appl_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+  --dart-define=REVENUECAT_ANDROID_API_KEY=goog_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# CI / CD (set as masked environment variables in your pipeline)
+flutter build apk --release \
+  --dart-define=REVENUECAT_IOS_API_KEY=$REVENUECAT_IOS_API_KEY \
+  --dart-define=REVENUECAT_ANDROID_API_KEY=$REVENUECAT_ANDROID_API_KEY
+```
+
+If no key is set, the app shows a descriptive error on the paywall instead of crashing.
+
+### 3. Configure products & offering in RevenueCat
+
+1. In your app stores, create two subscription products:
+   - **Monthly**: product ID `kingtrux_pro_monthly`  (e.g. $9.99/month)
+   - **Yearly**: product ID `kingtrux_pro_yearly` (e.g. $99.99/year)
+2. In the RevenueCat dashboard, create an **Entitlement** with identifier `pro` and attach both products.
+3. Create an **Offering** with identifier `default` containing a package for each product (use the `Annual` and `Monthly` package types).
+
+### 4. Local testing
+
+- **iOS**: Use [StoreKit testing](https://developer.apple.com/documentation/xcode/setting-up-storekit-testing-in-xcode) in Xcode with a `.storekit` config file, or test in the Sandbox environment with a Sandbox Apple ID.
+- **Android**: Use [Google Play licensing testing](https://developer.android.com/google/play/billing/test) with a test account added to the Play Console.
+- **RevenueCat sandbox**: Both platforms send sandbox receipts to RevenueCat automatically when running a debug/test build.
+
+### Updating Terms & Privacy URLs
+
+Placeholder URLs are defined in `lib/config.dart`:
+```dart
+static const String termsUrl   = 'https://kingtrux.com/terms';
+static const String privacyUrl = 'https://kingtrux.com/privacy';
+```
+Replace these with your actual policy pages. Integrate `url_launcher` to open
+them in the browser (it is not included by default to minimise dependencies).
+
+## Truck Profile
 
 | Field | Description | Range |
 |-------|-------------|-------|
@@ -225,12 +291,14 @@ kingtrux/
 │   │   ├── location_service.dart
 │   │   ├── here_routing_service.dart
 │   │   ├── overpass_poi_service.dart
+│   │   ├── revenue_cat_service.dart  # RevenueCat SDK wrapper
 │   │   ├── truck_profile_service.dart
 │   │   └── weather_service.dart
 │   ├── state/            # State management
 │   │   └── app_state.dart
 │   └── ui/               # UI components
 │       ├── map_screen.dart
+│       ├── paywall_screen.dart         # KINGTRUX Pro subscription paywall
 │       ├── preview_gallery_page.dart  # Debug-only UI preview
 │       └── widgets/
 │           ├── layer_sheet.dart
@@ -250,6 +318,7 @@ Key packages used (see `pubspec.yaml` for complete list):
 - `provider` - State management
 - `flutter_polyline_points` - Route polyline rendering
 - `uuid` - Unique ID generation
+- `purchases_flutter` - RevenueCat in-app subscription SDK
 
 ## Troubleshooting
 

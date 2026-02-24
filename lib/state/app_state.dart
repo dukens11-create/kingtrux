@@ -8,6 +8,7 @@ import '../services/here_routing_service.dart';
 import '../services/overpass_poi_service.dart';
 import '../services/weather_service.dart';
 import '../services/truck_profile_service.dart';
+import '../services/revenue_cat_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -16,6 +17,7 @@ class AppState extends ChangeNotifier {
   final OverpassPoiService _poiService = OverpassPoiService();
   final WeatherService _weatherService = WeatherService();
   final TruckProfileService _truckProfileService = TruckProfileService();
+  final RevenueCatService revenueCatService = RevenueCatService();
 
   // Current location
   double? myLat;
@@ -42,6 +44,10 @@ class AppState extends ChangeNotifier {
   bool isLoadingRoute = false;
   bool isLoadingPois = false;
 
+  // Subscription / entitlement state
+  /// `true` when the user has an active KINGTRUX Pro entitlement.
+  bool isPro = false;
+
   /// Initialize app state and get current location
   Future<void> init() async {
     try {
@@ -55,6 +61,28 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error initializing location: $e');
     }
+    // Initialize RevenueCat and check current entitlement status.
+    try {
+      await revenueCatService.init();
+      await _refreshProStatus();
+    } catch (e) {
+      debugPrint('Error initializing RevenueCat: $e');
+    }
+  }
+
+  /// Refresh the Pro entitlement status from RevenueCat.
+  Future<void> _refreshProStatus() async {
+    final info = await revenueCatService.getCustomerInfo();
+    if (info != null) {
+      isPro = revenueCatService.isProActive(info);
+      notifyListeners();
+    }
+  }
+
+  /// Called by the paywall after a successful purchase or restore.
+  void setProStatus({required bool active}) {
+    isPro = active;
+    notifyListeners();
   }
 
   /// Update current position and fetch weather
