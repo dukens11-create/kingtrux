@@ -164,6 +164,7 @@ class _NextManeuverBanner extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final m = maneuver!;
     return Container(
       width: double.infinity,
       color: cs.primaryContainer,
@@ -173,24 +174,24 @@ class _NextManeuverBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _ManeuverIcon(action: maneuver!.action, direction: maneuver!.direction, size: 40),
+          _ManeuverIcon(action: m.action, direction: m.direction, size: 40),
           const SizedBox(width: AppTheme.spaceMD),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  maneuver!.instruction,
+                  m.instruction,
                   style: tt.titleLarge?.copyWith(
                     color: cs.onPrimaryContainer,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (maneuver!.distanceMeters > 0) ...[
+                if (m.distanceMeters > 0) ...[
                   const SizedBox(height: AppTheme.spaceXS),
                   Text(
-                    _formatDistance(maneuver!.distanceMeters),
+                    _formatDistance(m.distanceMeters),
                     style: tt.bodyMedium?.copyWith(
                       color: cs.onPrimaryContainer.withAlpha(178),
                     ),

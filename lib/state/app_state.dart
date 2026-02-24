@@ -266,8 +266,9 @@ class AppState extends ChangeNotifier {
       }
       ..onVoicePrompt = (text) {
         if (voiceGuidanceEnabled) {
-          _tts.speak(text).catchError(
-            (Object e) => debugPrint('TTS error: $e'),
+          _tts.speak(text).then(
+            (_) {},
+            onError: (Object e) => debugPrint('TTS error: $e'),
           );
         }
         debugPrint('Voice prompt: $text');
@@ -289,9 +290,13 @@ class AppState extends ChangeNotifier {
   void toggleVoiceGuidance() {
     voiceGuidanceEnabled = !voiceGuidanceEnabled;
     if (!voiceGuidanceEnabled) {
-      _ttsInstance?.stop().catchError(
-        (Object e) => debugPrint('TTS stop error: $e'),
-      );
+      final tts = _ttsInstance;
+      if (tts != null) {
+        tts.stop().then(
+          (_) {},
+          onError: (Object e) => debugPrint('TTS stop error: $e'),
+        );
+      }
     }
     notifyListeners();
   }

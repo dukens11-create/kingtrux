@@ -106,9 +106,12 @@ void main() {
       expect(NavigationSessionService().remainingManeuvers, isEmpty);
     });
 
-    test('stop() can be called on idle service without error', () async {
+    test('stop() resets active state and returns without error', () async {
       final svc = NavigationSessionService();
       await expectLater(svc.stop(), completes);
+      expect(svc.isActive, isFalse);
+      expect(svc.currentManeuver, isNull);
+      expect(svc.remainingManeuvers, isEmpty);
     });
   });
 }

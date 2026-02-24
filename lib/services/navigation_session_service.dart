@@ -209,8 +209,9 @@ class NavigationSessionService {
     double lng,
     List<List<double>> polyline,
   ) {
-    if (polyline.length < 2) {
-      return polyline.isEmpty ? 0.0 : _haversine(lat, lng, polyline[0][0], polyline[0][1]);
+    if (polyline.isEmpty) return double.infinity;
+    if (polyline.length == 1) {
+      return _haversine(lat, lng, polyline[0][0], polyline[0][1]);
     }
     var minDist = double.infinity;
     for (var i = 0; i < polyline.length - 1; i++) {
