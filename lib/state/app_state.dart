@@ -41,6 +41,10 @@ class AppState extends ChangeNotifier {
   // Route
   RouteResult? routeResult;
 
+  /// Error message from the last `buildTruckRoute()` call, or `null` if the
+  /// last attempt succeeded (or no attempt has been made yet).
+  String? routeError;
+
   // Weather
   WeatherPoint? weatherAtCurrentLocation;
 
@@ -188,9 +192,13 @@ class AppState extends ChangeNotifier {
   /// Calculate truck route from current location to destination
   Future<void> buildTruckRoute() async {
     if (myLat == null || myLng == null || destLat == null || destLng == null) {
-      throw Exception('Location or destination not set');
+      routeError = 'Location or destination not set';
+      routeResult = null;
+      notifyListeners();
+      return;
     }
 
+    routeError = null;
     isLoadingRoute = true;
     notifyListeners();
 
@@ -202,6 +210,9 @@ class AppState extends ChangeNotifier {
         destLng: destLng!,
         truckProfile: truckProfile,
       );
+    } catch (e) {
+      routeError = e.toString();
+      routeResult = null;
     } finally {
       isLoadingRoute = false;
       notifyListeners();
@@ -286,6 +297,7 @@ class AppState extends ChangeNotifier {
   /// Clear route and destination
   void clearRoute() {
     routeResult = null;
+    routeError = null;
     destLat = null;
     destLng = null;
     notifyListeners();

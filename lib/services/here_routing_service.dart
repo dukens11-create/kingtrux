@@ -9,6 +9,34 @@ import '../models/navigation_maneuver.dart';
 
 /// Service for calculating truck routes using HERE API v8
 class HereRoutingService {
+  /// Validates [profile] for use in a HERE Routing API request.
+  ///
+  /// Returns an error message string if the profile contains invalid values,
+  /// or `null` if the profile is valid.
+  static String? validateTruckProfileForRouting(TruckProfile profile) {
+    if (profile.heightMeters <= 0) return 'Truck height must be greater than zero';
+    if (profile.widthMeters <= 0) return 'Truck width must be greater than zero';
+    if (profile.lengthMeters <= 0) return 'Truck length must be greater than zero';
+    if (profile.weightTons <= 0) return 'Truck weight must be greater than zero';
+    if (profile.axles < 2) return 'Truck must have at least 2 axles';
+    return null;
+  }
+
+  /// Builds the HERE Routing API v8 truck query parameters from [profile].
+  ///
+  /// Returns a map of query parameter key-value strings ready to be added to
+  /// the routing request URL.
+  static Map<String, String> buildHereTruckQueryParams(TruckProfile profile) {
+    return {
+      'truck[height]': profile.heightMeters.toString(),
+      'truck[width]': profile.widthMeters.toString(),
+      'truck[length]': profile.lengthMeters.toString(),
+      'truck[grossWeight]': (profile.weightTons * 1000).toString(),
+      'truck[axleCount]': profile.axles.toString(),
+      if (profile.hazmat) 'truck[shippedHazardousGoods]': 'explosive',
+    };
+  }
+
   /// Calculate truck route from origin to destination
   Future<RouteResult> getTruckRoute({
     required double originLat,
@@ -21,6 +49,11 @@ class HereRoutingService {
       throw Exception('HERE API key not configured. Please set HERE_API_KEY environment variable.');
     }
 
+    final validationError = validateTruckProfileForRouting(truckProfile);
+    if (validationError != null) {
+      throw Exception(validationError);
+    }
+
     // Build URL with truck parameters
     final url = Uri.parse('${Config.hereRoutingBaseUrl}/routes').replace(
       queryParameters: {
@@ -29,13 +62,7 @@ class HereRoutingService {
         'destination': '$destLat,$destLng',
         'transportMode': 'truck',
         'return': 'polyline,summary,actions',
-        // Truck restrictions
-        'truck[height]': truckProfile.heightMeters.toString(),
-        'truck[width]': truckProfile.widthMeters.toString(),
-        'truck[length]': truckProfile.lengthMeters.toString(),
-        'truck[grossWeight]': (truckProfile.weightTons * 1000).toString(), // Convert to kg
-        'truck[axleCount]': truckProfile.axles.toString(),
-        if (truckProfile.hazmat) 'truck[shippedHazardousGoods]': 'explosive',
+        ...buildHereTruckQueryParams(truckProfile),
       },
     );
 
