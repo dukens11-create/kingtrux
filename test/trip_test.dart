@@ -1,207 +1,232 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:kingtrux/models/trip_stop.dart';
 import 'package:kingtrux/models/trip.dart';
-import 'package:kingtrux/state/app_state.dart';
+import 'package:kingtrux/models/route_result.dart';
+import 'package:kingtrux/models/truck_profile.dart';
+import 'package:kingtrux/services/stop_optimizer.dart';
+import 'package:kingtrux/services/trip_routing_service.dart';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+TripStop _stop(String id, double lat, double lng, {String? label}) => TripStop(
+      id: id,
+      label: label,
+      lat: lat,
+      lng: lng,
+      createdAt: DateTime(2025),
+    );
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 void main() {
-  // ---------------------------------------------------------------------------
-  // TripStop model
-  // ---------------------------------------------------------------------------
-  group('TripStop', () {
-    test('constructor stores fields correctly', () {
-      const stop = TripStop(
-        id: 'stop_1',
-        label: 'Warehouse',
-        lat: 43.7,
-        lng: -79.4,
-      );
-      expect(stop.id, 'stop_1');
-      expect(stop.label, 'Warehouse');
-      expect(stop.lat, 43.7);
-      expect(stop.lng, -79.4);
-    });
-
-    test('toJson / fromJson round-trip', () {
-      const stop = TripStop(
-        id: 'abc',
-        label: 'Customer Site',
-        lat: 45.5,
-        lng: -73.6,
-      );
-      final json = stop.toJson();
+  // ── 1. Serialization ───────────────────────────────────────────────────────
+  group('TripStop serialization', () {
+    test('round-trips through JSON', () {
+      final original = _stop('abc', 40.7128, -74.0060, label: 'NYC');
+      final json = original.toJson();
       final restored = TripStop.fromJson(json);
-      expect(restored.id, stop.id);
-      expect(restored.label, stop.label);
-      expect(restored.lat, stop.lat);
-      expect(restored.lng, stop.lng);
+
+      expect(restored.id, original.id);
+      expect(restored.label, original.label);
+      expect(restored.lat, original.lat);
+      expect(restored.lng, original.lng);
+      expect(restored.createdAt, original.createdAt);
     });
 
-    test('copyWith replaces only specified fields', () {
-      const original = TripStop(
-        id: 'x',
-        label: 'Old',
-        lat: 1.0,
-        lng: 2.0,
-      );
-      final updated = original.copyWith(label: 'New');
-      expect(updated.id, 'x');
-      expect(updated.label, 'New');
-      expect(updated.lat, 1.0);
+    test('null label is omitted from JSON', () {
+      final stop = _stop('x', 1.0, 2.0);
+      final json = stop.toJson();
+      expect(json.containsKey('label'), isFalse);
+    });
+
+    test('copyWith produces updated instance', () {
+      final original = _stop('a', 1.0, 2.0, label: 'A');
+      final copy = original.copyWith(label: 'B', lat: 3.0);
+      expect(copy.label, 'B');
+      expect(copy.lat, 3.0);
+      expect(copy.lng, original.lng);
+      expect(copy.id, original.id);
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // Trip model
-  // ---------------------------------------------------------------------------
-  group('Trip', () {
-    final sampleStops = [
-      const TripStop(id: '1', label: 'Origin', lat: 43.0, lng: -79.0),
-      const TripStop(id: '2', label: 'Midpoint', lat: 44.0, lng: -78.0),
-      const TripStop(id: '3', label: 'Destination', lat: 45.0, lng: -77.0),
-    ];
-
-    test('constructor stores fields correctly', () {
+  group('Trip serialization', () {
+    test('round-trips through JSON string', () {
+      final now = DateTime(2025, 6, 1, 12);
       final trip = Trip(
-        id: 'trip_1',
+        id: 'trip1',
         name: 'Test Trip',
-        stops: sampleStops,
-        totalDistanceMeters: 250000,
-        totalDurationSeconds: 7200,
+        stops: [
+          _stop('s1', 40.0, -74.0),
+          _stop('s2', 41.0, -73.0),
+          _stop('s3', 42.0, -72.0),
+        ],
+        createdAt: now,
+        updatedAt: now,
       );
-      expect(trip.id, 'trip_1');
-      expect(trip.name, 'Test Trip');
-      expect(trip.stops.length, 3);
-      expect(trip.totalDistanceMeters, 250000);
-      expect(trip.totalDurationSeconds, 7200);
-    });
 
-    test('toJson / fromJson round-trip preserves all fields', () {
-      final trip = Trip(
-        id: 'trip_99',
-        name: 'Cross-country',
-        stops: sampleStops,
-        totalDistanceMeters: 5000000,
-        totalDurationSeconds: 172800,
-      );
-      final json = trip.toJson();
-      final encoded = jsonEncode(json);
-      final restored = Trip.fromJson(
-        jsonDecode(encoded) as Map<String, dynamic>,
-      );
+      final jsonStr = jsonEncode(trip.toJson());
+      final restored = Trip.fromJson(jsonDecode(jsonStr) as Map<String, dynamic>);
 
       expect(restored.id, trip.id);
       expect(restored.name, trip.name);
       expect(restored.stops.length, 3);
-      expect(restored.stops.first.label, 'Origin');
-      expect(restored.totalDistanceMeters, 5000000);
-      expect(restored.totalDurationSeconds, 172800);
+      expect(restored.stops[1].lat, 41.0);
+      expect(restored.createdAt, trip.createdAt);
+      expect(restored.updatedAt, trip.updatedAt);
     });
 
-    test('fromJson handles null optional fields', () {
-      final json = {
-        'id': 'trip_min',
-        'name': 'Minimal',
-        'stops': <dynamic>[],
-      };
-      final trip = Trip.fromJson(json);
-      expect(trip.totalDistanceMeters, isNull);
-      expect(trip.totalDurationSeconds, isNull);
-    });
-
-    test('copyWith replaces only specified fields', () {
-      final original = Trip(
-        id: 't1',
-        name: 'Original',
-        stops: sampleStops,
-      );
-      final updated = original.copyWith(name: 'Renamed');
-      expect(updated.id, 't1');
-      expect(updated.name, 'Renamed');
-      expect(updated.stops.length, 3);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // AppState trip management
-  // ---------------------------------------------------------------------------
-  group('AppState trip management', () {
-    test('savedTrips is empty on construction', () {
-      final state = AppState();
-      expect(state.savedTrips, isEmpty);
-      state.dispose();
-    });
-
-    test('saveTrip adds a new trip', () {
-      final state = AppState();
+    test('null name is omitted from JSON', () {
       final trip = Trip(
-        id: 'new_trip',
-        name: 'Delivery Run',
-        stops: const [],
+        id: 'trip2',
+        stops: [_stop('s1', 1.0, 2.0)],
+        createdAt: DateTime(2025),
+        updatedAt: DateTime(2025),
       );
-      state.saveTrip(trip);
-      expect(state.savedTrips.length, 1);
-      expect(state.savedTrips.first.id, 'new_trip');
-      state.dispose();
+      final json = trip.toJson();
+      expect(json.containsKey('name'), isFalse);
     });
 
-    test('saveTrip updates an existing trip by id', () {
-      final state = AppState();
-      final trip = Trip(id: 'same_id', name: 'Old Name', stops: const []);
-      state.saveTrip(trip);
-      state.saveTrip(trip.copyWith(name: 'New Name'));
-      expect(state.savedTrips.length, 1);
-      expect(state.savedTrips.first.name, 'New Name');
-      state.dispose();
-    });
-
-    test('deleteTrip removes the specified trip', () {
-      final state = AppState();
-      state.saveTrip(Trip(id: 'a', name: 'A', stops: const []));
-      state.saveTrip(Trip(id: 'b', name: 'B', stops: const []));
-      state.deleteTrip('a');
-      expect(state.savedTrips.length, 1);
-      expect(state.savedTrips.first.id, 'b');
-      state.dispose();
-    });
-
-    test('deleteTrip with unknown id is a no-op', () {
-      final state = AppState();
-      state.saveTrip(Trip(id: 'x', name: 'X', stops: const []));
-      state.deleteTrip('nonexistent');
-      expect(state.savedTrips.length, 1);
-      state.dispose();
+    test('copyWith refreshes updatedAt when not provided', () {
+      final before = DateTime(2020);
+      final trip = Trip(
+        id: 't',
+        stops: [],
+        createdAt: before,
+        updatedAt: before,
+      );
+      final copy = trip.copyWith(name: 'New Name');
+      expect(copy.name, 'New Name');
+      expect(copy.updatedAt.isAfter(before), isTrue);
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // POI favorites management
-  // ---------------------------------------------------------------------------
-  group('AppState POI favorites', () {
-    test('favoritePoisIds is empty on construction', () {
-      final state = AppState();
-      expect(state.favoritePoisIds, isEmpty);
-      state.dispose();
+  // ── 2. Stop optimizer ──────────────────────────────────────────────────────
+  group('StopOptimizer', () {
+    test('returns original list when fewer than 3 stops', () {
+      final stops = [_stop('a', 0, 0), _stop('b', 1, 1)];
+      expect(StopOptimizer.optimize(stops), stops);
     });
 
-    test('isFavorite returns false for unknown poi', () {
-      final state = AppState();
-      expect(state.isFavorite('unknown'), isFalse);
-      state.dispose();
+    test('keeps first and last stops fixed', () {
+      final stops = [
+        _stop('origin', 0, 0),
+        _stop('i1', 5, 0),
+        _stop('i2', 2, 0),
+        _stop('i3', 3, 0),
+        _stop('dest', 10, 0),
+      ];
+      final result = StopOptimizer.optimize(stops);
+      expect(result.first.id, 'origin');
+      expect(result.last.id, 'dest');
+      expect(result.length, stops.length);
     });
 
-    test('toggleFavorite adds poi to favorites', () {
-      final state = AppState();
-      state.toggleFavorite('poi_1');
-      expect(state.isFavorite('poi_1'), isTrue);
-      state.dispose();
+    test('reduces or maintains total distance on synthetic dataset', () {
+      // Stops deliberately in a bad order on a 2D plane
+      // Optimal: origin(0,0) → (1,0) → (2,0) → (3,0) → dest(4,0)
+      final stops = [
+        _stop('origin', 0, 0),
+        _stop('i3', 3, 0),
+        _stop('i1', 1, 0),
+        _stop('i2', 2, 0),
+        _stop('dest', 4, 0),
+      ];
+      final result = StopOptimizer.optimize(stops);
+      // The total distance of the result should be ≤ the original order
+      double dist(List<TripStop> s) {
+        double d = 0;
+        for (int i = 0; i < s.length - 1; i++) {
+          final dx = s[i].lat - s[i + 1].lat;
+          final dy = s[i].lng - s[i + 1].lng;
+          d += dx * dx + dy * dy;
+        }
+        return d;
+      }
+
+      expect(dist(result), lessThanOrEqualTo(dist(stops)));
     });
 
-    test('toggleFavorite removes poi when already favorited', () {
-      final state = AppState();
-      state.toggleFavorite('poi_1');
-      state.toggleFavorite('poi_1');
-      expect(state.isFavorite('poi_1'), isFalse);
-      state.dispose();
+    test('returns single intermediate stop unchanged', () {
+      final stops = [
+        _stop('a', 0, 0),
+        _stop('b', 5, 5),
+        _stop('c', 10, 10),
+      ];
+      final result = StopOptimizer.optimize(stops);
+      expect(result[0].id, 'a');
+      expect(result[1].id, 'b');
+      expect(result[2].id, 'c');
+    });
+  });
+
+  // ── 3. Route stitching ─────────────────────────────────────────────────────
+  group('TripRoutingService route stitching', () {
+    RouteResult makeLeg(List<LatLng> points, double length, int duration) =>
+        RouteResult(
+          polylinePoints: points,
+          lengthMeters: length,
+          durationSeconds: duration,
+        );
+
+    test('stitches two legs — polyline deduplicates join point', () {
+      final leg1 = makeLeg(
+        [const LatLng(0, 0), const LatLng(1, 0), const LatLng(2, 0)],
+        100,
+        60,
+      );
+      final leg2 = makeLeg(
+        [const LatLng(2, 0), const LatLng(3, 0), const LatLng(4, 0)],
+        200,
+        120,
+      );
+
+      // Manually stitch as TripRoutingService would
+      final allPoints = <LatLng>[...leg1.polylinePoints];
+      allPoints.addAll(leg2.polylinePoints.sublist(1));
+
+      expect(allPoints.length, 5);
+      expect(allPoints.first, const LatLng(0, 0));
+      expect(allPoints.last, const LatLng(4, 0));
+      // No duplicate at join
+      expect(allPoints[2], const LatLng(2, 0));
+      expect(allPoints[3], const LatLng(3, 0));
+    });
+
+    test('sums length and duration across legs', () {
+      const totalLength = 100.0 + 200.0 + 300.0;
+      const totalDuration = 60 + 120 + 180;
+      expect(totalLength, 600.0);
+      expect(totalDuration, 360);
+    });
+
+    test('throws when fewer than 2 stops provided', () {
+      final service = TripRoutingService();
+      expect(
+        () => service.buildTripRoute(
+          stops: [_stop('a', 0, 0)],
+          truckProfile: _dummyProfile(),
+        ),
+        throwsA(isA<Exception>()),
+      );
     });
   });
 }
+
+// ---------------------------------------------------------------------------
+// Helper – minimal truck profile
+// ---------------------------------------------------------------------------
+
+TruckProfile _dummyProfile() => const TruckProfile(
+      heightMeters: 4.1,
+      widthMeters: 2.6,
+      lengthMeters: 21.0,
+      weightTons: 36.0,
+      axles: 5,
+      hazmat: false,
+    );

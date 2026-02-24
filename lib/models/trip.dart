@@ -1,110 +1,66 @@
-/// A single stop in a multi-stop trip.
-class TripStop {
-  /// Unique identifier for this stop (used for list keys and persistence).
-  final String id;
+import 'trip_stop.dart';
 
-  /// Human-readable label for this stop (e.g. address or custom name).
-  final String label;
-
-  /// Latitude of this stop.
-  final double lat;
-
-  /// Longitude of this stop.
-  final double lng;
-
-  const TripStop({
-    required this.id,
-    required this.label,
-    required this.lat,
-    required this.lng,
-  });
-
-  /// Deserialize from a JSON map.
-  factory TripStop.fromJson(Map<String, dynamic> json) => TripStop(
-        id: json['id'] as String,
-        label: json['label'] as String,
-        lat: (json['lat'] as num).toDouble(),
-        lng: (json['lng'] as num).toDouble(),
-      );
-
-  /// Serialize to a JSON map.
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'label': label,
-        'lat': lat,
-        'lng': lng,
-      };
-
-  /// Return a copy with the given fields replaced.
-  TripStop copyWith({String? label, double? lat, double? lng}) => TripStop(
-        id: id,
-        label: label ?? this.label,
-        lat: lat ?? this.lat,
-        lng: lng ?? this.lng,
-      );
-}
-
-/// A planned multi-stop trip.
+/// A multi-stop trip with an ordered list of stops.
 class Trip {
-  /// Unique identifier for this trip.
+  /// Unique identifier for the trip.
   final String id;
 
-  /// Human-readable trip name.
-  final String name;
+  /// Optional human-readable name for the trip.
+  final String? name;
 
-  /// Ordered list of stops (index 0 is the origin).
+  /// Ordered list of stops (first = origin, last = final destination).
   final List<TripStop> stops;
 
-  /// Total estimated distance in metres across all legs.
-  ///
-  /// Populated after route calculation; `null` before the first calculation.
-  final double? totalDistanceMeters;
+  /// When this trip was created.
+  final DateTime createdAt;
 
-  /// Total estimated duration in seconds across all legs.
-  final int? totalDurationSeconds;
+  /// When this trip was last modified.
+  final DateTime updatedAt;
 
   const Trip({
     required this.id,
-    required this.name,
+    this.name,
     required this.stops,
-    this.totalDistanceMeters,
-    this.totalDurationSeconds,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
   /// Deserialize from a JSON map.
-  factory Trip.fromJson(Map<String, dynamic> json) => Trip(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        stops: (json['stops'] as List<dynamic>)
-            .map((s) => TripStop.fromJson(s as Map<String, dynamic>))
-            .toList(),
-        totalDistanceMeters: (json['totalDistanceMeters'] as num?)?.toDouble(),
-        totalDurationSeconds: (json['totalDurationSeconds'] as num?)?.toInt(),
-      );
+  factory Trip.fromJson(Map<String, dynamic> json) {
+    return Trip(
+      id: json['id'] as String,
+      name: json['name'] as String?,
+      stops: (json['stops'] as List<dynamic>)
+          .map((s) => TripStop.fromJson(s as Map<String, dynamic>))
+          .toList(),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: DateTime.parse(json['updatedAt'] as String),
+    );
+  }
 
   /// Serialize to a JSON map.
   Map<String, dynamic> toJson() => {
         'id': id,
-        'name': name,
+        if (name != null) 'name': name,
         'stops': stops.map((s) => s.toJson()).toList(),
-        if (totalDistanceMeters != null)
-          'totalDistanceMeters': totalDistanceMeters,
-        if (totalDurationSeconds != null)
-          'totalDurationSeconds': totalDurationSeconds,
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
       };
 
-  /// Return a copy with the given fields replaced.
+  /// Returns a copy with the given fields replaced and [updatedAt] refreshed.
   Trip copyWith({
+    String? id,
     String? name,
     List<TripStop>? stops,
-    double? totalDistanceMeters,
-    int? totalDurationSeconds,
-  }) =>
-      Trip(
-        id: id,
-        name: name ?? this.name,
-        stops: stops ?? this.stops,
-        totalDistanceMeters: totalDistanceMeters ?? this.totalDistanceMeters,
-        totalDurationSeconds: totalDurationSeconds ?? this.totalDurationSeconds,
-      );
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Trip(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      stops: stops ?? this.stops,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? DateTime.now(),
+    );
+  }
 }

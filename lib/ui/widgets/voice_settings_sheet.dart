@@ -6,18 +6,25 @@ import '../theme/app_theme.dart';
 
 /// Bottom sheet for configuring voice guidance settings.
 ///
-/// Allows the driver to toggle voice guidance on/off and select a language
-/// from [AppState.supportedVoiceLanguages].
+/// Allows the driver to toggle voice guidance on/off and select the
+/// guidance language from the supported locales.
 class VoiceSettingsSheet extends StatelessWidget {
   const VoiceSettingsSheet({super.key});
 
+  static const Map<String, String> _languageLabels = {
+    'en-US': 'English (US)',
+    'en-CA': 'English (Canada)',
+    'fr-CA': 'Français (Canada)',
+    'es-US': 'Español (US)',
+  };
+
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
     return Consumer<AppState>(
       builder: (context, state, _) {
-        final cs = Theme.of(context).colorScheme;
-        final tt = Theme.of(context).textTheme;
-
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -36,23 +43,24 @@ class VoiceSettingsSheet extends StatelessWidget {
                     Icon(Icons.record_voice_over_rounded,
                         color: cs.primary, size: 28),
                     const SizedBox(width: AppTheme.spaceSM),
-                    Text('Voice Guidance', style: tt.headlineSmall),
+                    Text('Voice Settings', style: tt.headlineSmall),
                   ],
                 ),
-                const SizedBox(height: AppTheme.spaceMD),
+                const SizedBox(height: AppTheme.spaceSM),
+                const Divider(),
 
-                // Voice on/off toggle
+                // Voice guidance toggle
                 SwitchListTile(
                   secondary: Icon(
                     state.voiceGuidanceEnabled
                         ? Icons.volume_up_rounded
                         : Icons.volume_off_rounded,
-                    color: cs.primary,
+                    color: state.voiceGuidanceEnabled
+                        ? cs.primary
+                        : cs.outline,
                   ),
                   title: const Text('Voice Guidance'),
-                  subtitle: Text(
-                    state.voiceGuidanceEnabled ? 'Enabled' : 'Disabled',
-                  ),
+                  subtitle: const Text('Spoken turn-by-turn instructions'),
                   value: state.voiceGuidanceEnabled,
                   onChanged: (_) {
                     HapticFeedback.selectionClick();
@@ -61,54 +69,68 @@ class VoiceSettingsSheet extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                 ),
 
-                const Divider(height: AppTheme.spaceLG),
+                const Divider(),
+                const SizedBox(height: AppTheme.spaceXS),
 
                 // Language selection
-                Text('Guidance Language', style: tt.titleSmall),
-                const SizedBox(height: AppTheme.spaceSM),
-
-                ...AppState.supportedVoiceLanguages.map((lang) {
-                  final isSelected = state.voiceLanguage == lang;
-                  return RadioListTile<String>(
-                    title: Text(_languageLabel(lang)),
-                    subtitle: Text(lang),
-                    value: lang,
-                    groupValue: state.voiceLanguage,
-                    onChanged: state.voiceGuidanceEnabled
-                        ? (v) {
-                            if (v != null) {
-                              HapticFeedback.selectionClick();
-                              state.setVoiceLanguage(v);
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Guidance Language', style: tt.bodyMedium),
+                          Text(
+                            'Language used for spoken instructions',
+                            style: tt.bodySmall
+                                ?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                    DropdownButton<String>(
+                      value: state.voiceLanguage,
+                      underline: const SizedBox(),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMD),
+                      items: AppState.supportedVoiceLanguages
+                          .map(
+                            (lang) => DropdownMenuItem(
+                              value: lang,
+                              child: Text(
+                                _languageLabels[lang] ?? lang,
+                                style: tt.bodyMedium,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: state.voiceGuidanceEnabled
+                          ? (lang) {
+                              if (lang != null) {
+                                HapticFeedback.selectionClick();
+                                state.setVoiceLanguage(lang);
+                              }
                             }
-                          }
-                        : null,
-                    secondary: isSelected
-                        ? Icon(Icons.check_circle_rounded, color: cs.primary)
-                        : const Icon(Icons.radio_button_unchecked_rounded),
-                    contentPadding: EdgeInsets.zero,
-                  );
-                }),
+                          : null,
+                    ),
+                  ],
+                ),
+
+                if (!state.voiceGuidanceEnabled) ...[
+                  const SizedBox(height: AppTheme.spaceXS),
+                  Text(
+                    'Enable voice guidance to change language.',
+                    style: tt.bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ],
+
+                const SizedBox(height: AppTheme.spaceMD),
               ],
             ),
           ),
         );
       },
     );
-  }
-
-  /// Returns a human-readable label for a BCP-47 language tag.
-  static String _languageLabel(String bcp47) {
-    switch (bcp47) {
-      case 'en-US':
-        return 'English (US)';
-      case 'en-CA':
-        return 'English (Canada)';
-      case 'fr-CA':
-        return 'Français (Canada)';
-      case 'es-US':
-        return 'Español (US)';
-      default:
-        return bcp47;
-    }
   }
 }

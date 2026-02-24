@@ -10,10 +10,6 @@
 .svn/
 migrate_working_dir/
 
-# Secrets – never commit real credentials
-.env
-secrets.json
-
 # IntelliJ related
 *.iml
 *.ipr

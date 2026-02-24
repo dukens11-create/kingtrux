@@ -8,24 +8,14 @@ A Flutter-based mobile application for truck drivers with advanced routing, POI 
   - Height, width, length, weight, axle count, and hazmat flag
   - Imperial (ft / short tons) and metric (m / t) display units
   - **Persists locally on device** (no account or API keys required)
-  - Profile validation before routing (height/weight/axle checks)
+  - Will be used for HERE truck routing once HERE keys are configured
 - **Truck-specific route planning** with HERE Routing API v8
-  - All truck restrictions applied: height, width, length, gross weight, axle count, hazmat
-  - Profile validated before every route request — clear error messages shown if required fields are missing
-- **Voice-guided turn-by-turn navigation**
-  - Voice guidance on/off toggle
-  - Language selection: English (US), English (CA), Français (CA), Español (US)
-  - Alert framework: off-route banner + spoken alert, auto-dismiss toasts
+  - Configurable truck profile (height, weight, width, length, axles, hazmat)
+  - Route optimization considering truck restrictions
 - **Points of Interest (POI) discovery** via OpenStreetMap Overpass API
-  - Categories: truck stops, fuel, parking, scales, rest areas, gyms
-  - Near Me and Along Route tabs
-  - Category filter chips, star-based favourites persisted on device
-- **Multi-stop Trip Planner**
-  - Add / remove / reorder stops
-  - Saves trips locally (structured for future cloud sync)
-  - ETA summary per saved trip
+  - Fuel stations
+  - Rest areas
 - **Real-time weather updates** at current location using OpenWeather API
-- **In-app subscriptions** via RevenueCat (KINGTRUX Pro)
 - **Interactive map interface** with route visualization
 - **Location-based services** with comprehensive permission handling
 
@@ -240,15 +230,15 @@ them in the browser (it is not included by default to minimise dependencies).
 | Axles | Total axle count | 2–8 |
 | Hazmat | Carrying hazardous materials | on/off |
 
-All values are passed directly to the HERE Routing API v8 `truck[*]` parameters.  
-The profile is validated before every routing request — if any required field is zero  
-or invalid (e.g. axles < 2) a clear error message is shown instead of a cryptic API error.
-
 ### How to use
 
 1. Tap the **truck icon** (🚛) in the FAB cluster on the main map screen.
 2. Adjust sliders and toggles. Switch between **Metric** and **Imperial** display units at any time — values are stored internally in metric.
 3. Tap **Save Profile** — the profile is persisted to device storage and takes effect immediately.
+
+### Future HERE routing integration
+
+Once HERE API keys are configured, the saved profile will automatically be passed to the HERE Routing API v8 to calculate truck-compliant routes that respect height/weight clearances, hazmat restrictions, and road-class limits.
 
 ## UI Preview Gallery
 
@@ -289,14 +279,11 @@ corner of the app bar to switch between light and dark themes.
 1. **Start the app** - Your current location will be automatically detected
 2. **View weather** - Current weather conditions display at the top
 3. **Set destination** - Long-press anywhere on the map to set destination
-4. **Configure truck** - Tap the truck icon (🚛) to set your profile (height/weight/length/axles/hazmat)
-5. **Calculate route** - Route is automatically calculated after setting destination; profile is validated first
-6. **Start navigation** - Tap "Start Navigation" on the route card for turn-by-turn voice guidance
-7. **Voice settings** - In the navigation screen, tap the ⚙️ icon to change voice on/off or language
-8. **Driver POIs** - Tap the 📍 icon (Place) in the FAB cluster to browse truck stops, fuel, scales, etc.
-9. **Trip Planner** - Tap the 🗺 icon (Map) to create and manage multi-stop trips
-10. **Toggle layers** - Tap the layers icon to enable/disable POI map overlays
-11. **Clear route** - Tap the X button on the route card to clear destination
+4. **Configure truck** - Tap the tune icon (⚙️) to set truck profile
+5. **Calculate route** - Route is automatically calculated after setting destination
+6. **Load POIs** - Tap "Load POIs Near Me" to discover nearby fuel stations and rest areas
+7. **Toggle layers** - Tap the layers icon to enable/disable POI categories
+8. **Clear route** - Tap the X button on the route card to clear destination
 
 ## Project Structure
 ```
@@ -306,44 +293,36 @@ kingtrux/
 ├── lib/
 │   ├── main.dart         # App entry point
 │   ├── app.dart          # Root widget with Provider setup
-│   ├── config.dart       # API configuration (keys via --dart-define)
+│   ├── config.dart       # API configuration
 │   ├── models/           # Data models
-│   │   ├── alert_message.dart            # Alert severity + message
-│   │   ├── navigation_maneuver.dart      # Turn-by-turn maneuver step
+│   │   ├── navigation_maneuver.dart  # Turn-by-turn maneuver step
 │   │   ├── poi.dart
 │   │   ├── route_result.dart
-│   │   ├── trip.dart                     # Multi-stop trip + TripStop
 │   │   ├── truck_profile.dart
 │   │   └── weather_point.dart
-│   ├── services/         # API / persistence service integrations
-│   │   ├── here_routing_service.dart     # HERE Routing REST API v8
+│   ├── services/         # API service integrations
 │   │   ├── location_service.dart
+│   │   ├── here_routing_service.dart
 │   │   ├── navigation_session_service.dart  # GPS + maneuver tracking
-│   │   ├── overpass_poi_service.dart     # OpenStreetMap POI queries
-│   │   ├── poi_favorites_service.dart    # Starred POI persistence
-│   │   ├── revenue_cat_service.dart      # RevenueCat SDK wrapper
-│   │   ├── trip_service.dart             # Multi-stop trip persistence
+│   │   ├── overpass_poi_service.dart
+│   │   ├── revenue_cat_service.dart  # RevenueCat SDK wrapper
 │   │   ├── truck_profile_service.dart
 │   │   └── weather_service.dart
 │   ├── state/            # State management
 │   │   └── app_state.dart
 │   └── ui/               # UI components
 │       ├── map_screen.dart
-│       ├── navigation_screen.dart        # Turn-by-turn navigation UI
-│       ├── paywall_screen.dart           # KINGTRUX Pro subscription paywall
-│       ├── poi_screen.dart               # Driver POI browser (Near Me / Along Route)
-│       ├── preview_gallery_page.dart     # Debug-only UI preview
-│       ├── trip_planner_screen.dart      # Multi-stop trip planner
+│       ├── navigation_screen.dart      # Turn-by-turn navigation UI
+│       ├── paywall_screen.dart         # KINGTRUX Pro subscription paywall
+│       ├── preview_gallery_page.dart  # Debug-only UI preview
 │       └── widgets/
-│           ├── alert_banner.dart         # Dismissible alert overlay
 │           ├── layer_sheet.dart
 │           ├── route_summary_card.dart
-│           ├── truck_profile_sheet.dart
-│           └── voice_settings_sheet.dart # Voice guidance + language picker
+│           └── truck_profile_sheet.dart
 ├── HERE_NAVIGATE_SETUP.md  # HERE Navigate SDK integration guide
 ├── test/                 # Unit tests
 ├── pubspec.yaml          # Flutter dependencies
-├── .env.example          # Example environment file (copy → .env, never commit .env)
+├── .env.example          # Example environment file
 └── README.md             # This file
 ```
 
@@ -381,62 +360,6 @@ Key packages used (see `pubspec.yaml` for complete list):
 - Check platform-specific requirements with `flutter doctor`
 - **Android JDK**: Ensure JDK 17 is installed and `JAVA_HOME` is set to JDK 17. Using JDK 8/11 causes Kotlin compilation errors (`Unresolved reference: filePermissions`) in the Flutter Gradle plugin.
 - **iOS**: The shared Xcode scheme is committed at `ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme`. If you see `no schemes available for Runner.xcodeproj`, ensure that file is present and not listed in `.gitignore`.
-
-## CI / Build Notes
-
-The repository ships a GitHub Actions workflow at `.github/workflows/ci.yml` with three jobs:
-
-| Job | Runner | What it does |
-|-----|--------|--------------|
-| `test` | `ubuntu-latest` | `flutter analyze` + `flutter test` |
-| `android-build` | `ubuntu-latest` | `flutter build apk --debug` |
-| `ios-build` | `macos-latest` | `flutter build ios --debug --no-codesign` |
-
-### Required secrets (CI environment variables)
-
-None of the API keys are required for the CI pipeline to pass:
-- The **test** job runs unit tests that do not call any external services.
-- The **build** jobs build the app without API keys (runtime error handling ensures the app starts up cleanly even when keys are missing).
-
-If you want CI to produce a fully-configured build (e.g. for TestFlight / Play Console), set these as masked environment variables in your CI provider and pass them as `--dart-define` arguments:
-
-```
-HERE_API_KEY
-HERE_NAVIGATE_ACCESS_KEY_ID
-HERE_NAVIGATE_ACCESS_KEY_SECRET
-OPENWEATHER_API_KEY
-REVENUECAT_IOS_API_KEY
-REVENUECAT_ANDROID_API_KEY
-GOOGLE_MAPS_ANDROID_API_KEY   # embedded in AndroidManifest.xml at build time
-GOOGLE_MAPS_IOS_API_KEY       # embedded in Info.plist at build time
-```
-
-### Running CI checks locally
-
-```bash
-flutter pub get
-flutter analyze
-flutter test
-```
-
-## iOS & Android Permissions
-
-### Android (`android/app/src/main/AndroidManifest.xml`)
-| Permission | Reason |
-|-----------|--------|
-| `ACCESS_FINE_LOCATION` | High-accuracy GPS for routing and navigation |
-| `ACCESS_COARSE_LOCATION` | Fallback location |
-| `INTERNET` | API calls (HERE, OpenWeather, Overpass, RevenueCat) |
-| `ACCESS_NETWORK_STATE` | Network connectivity checks |
-| `FOREGROUND_SERVICE` | HERE Navigate SDK navigation service |
-| `FOREGROUND_SERVICE_LOCATION` | Foreground service with location type |
-
-### iOS (`ios/Runner/Info.plist`)
-| Key | Reason |
-|-----|--------|
-| `NSLocationWhenInUseUsageDescription` | GPS while the app is in foreground |
-| `NSLocationAlwaysUsageDescription` | Background navigation guidance |
-| `NSLocationAlwaysAndWhenInUseUsageDescription` | Combined always/in-use request |
 
 ## Contributing
 Contributions are welcome! Please:

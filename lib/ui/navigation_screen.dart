@@ -4,8 +4,6 @@ import 'package:provider/provider.dart';
 import '../models/navigation_maneuver.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
-import 'widgets/alert_banner.dart';
-import 'widgets/voice_settings_sheet.dart';
 
 /// Full-screen turn-by-turn navigation UI.
 ///
@@ -36,9 +34,6 @@ class NavigationScreen extends StatelessWidget {
           appBar: _buildAppBar(context, state, cs),
           body: Column(
             children: [
-              // ── Alert banner (off-route, reroute, etc.) ───────────────────
-              const AlertBanner(),
-
               // ── Next-maneuver banner ──────────────────────────────────────
               _NextManeuverBanner(
                 maneuver: state.currentManeuver,
@@ -109,24 +104,6 @@ class NavigationScreen extends StatelessWidget {
         ],
       ),
       actions: [
-        // Voice settings
-        Tooltip(
-          message: 'Voice settings',
-          child: IconButton(
-            icon: const Icon(Icons.settings_rounded),
-            onPressed: () {
-              HapticFeedback.selectionClick();
-              showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                builder: (_) => ChangeNotifierProvider.value(
-                  value: state,
-                  child: const VoiceSettingsSheet(),
-                ),
-              );
-            },
-          ),
-        ),
         // Voice guidance toggle
         Tooltip(
           message: state.voiceGuidanceEnabled

@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:kingtrux/models/alert_message.dart';
 import 'package:kingtrux/models/navigation_maneuver.dart';
 import 'package:kingtrux/models/route_result.dart';
 import 'package:kingtrux/services/navigation_session_service.dart';
@@ -207,42 +206,6 @@ void main() {
       final state = AppState();
       state.setVoiceLanguage('de-DE');
       expect(state.voiceLanguage, 'en-US'); // unchanged
-      state.dispose();
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Alert queue
-  // ---------------------------------------------------------------------------
-  group('AppState alert queue', () {
-    test('alertQueue is empty by default', () {
-      final state = AppState();
-      expect(state.alertQueue, isEmpty);
-      state.dispose();
-    });
-
-    test('postAlert adds to queue', () {
-      final state = AppState();
-      const alert = AlertMessage(message: 'Test alert');
-      state.postAlert(alert);
-      expect(state.alertQueue.length, 1);
-      expect(state.alertQueue.first.message, 'Test alert');
-      state.dispose();
-    });
-
-    test('dismissAlert removes oldest item', () {
-      final state = AppState();
-      state.postAlert(const AlertMessage(message: 'First'));
-      state.postAlert(const AlertMessage(message: 'Second'));
-      state.dismissAlert();
-      expect(state.alertQueue.length, 1);
-      expect(state.alertQueue.first.message, 'Second');
-      state.dispose();
-    });
-
-    test('dismissAlert on empty queue is a no-op', () {
-      final state = AppState();
-      expect(() => state.dismissAlert(), returnsNormally);
       state.dispose();
     });
   });
