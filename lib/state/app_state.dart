@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/alert_event.dart';
 import '../models/truck_profile.dart';
 import '../models/route_result.dart';
@@ -20,6 +22,7 @@ import '../services/favorites_service.dart';
 import '../services/trip_service.dart';
 import '../services/trip_routing_service.dart';
 import '../services/stop_optimizer.dart';
+import '../services/route_monitor.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -34,6 +37,8 @@ class AppState extends ChangeNotifier {
   final FavoritesService _favoritesService = FavoritesService();
   final TripService _tripService = TripService();
   final TripRoutingService _tripRoutingService = TripRoutingService();
+  final RouteMonitor _routeMonitor = RouteMonitor();
+  StreamSubscription<Position>? _routeMonitorSub;
   // Lazily initialised on first use; never touched during unit tests unless
   // voice guidance is explicitly invoked.
   FlutterTts? _ttsInstance;
@@ -288,6 +293,7 @@ class AppState extends ChangeNotifier {
         destLng: destLng!,
         truckProfile: truckProfile,
       );
+      if (routeResult != null) _startRouteMonitoring();
     } catch (e) {
       routeError = e.toString();
       routeResult = null;
@@ -374,6 +380,7 @@ class AppState extends ChangeNotifier {
 
   /// Clear route and destination
   void clearRoute() {
+    _stopRouteMonitoring();
     routeResult = null;
     routeError = null;
     destLat = null;
@@ -463,6 +470,7 @@ class AppState extends ChangeNotifier {
         truckProfile: truckProfile,
       );
       routeError = null;
+      if (routeResult != null) _startRouteMonitoring();
     } catch (e) {
       tripRouteError = e.toString();
       routeResult = null;
@@ -474,6 +482,7 @@ class AppState extends ChangeNotifier {
 
   /// Clear the active trip and remove it from persistent storage.
   void clearTrip() {
+    _stopRouteMonitoring();
     activeTrip = null;
     routeResult = null;
     routeError = null;
@@ -651,8 +660,91 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Route monitoring (geofence + stop alerts)
+  // ---------------------------------------------------------------------------
+
+  /// Start the route monitor GPS subscription.
+  ///
+  /// Wires [RouteMonitor] callbacks to emit [AlertEvent]s and speak via TTS
+  /// when voice guidance is enabled.  Called automatically after a route or
+  /// trip route has been built successfully.
+  void _startRouteMonitoring() {
+    _routeMonitorSub?.cancel();
+    _routeMonitor.reset();
+
+    _routeMonitor.onApproachingStop = (TripStop stop) {
+      final label = stop.label ?? 'next stop';
+      addAlert(AlertEvent(
+        id: 'approaching_stop_${stop.id}',
+        type: AlertType.approachingStop,
+        title: 'Approaching Stop',
+        message: 'Approaching $label in less than 5 km.',
+        severity: AlertSeverity.info,
+        timestamp: DateTime.now(),
+        speakable: true,
+      ));
+    };
+
+    _routeMonitor.onOffRoute = (double dist) {
+      addAlert(AlertEvent(
+        id: 'off_route_monitor_${DateTime.now().millisecondsSinceEpoch}',
+        type: AlertType.offRoute,
+        title: 'Off Route',
+        message: 'You are off the planned route.',
+        severity: AlertSeverity.warning,
+        timestamp: DateTime.now(),
+        speakable: true,
+      ));
+    };
+
+    _routeMonitor.onBackOnRoute = () {
+      addAlert(AlertEvent(
+        id: 'back_on_route_${DateTime.now().millisecondsSinceEpoch}',
+        type: AlertType.backOnRoute,
+        title: 'Back on Route',
+        message: 'You are back on the planned route.',
+        severity: AlertSeverity.info,
+        timestamp: DateTime.now(),
+        speakable: true,
+      ));
+    };
+
+    const settings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 10,
+    );
+
+    _routeMonitorSub =
+        Geolocator.getPositionStream(locationSettings: settings).listen(
+          _onRouteMonitorPosition,
+          onError: (Object e) => debugPrint('RouteMonitor: GPS error: $e'),
+        );
+  }
+
+  /// Stop the route monitor GPS subscription and reset monitor state.
+  void _stopRouteMonitoring() {
+    _routeMonitorSub?.cancel();
+    _routeMonitorSub = null;
+    _routeMonitor.reset();
+  }
+
+  void _onRouteMonitorPosition(Position pos) {
+    final route = routeResult;
+    if (route == null || route.polylinePoints.isEmpty) return;
+    final stops = activeTrip?.stops ?? const [];
+    _routeMonitor.update(
+      lat: pos.latitude,
+      lng: pos.longitude,
+      routePolyline:
+          route.polylinePoints.map((p) => [p.latitude, p.longitude]).toList(),
+      stops: stops,
+    );
+  }
+
   @override
   void dispose() {
+    _stopRouteMonitoring();
     _navService.stop();
     _ttsInstance?.stop();
     super.dispose();
