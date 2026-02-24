@@ -69,9 +69,11 @@ You'll need to obtain API keys from:
    - Enable "Maps SDK for Android" and "Maps SDK for iOS"
 2. **HERE API**: https://developer.here.com/
    - Sign up and create a project to get API key
-3. **OpenWeather API**: https://openweathermap.org/api
+3. **HERE Navigate SDK** (for turn-by-turn navigation): https://developer.here.com/
+   - See [HERE_NAVIGATE_SETUP.md](HERE_NAVIGATE_SETUP.md) for detailed instructions
+4. **OpenWeather API**: https://openweathermap.org/api
    - Free tier available
-4. **RevenueCat**: https://app.revenuecat.com/
+5. **RevenueCat**: https://app.revenuecat.com/
    - Free tier available; needed for in-app subscriptions
 
 ## Setup Instructions
@@ -99,6 +101,8 @@ Edit `.env` with your actual API keys, then run:
 ```bash
 flutter run \
   --dart-define=HERE_API_KEY=your_here_api_key \
+  --dart-define=HERE_NAVIGATE_ACCESS_KEY_ID=your_here_navigate_id \
+  --dart-define=HERE_NAVIGATE_ACCESS_KEY_SECRET=your_here_navigate_secret \
   --dart-define=OPENWEATHER_API_KEY=your_openweather_api_key \
   --dart-define=REVENUECAT_IOS_API_KEY=appl_xxx \
   --dart-define=REVENUECAT_ANDROID_API_KEY=goog_xxx
@@ -126,13 +130,17 @@ flutter run \
 # Android
 flutter run \
   --dart-define=HERE_API_KEY=xxx \
-  --dart-define=OPENWEATHER_API_KEY=xxx \
+  --dart-define=HERE_NAVIGATE_ACCESS_KEY_ID=yyy \
+  --dart-define=HERE_NAVIGATE_ACCESS_KEY_SECRET=zzz \
+  --dart-define=OPENWEATHER_API_KEY=www \
   --dart-define=REVENUECAT_ANDROID_API_KEY=goog_xxx
 
 # iOS
 flutter run -d ios \
   --dart-define=HERE_API_KEY=xxx \
-  --dart-define=OPENWEATHER_API_KEY=xxx \
+  --dart-define=HERE_NAVIGATE_ACCESS_KEY_ID=yyy \
+  --dart-define=HERE_NAVIGATE_ACCESS_KEY_SECRET=zzz \
+  --dart-define=OPENWEATHER_API_KEY=www \
   --dart-define=REVENUECAT_IOS_API_KEY=appl_xxx
 ```
 
@@ -141,13 +149,17 @@ flutter run -d ios \
 # Android APK
 flutter build apk --release \
   --dart-define=HERE_API_KEY=xxx \
-  --dart-define=OPENWEATHER_API_KEY=xxx \
+  --dart-define=HERE_NAVIGATE_ACCESS_KEY_ID=yyy \
+  --dart-define=HERE_NAVIGATE_ACCESS_KEY_SECRET=zzz \
+  --dart-define=OPENWEATHER_API_KEY=www \
   --dart-define=REVENUECAT_ANDROID_API_KEY=goog_xxx
 
 # iOS
 flutter build ios --release \
   --dart-define=HERE_API_KEY=xxx \
-  --dart-define=OPENWEATHER_API_KEY=xxx \
+  --dart-define=HERE_NAVIGATE_ACCESS_KEY_ID=yyy \
+  --dart-define=HERE_NAVIGATE_ACCESS_KEY_SECRET=zzz \
+  --dart-define=OPENWEATHER_API_KEY=www \
   --dart-define=REVENUECAT_IOS_API_KEY=appl_xxx
 ```
 
@@ -283,6 +295,7 @@ kingtrux/
 │   ├── app.dart          # Root widget with Provider setup
 │   ├── config.dart       # API configuration
 │   ├── models/           # Data models
+│   │   ├── navigation_maneuver.dart  # Turn-by-turn maneuver step
 │   │   ├── poi.dart
 │   │   ├── route_result.dart
 │   │   ├── truck_profile.dart
@@ -290,6 +303,7 @@ kingtrux/
 │   ├── services/         # API service integrations
 │   │   ├── location_service.dart
 │   │   ├── here_routing_service.dart
+│   │   ├── navigation_session_service.dart  # GPS + maneuver tracking
 │   │   ├── overpass_poi_service.dart
 │   │   ├── revenue_cat_service.dart  # RevenueCat SDK wrapper
 │   │   ├── truck_profile_service.dart
@@ -298,12 +312,14 @@ kingtrux/
 │   │   └── app_state.dart
 │   └── ui/               # UI components
 │       ├── map_screen.dart
+│       ├── navigation_screen.dart      # Turn-by-turn navigation UI
 │       ├── paywall_screen.dart         # KINGTRUX Pro subscription paywall
 │       ├── preview_gallery_page.dart  # Debug-only UI preview
 │       └── widgets/
 │           ├── layer_sheet.dart
 │           ├── route_summary_card.dart
 │           └── truck_profile_sheet.dart
+├── HERE_NAVIGATE_SETUP.md  # HERE Navigate SDK integration guide
 ├── test/                 # Unit tests
 ├── pubspec.yaml          # Flutter dependencies
 ├── .env.example          # Example environment file
@@ -318,6 +334,7 @@ Key packages used (see `pubspec.yaml` for complete list):
 - `provider` - State management
 - `flutter_polyline_points` - Route polyline rendering
 - `uuid` - Unique ID generation
+- `flutter_tts` - Text-to-speech for voice navigation guidance
 - `purchases_flutter` - RevenueCat in-app subscription SDK
 - `url_launcher` - Open Terms/Privacy URLs in the browser
 
