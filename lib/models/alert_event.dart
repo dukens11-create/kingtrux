@@ -5,6 +5,8 @@ enum AlertSeverity { info, warning, critical }
 enum AlertType {
   reroute,
   offRoute,
+  backOnRoute,
+  approachingStop,
   navigationStarted,
   navigationStopped,
   lowGpsAccuracy,
