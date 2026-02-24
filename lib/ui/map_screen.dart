@@ -10,6 +10,7 @@ import 'theme/dark_map_style.dart';
 import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/route_summary_card.dart';
+import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
 
 /// Main map screen with Google Maps integration
@@ -118,6 +119,8 @@ class _MapScreenState extends State<MapScreen> {
                   onRecenter: _onMyLocationPressed,
                   onLayers: _onLayersPressed,
                   onTruckProfile: _onTruckProfilePressed,
+                  onGoPro: _onGoProPressed,
+                  isPro: state.isPro,
                 ),
               ),
 
@@ -347,6 +350,14 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onGoProPressed() {
+    HapticFeedback.selectionClick();
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const PaywallScreen()),
+    );
+  }
+
   Future<void> _onMapLongPress(LatLng position) async {
     HapticFeedback.mediumImpact();
     final state = context.read<AppState>();
@@ -388,11 +399,15 @@ class _MapActionCluster extends StatelessWidget {
     required this.onRecenter,
     required this.onLayers,
     required this.onTruckProfile,
+    required this.onGoPro,
+    required this.isPro,
   });
 
   final VoidCallback onRecenter;
   final VoidCallback onLayers;
   final VoidCallback onTruckProfile;
+  final VoidCallback onGoPro;
+  final bool isPro;
 
   @override
   Widget build(BuildContext context) {
@@ -416,6 +431,14 @@ class _MapActionCluster extends StatelessWidget {
           tooltip: 'Truck Profile',
           onPressed: onTruckProfile,
         ),
+        if (!isPro) ...[
+          const SizedBox(height: AppTheme.spaceSM),
+          _ClusterFab(
+            icon: Icons.workspace_premium_rounded,
+            tooltip: 'Go Pro',
+            onPressed: onGoPro,
+          ),
+        ],
       ],
     );
   }
