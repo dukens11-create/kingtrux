@@ -5,6 +5,7 @@ import '../models/route_result.dart';
 import '../models/weather_point.dart';
 import '../models/navigation_maneuver.dart';
 import '../models/poi.dart';
+import '../models/alert_message.dart';
 import '../services/location_service.dart';
 import '../services/here_routing_service.dart';
 import '../services/navigation_session_service.dart';
@@ -12,6 +13,9 @@ import '../services/overpass_poi_service.dart';
 import '../services/weather_service.dart';
 import '../services/truck_profile_service.dart';
 import '../services/revenue_cat_service.dart';
+import '../services/poi_favorites_service.dart';
+import '../services/trip_service.dart';
+import '../models/trip.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -22,6 +26,8 @@ class AppState extends ChangeNotifier {
   final WeatherService _weatherService = WeatherService();
   final TruckProfileService _truckProfileService = TruckProfileService();
   final RevenueCatService revenueCatService = RevenueCatService();
+  final PoiFavoritesService _favoritesService = PoiFavoritesService();
+  final TripService _tripService = TripService();
   // Lazily initialised on first use; never touched during unit tests unless
   // voice guidance is explicitly invoked.
   FlutterTts? _ttsInstance;
@@ -47,6 +53,16 @@ class AppState extends ChangeNotifier {
   // POI layers
   Set<PoiType> enabledPoiLayers = {};
   List<Poi> pois = [];
+
+  /// IDs of POIs the driver has marked as favourites.
+  Set<String> favoritePoisIds = {};
+
+  // ---------------------------------------------------------------------------
+  // Trip planner state
+  // ---------------------------------------------------------------------------
+
+  /// All saved trips, loaded from device storage on startup.
+  List<Trip> savedTrips = [];
 
   // Loading states
   bool isLoadingRoute = false;
@@ -81,6 +97,42 @@ class AppState extends ChangeNotifier {
     'es-US',
   ];
 
+  // ---------------------------------------------------------------------------
+  // Alert queue
+  // ---------------------------------------------------------------------------
+
+  /// FIFO queue of alerts to show in the UI.
+  ///
+  /// Consumers (e.g., [NavigationScreen]) should display and then call
+  /// [dismissAlert] once the user has acknowledged the top alert.
+  final List<AlertMessage> alertQueue = [];
+
+  /// Post a new [alert] to the queue and notify listeners.
+  ///
+  /// If [speak] is `true` and [voiceGuidanceEnabled] is `true`, the message
+  /// text is also spoken via TTS.
+  void postAlert(AlertMessage alert, {bool speak = false}) {
+    alertQueue.add(alert);
+    notifyListeners();
+    if (speak && voiceGuidanceEnabled) {
+      _tts
+          .setLanguage(voiceLanguage)
+          .then(
+            (_) => _tts.speak(alert.message),
+            onError: (Object e) => debugPrint('TTS alert error: $e'),
+          )
+          .then((_) {}, onError: (Object e) => debugPrint('TTS error: $e'));
+    }
+  }
+
+  /// Remove and discard the oldest [AlertMessage] from [alertQueue].
+  void dismissAlert() {
+    if (alertQueue.isNotEmpty) {
+      alertQueue.removeAt(0);
+      notifyListeners();
+    }
+  }
+
   /// The maneuver the driver should execute next.
   NavigationManeuver? get currentManeuver => _navService.currentManeuver;
 
@@ -105,6 +157,21 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading truck profile: $e');
+    }
+    // Load favourite POI ids
+    try {
+      final favs = await _favoritesService.load();
+      favoritePoisIds = favs.map((p) => p.id).toSet();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading POI favorites: $e');
+    }
+    // Load saved trips
+    try {
+      savedTrips = await _tripService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading saved trips: $e');
     }
     try {
       await refreshMyLocation();
@@ -183,6 +250,54 @@ class AppState extends ChangeNotifier {
       enabledPoiLayers.remove(type);
     }
     notifyListeners();
+  }
+
+  /// Toggle favourite status for a POI identified by [poiId].
+  ///
+  /// If the POI is already a favourite it is removed; otherwise it is added.
+  /// The updated list is persisted via [PoiFavoritesService].
+  void toggleFavorite(String poiId) {
+    if (favoritePoisIds.contains(poiId)) {
+      favoritePoisIds.remove(poiId);
+    } else {
+      favoritePoisIds.add(poiId);
+    }
+    notifyListeners();
+    // Persist the POIs that are currently loaded and also favourited.
+    final favPois = pois.where((p) => favoritePoisIds.contains(p.id)).toList();
+    _favoritesService.save(favPois).catchError(
+      (Object e) => debugPrint('Error saving favorites: $e'),
+    );
+  }
+
+  /// Whether [poiId] is in the current favourites set.
+  bool isFavorite(String poiId) => favoritePoisIds.contains(poiId);
+
+  // ---------------------------------------------------------------------------
+  // Trip planner methods
+  // ---------------------------------------------------------------------------
+
+  /// Save a new or updated [trip] to [savedTrips] and persist to device storage.
+  void saveTrip(Trip trip) {
+    final idx = savedTrips.indexWhere((t) => t.id == trip.id);
+    if (idx >= 0) {
+      savedTrips[idx] = trip;
+    } else {
+      savedTrips.add(trip);
+    }
+    notifyListeners();
+    _tripService.save(savedTrips).catchError(
+      (Object e) => debugPrint('Error saving trip: $e'),
+    );
+  }
+
+  /// Remove a trip by [tripId] from [savedTrips] and persist the change.
+  void deleteTrip(String tripId) {
+    savedTrips.removeWhere((t) => t.id == tripId);
+    notifyListeners();
+    _tripService.save(savedTrips).catchError(
+      (Object e) => debugPrint('Error deleting trip: $e'),
+    );
   }
 
   /// Calculate truck route from current location to destination
@@ -311,6 +426,13 @@ class AppState extends ChangeNotifier {
       }
       ..onOffRoute = (dist) {
         debugPrint('Off-route by ${dist.toStringAsFixed(0)} m — rerouting…');
+        postAlert(
+          const AlertMessage(
+            message: 'Off route — recalculating…',
+            severity: AlertSeverity.warning,
+          ),
+          speak: true,
+        );
         rerouteIfNeeded();
       }
       ..onVoicePrompt = (text) {

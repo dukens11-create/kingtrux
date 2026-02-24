@@ -21,6 +21,14 @@ class HereRoutingService {
       throw Exception('HERE API key not configured. Please set HERE_API_KEY environment variable.');
     }
 
+    // Validate profile before building the request
+    final profileErrors = truckProfile.validate();
+    if (profileErrors.isNotEmpty) {
+      throw Exception(
+        'Truck profile is incomplete:\n• ${profileErrors.join('\n• ')}',
+      );
+    }
+
     // Build URL with truck parameters
     final url = Uri.parse('${Config.hereRoutingBaseUrl}/routes').replace(
       queryParameters: {

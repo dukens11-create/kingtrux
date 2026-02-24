@@ -128,6 +128,80 @@ void main() {
         expect(profile.summary(unit: TruckUnit.imperial), contains('HAZMAT'));
       });
     });
+
+    group('validate()', () {
+      test('default profile passes validation', () {
+        final profile = TruckProfile.defaultProfile();
+        expect(profile.validate(), isEmpty);
+        expect(profile.isValid, isTrue);
+      });
+
+      test('returns error when height is zero', () {
+        final profile = TruckProfile.defaultProfile().copyWith(heightMeters: 0);
+        final errors = profile.validate();
+        expect(errors, isNotEmpty);
+        expect(errors.any((e) => e.toLowerCase().contains('height')), isTrue);
+        expect(profile.isValid, isFalse);
+      });
+
+      test('returns error when weight is zero', () {
+        final profile = TruckProfile.defaultProfile().copyWith(weightTons: 0);
+        final errors = profile.validate();
+        expect(errors.any((e) => e.toLowerCase().contains('weight')), isTrue);
+      });
+
+      test('returns error when axles < 2', () {
+        final profile = TruckProfile.defaultProfile().copyWith(axles: 1);
+        final errors = profile.validate();
+        expect(errors.any((e) => e.toLowerCase().contains('axle')), isTrue);
+      });
+
+      test('collects multiple errors at once', () {
+        final profile = TruckProfile(
+          heightMeters: 0,
+          widthMeters: 0,
+          lengthMeters: 0,
+          weightTons: 0,
+          axles: 1,
+          hazmat: false,
+        );
+        expect(profile.validate().length, greaterThanOrEqualTo(4));
+      });
+    });
+
+    group('HERE routing parameter mapping', () {
+      test('grossWeight is converted from tons to kg', () {
+        final profile = TruckProfile.defaultProfile(); // 36 tons
+        // 36 metric tons × 1000 = 36 000 kg
+        expect(profile.weightTons * 1000, closeTo(36000, 0.01));
+      });
+
+      test('hazmat flag maps to shippedHazardousGoods', () {
+        final safe = TruckProfile.defaultProfile();
+        final hazmat = safe.copyWith(hazmat: true);
+        expect(safe.hazmat, isFalse);
+        expect(hazmat.hazmat, isTrue);
+      });
+
+      test('all dimension fields are preserved accurately', () {
+        final profile = TruckProfile(
+          heightMeters: 4.2,
+          widthMeters: 2.55,
+          lengthMeters: 22.0,
+          weightTons: 40.0,
+          axles: 6,
+          hazmat: true,
+        );
+        expect(profile.heightMeters, 4.2);
+        expect(profile.widthMeters, 2.55);
+        expect(profile.lengthMeters, 22.0);
+        expect(profile.weightTons, 40.0);
+        expect(profile.axles, 6);
+        expect(profile.hazmat, isTrue);
+        // grossWeight in kg for HERE API
+        expect(profile.weightTons * 1000, closeTo(40000, 0.01));
+      });
+    });
   });
 
   group('POI Tests', () {

@@ -12,6 +12,8 @@ import 'widgets/layer_sheet.dart';
 import 'widgets/route_summary_card.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
+import 'poi_screen.dart';
+import 'trip_planner_screen.dart';
 
 /// Main map screen with Google Maps integration
 class MapScreen extends StatefulWidget {
@@ -120,6 +122,8 @@ class _MapScreenState extends State<MapScreen> {
                   onLayers: _onLayersPressed,
                   onTruckProfile: _onTruckProfilePressed,
                   onGoPro: _onGoProPressed,
+                  onPois: _onPoisPressed,
+                  onTripPlanner: _onTripPlannerPressed,
                   isPro: state.isPro,
                 ),
               ),
@@ -350,6 +354,22 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onPoisPressed() {
+    HapticFeedback.selectionClick();
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const PoiScreen()),
+    );
+  }
+
+  void _onTripPlannerPressed() {
+    HapticFeedback.selectionClick();
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const TripPlannerScreen()),
+    );
+  }
+
   void _onGoProPressed() {
     HapticFeedback.selectionClick();
     Navigator.push<void>(
@@ -400,6 +420,8 @@ class _MapActionCluster extends StatelessWidget {
     required this.onLayers,
     required this.onTruckProfile,
     required this.onGoPro,
+    required this.onPois,
+    required this.onTripPlanner,
     required this.isPro,
   });
 
@@ -407,6 +429,8 @@ class _MapActionCluster extends StatelessWidget {
   final VoidCallback onLayers;
   final VoidCallback onTruckProfile;
   final VoidCallback onGoPro;
+  final VoidCallback onPois;
+  final VoidCallback onTripPlanner;
   final bool isPro;
 
   @override
@@ -424,6 +448,18 @@ class _MapActionCluster extends StatelessWidget {
           icon: Icons.layers_rounded,
           tooltip: 'POI Layers',
           onPressed: onLayers,
+        ),
+        const SizedBox(height: AppTheme.spaceSM),
+        _ClusterFab(
+          icon: Icons.place_rounded,
+          tooltip: 'Driver POIs',
+          onPressed: onPois,
+        ),
+        const SizedBox(height: AppTheme.spaceSM),
+        _ClusterFab(
+          icon: Icons.map_rounded,
+          tooltip: 'Trip Planner',
+          onPressed: onTripPlanner,
         ),
         const SizedBox(height: AppTheme.spaceSM),
         _ClusterFab(
