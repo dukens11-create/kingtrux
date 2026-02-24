@@ -7,6 +7,7 @@ import '../services/location_service.dart';
 import '../services/here_routing_service.dart';
 import '../services/overpass_poi_service.dart';
 import '../services/weather_service.dart';
+import '../services/truck_profile_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -14,6 +15,7 @@ class AppState extends ChangeNotifier {
   final HereRoutingService _routingService = HereRoutingService();
   final OverpassPoiService _poiService = OverpassPoiService();
   final WeatherService _weatherService = WeatherService();
+  final TruckProfileService _truckProfileService = TruckProfileService();
 
   // Current location
   double? myLat;
@@ -42,6 +44,12 @@ class AppState extends ChangeNotifier {
 
   /// Initialize app state and get current location
   Future<void> init() async {
+    try {
+      truckProfile = await _truckProfileService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading truck profile: $e');
+    }
     try {
       await refreshMyLocation();
     } catch (e) {
@@ -80,10 +88,13 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update truck profile
+  /// Update truck profile and persist to device storage.
   void setTruck(TruckProfile profile) {
     truckProfile = profile;
     notifyListeners();
+    _truckProfileService.save(profile).catchError(
+      (Object e) => debugPrint('Error saving truck profile: $e'),
+    );
   }
 
   /// Toggle POI layer visibility

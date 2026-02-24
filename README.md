@@ -4,6 +4,11 @@ A Flutter-based mobile application for truck drivers with advanced routing, POI 
 
 ## Features
 - **Real-time GPS tracking** using Google Maps Flutter SDK
+- **Truck Profile** — configure your vehicle dimensions and restrictions:
+  - Height, width, length, weight, axle count, and hazmat flag
+  - Imperial (ft / short tons) and metric (m / t) display units
+  - **Persists locally on device** (no account or API keys required)
+  - Will be used for HERE truck routing once HERE keys are configured
 - **Truck-specific route planning** with HERE Routing API v8
   - Configurable truck profile (height, weight, width, length, axles, hazmat)
   - Route optimization considering truck restrictions
@@ -134,6 +139,29 @@ flutter build ios --release \
   --dart-define=OPENWEATHER_API_KEY=xxx
 ```
 
+## Truck Profile
+
+The **Truck Profile** stores your vehicle's physical dimensions and load characteristics locally on your device. No account or API key is required.
+
+| Field | Description | Range |
+|-------|-------------|-------|
+| Height | Overall vehicle height | 2.5–4.8 m (8.2–15.7 ft) |
+| Width | Overall vehicle width | 2.0–3.0 m (6.6–9.8 ft) |
+| Length | Overall vehicle length | 6.0–30.0 m (19.7–98.4 ft) |
+| Weight | Gross vehicle weight | 5–45 metric tons (5.5–49.6 short tons) |
+| Axles | Total axle count | 2–8 |
+| Hazmat | Carrying hazardous materials | on/off |
+
+### How to use
+
+1. Tap the **truck icon** (🚛) in the FAB cluster on the main map screen.
+2. Adjust sliders and toggles. Switch between **Metric** and **Imperial** display units at any time — values are stored internally in metric.
+3. Tap **Save Profile** — the profile is persisted to device storage and takes effect immediately.
+
+### Future HERE routing integration
+
+Once HERE API keys are configured, the saved profile will automatically be passed to the HERE Routing API v8 to calculate truck-compliant routes that respect height/weight clearances, hazmat restrictions, and road-class limits.
+
 ## UI Preview Gallery
 
 The app ships a built-in **UI Preview Gallery** that renders key components in
@@ -197,6 +225,7 @@ kingtrux/
 │   │   ├── location_service.dart
 │   │   ├── here_routing_service.dart
 │   │   ├── overpass_poi_service.dart
+│   │   ├── truck_profile_service.dart
 │   │   └── weather_service.dart
 │   ├── state/            # State management
 │   │   └── app_state.dart
