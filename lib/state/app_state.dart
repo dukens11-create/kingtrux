@@ -14,6 +14,7 @@ import '../services/weather_service.dart';
 import '../services/truck_profile_service.dart';
 import '../services/revenue_cat_service.dart';
 import '../services/voice_settings_service.dart';
+import '../services/favorites_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -25,6 +26,7 @@ class AppState extends ChangeNotifier {
   final TruckProfileService _truckProfileService = TruckProfileService();
   final RevenueCatService revenueCatService = RevenueCatService();
   final VoiceSettingsService _voiceSettingsService = VoiceSettingsService();
+  final FavoritesService _favoritesService = FavoritesService();
   // Lazily initialised on first use; never touched during unit tests unless
   // voice guidance is explicitly invoked.
   FlutterTts? _ttsInstance;
@@ -54,6 +56,9 @@ class AppState extends ChangeNotifier {
   // POI layers
   Set<PoiType> enabledPoiLayers = {};
   List<Poi> pois = [];
+
+  /// IDs of POIs the driver has marked as favorites.
+  Set<String> favoritePois = {};
 
   // Loading states
   bool isLoadingRoute = false;
@@ -139,6 +144,12 @@ class AppState extends ChangeNotifier {
       debugPrint('Error loading voice settings: $e');
     }
     try {
+      favoritePois = await _favoritesService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading favorites: $e');
+    }
+    try {
       await refreshMyLocation();
     } catch (e) {
       debugPrint('Error initializing location: $e');
@@ -214,6 +225,19 @@ class AppState extends ChangeNotifier {
     } else {
       enabledPoiLayers.remove(type);
     }
+    notifyListeners();
+  }
+
+  /// Toggle the favorite state of a POI identified by [poiId].
+  void toggleFavorite(String poiId) {
+    if (favoritePois.contains(poiId)) {
+      favoritePois.remove(poiId);
+    } else {
+      favoritePois.add(poiId);
+    }
+    _favoritesService.save(Set.of(favoritePois)).catchError(
+      (Object e) => debugPrint('Error saving favorites: $e'),
+    );
     notifyListeners();
   }
 
