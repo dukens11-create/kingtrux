@@ -141,6 +141,59 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Load POIs near current location AND along the active route (if available).
+  /// Results from both sources are merged and deduplicated by id.
+  Future<void> loadPoisAlongRoute({
+    double nearMeRadiusMeters = 15000,
+    double routeRadiusMeters = 5000,
+    int routeSamples = 8,
+  }) async {
+    if (myLat == null || myLng == null) {
+      throw Exception('Current location not set');
+    }
+
+    isLoadingPois = true;
+    notifyListeners();
+
+    try {
+      // Fetch near current location
+      final nearMe = await _poiService.fetchPois(
+        centerLat: myLat!,
+        centerLng: myLng!,
+        enabledTypes: enabledPoiLayers,
+        radiusMeters: nearMeRadiusMeters,
+      );
+
+      // Fetch along route if available
+      List<Poi> alongRoute = [];
+      final route = routeResult;
+      if (route != null && route.polylinePoints.isNotEmpty) {
+        final latLngs = route.polylinePoints
+            .map((p) => [p.latitude, p.longitude])
+            .toList();
+        alongRoute = await _poiService.fetchPoisAlongRoute(
+          routeLatLngs: latLngs,
+          enabledTypes: enabledPoiLayers,
+          radiusMeters: routeRadiusMeters,
+          maxSamples: routeSamples,
+        );
+      }
+
+      // Merge, deduplicating by id (near-me takes precedence)
+      final seen = <String>{};
+      final merged = <Poi>[];
+      for (final poi in [...nearMe, ...alongRoute]) {
+        if (seen.add(poi.id)) {
+          merged.add(poi);
+        }
+      }
+      pois = merged;
+    } finally {
+      isLoadingPois = false;
+      notifyListeners();
+    }
+  }
+
   /// Clear route and destination
   void clearRoute() {
     routeResult = null;
