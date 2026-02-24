@@ -63,13 +63,105 @@ class LayerSheet extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                 ),
 
-                const SizedBox(height: AppTheme.spaceXS),
-                Text(
-                  'Scales, gyms, and additional parking types will be added in future updates.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontStyle: FontStyle.italic,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                // Scales
+                SwitchListTile(
+                  secondary: Icon(
+                    Icons.scale_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  title: const Text('Scales'),
+                  subtitle: const Text('amenity=weighbridge'),
+                  value: state.enabledPoiLayers.contains(PoiType.scale),
+                  onChanged: (value) {
+                    HapticFeedback.selectionClick();
+                    state.toggleLayer(PoiType.scale, value);
+                  },
+                  contentPadding: EdgeInsets.zero,
+                ),
+
+                // Gyms
+                SwitchListTile(
+                  secondary: Icon(
+                    Icons.fitness_center_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  title: const Text('Gyms'),
+                  subtitle: const Text('leisure=fitness_centre · amenity=gym'),
+                  value: state.enabledPoiLayers.contains(PoiType.gym),
+                  onChanged: (value) {
+                    HapticFeedback.selectionClick();
+                    state.toggleLayer(PoiType.gym, value);
+                  },
+                  contentPadding: EdgeInsets.zero,
+                ),
+
+                // Truck Stops
+                SwitchListTile(
+                  secondary: Icon(
+                    Icons.local_shipping_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  title: const Text('Truck Stops'),
+                  subtitle: const Text('highway=services · amenity=truck_stop'),
+                  value: state.enabledPoiLayers.contains(PoiType.truckStop),
+                  onChanged: (value) {
+                    HapticFeedback.selectionClick();
+                    state.toggleLayer(PoiType.truckStop, value);
+                  },
+                  contentPadding: EdgeInsets.zero,
+                ),
+
+                // Parking
+                SwitchListTile(
+                  secondary: Icon(
+                    Icons.drive_eta_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  title: const Text('Parking'),
+                  subtitle: const Text('amenity=parking'),
+                  value: state.enabledPoiLayers.contains(PoiType.parking),
+                  onChanged: (value) {
+                    HapticFeedback.selectionClick();
+                    state.toggleLayer(PoiType.parking, value);
+                  },
+                  contentPadding: EdgeInsets.zero,
+                ),
+
+                const SizedBox(height: AppTheme.spaceMD),
+
+                // Load buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.my_location_rounded, size: 18),
+                        label: const Text('Near Me'),
+                        onPressed: state.enabledPoiLayers.isEmpty || state.isLoadingPois
+                            ? null
+                            : () {
+                                HapticFeedback.lightImpact();
+                                state.loadPois();
+                                Navigator.pop(context);
+                              },
                       ),
+                    ),
+                    const SizedBox(width: AppTheme.spaceSM),
+                    Expanded(
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.route_rounded, size: 18),
+                        label: const Text('Along Route'),
+                        onPressed: state.enabledPoiLayers.isEmpty ||
+                                state.isLoadingPois ||
+                                state.routeResult == null
+                            ? null
+                            : () {
+                                HapticFeedback.lightImpact();
+                                state.loadPoisAlongRoute();
+                                Navigator.pop(context);
+                              },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

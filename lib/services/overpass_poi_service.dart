@@ -9,7 +9,6 @@ class OverpassPoiService {
   final _uuid = const Uuid();
 
   /// Fetch POIs around a center point
-  /// Supports fuel stations and rest areas
   Future<List<Poi>> fetchPois({
     required double centerLat,
     required double centerLng,
@@ -21,17 +20,7 @@ class OverpassPoiService {
     }
 
     // Build Overpass query
-    final queries = <String>[];
-    
-    if (enabledTypes.contains(PoiType.fuel)) {
-      queries.add('node["amenity"="fuel"](around:$radiusMeters,$centerLat,$centerLng);');
-      queries.add('way["amenity"="fuel"](around:$radiusMeters,$centerLat,$centerLng);');
-    }
-    
-    if (enabledTypes.contains(PoiType.restArea)) {
-      queries.add('node["highway"="rest_area"](around:$radiusMeters,$centerLat,$centerLng);');
-      queries.add('way["highway"="rest_area"](around:$radiusMeters,$centerLat,$centerLng);');
-    }
+    final queries = _buildQueries(enabledTypes, radiusMeters, centerLat, centerLng);
 
     if (queries.isEmpty) {
       return [];
@@ -51,21 +40,104 @@ class OverpassPoiService {
       throw Exception('Overpass API error: ${response.statusCode} - ${response.body}');
     }
 
-    final data = json.decode(response.body);
-    final elements = data['elements'] as List? ?? [];
+    return _parseResponse(response.body);
+  }
 
+  /// Fetch POIs along a route by sampling up to [maxSamples] points from
+  /// [routeLatLngs] (each as `[lat, lng]`) and querying with [radiusMeters].
+  /// Results are deduplicated by OSM element id.
+  Future<List<Poi>> fetchPoisAlongRoute({
+    required List<List<double>> routeLatLngs,
+    required Set<PoiType> enabledTypes,
+    double radiusMeters = 5000,
+    int maxSamples = 8,
+  }) async {
+    if (enabledTypes.isEmpty || routeLatLngs.isEmpty) return [];
+
+    final samples = _samplePoints(routeLatLngs, maxSamples);
+    final seen = <String>{};
     final pois = <Poi>[];
-    
+
+    for (final point in samples) {
+      final batch = await fetchPois(
+        centerLat: point[0],
+        centerLng: point[1],
+        enabledTypes: enabledTypes,
+        radiusMeters: radiusMeters,
+      );
+      for (final poi in batch) {
+        if (seen.add(poi.id)) {
+          pois.add(poi);
+        }
+      }
+    }
+
+    return pois;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  List<String> _buildQueries(
+    Set<PoiType> enabledTypes,
+    double radius,
+    double lat,
+    double lng,
+  ) {
+    final q = <String>[];
+    void add(String filter) {
+      q.add('node[$filter](around:$radius,$lat,$lng);');
+      q.add('way[$filter](around:$radius,$lat,$lng);');
+    }
+
+    if (enabledTypes.contains(PoiType.fuel)) {
+      add('"amenity"="fuel"');
+    }
+    if (enabledTypes.contains(PoiType.restArea)) {
+      add('"highway"="rest_area"');
+    }
+    if (enabledTypes.contains(PoiType.scale)) {
+      add('"amenity"="weighbridge"');
+    }
+    if (enabledTypes.contains(PoiType.gym)) {
+      add('"leisure"="fitness_centre"');
+      add('"amenity"="gym"');
+    }
+    if (enabledTypes.contains(PoiType.truckStop)) {
+      add('"highway"="services"');
+      add('"amenity"="truck_stop"');
+    }
+    if (enabledTypes.contains(PoiType.parking)) {
+      add('"amenity"="parking"');
+    }
+
+    return q;
+  }
+
+  List<Poi> _parseResponse(String body) {
+    final data = json.decode(body);
+    final elements = data['elements'] as List? ?? [];
+    final pois = <Poi>[];
+
     for (final element in elements) {
       try {
         final tags = element['tags'] as Map<String, dynamic>? ?? {};
-        
+
         // Determine POI type
         PoiType? type;
         if (tags['amenity'] == 'fuel') {
           type = PoiType.fuel;
         } else if (tags['highway'] == 'rest_area') {
           type = PoiType.restArea;
+        } else if (tags['amenity'] == 'weighbridge') {
+          type = PoiType.scale;
+        } else if (tags['leisure'] == 'fitness_centre' || tags['amenity'] == 'gym') {
+          type = PoiType.gym;
+        } else if (tags['highway'] == 'services' || tags['amenity'] == 'truck_stop') {
+          type = PoiType.truckStop;
+        } else if (tags['amenity'] == 'parking') {
+          type = PoiType.parking;
         }
 
         if (type == null) continue;
@@ -75,11 +147,9 @@ class OverpassPoiService {
         double? lng;
 
         if (element['lat'] != null && element['lon'] != null) {
-          // Node with direct coordinates
           lat = (element['lat'] as num).toDouble();
           lng = (element['lon'] as num).toDouble();
         } else if (element['center'] != null) {
-          // Way or relation with center
           lat = (element['center']['lat'] as num).toDouble();
           lng = (element['center']['lon'] as num).toDouble();
         }
@@ -87,10 +157,10 @@ class OverpassPoiService {
         if (lat == null || lng == null) continue;
 
         // Generate name
-        String name = tags['name'] ?? 
-                     tags['operator'] ?? 
-                     tags['brand'] ?? 
-                     (type == PoiType.fuel ? 'Fuel Station' : 'Rest Area');
+        final String name = tags['name'] as String? ??
+            tags['operator'] as String? ??
+            tags['brand'] as String? ??
+            _defaultName(type);
 
         pois.add(Poi(
           id: element['id']?.toString() ?? _uuid.v4(),
@@ -107,5 +177,34 @@ class OverpassPoiService {
     }
 
     return pois;
+  }
+
+  String _defaultName(PoiType type) {
+    switch (type) {
+      case PoiType.fuel:
+        return 'Fuel Station';
+      case PoiType.restArea:
+        return 'Rest Area';
+      case PoiType.scale:
+        return 'Weigh Scale';
+      case PoiType.gym:
+        return 'Gym';
+      case PoiType.truckStop:
+        return 'Truck Stop';
+      case PoiType.parking:
+        return 'Parking';
+    }
+  }
+
+  /// Sample up to [maxSamples] evenly-spaced points from [points].
+  List<List<double>> _samplePoints(List<List<double>> points, int maxSamples) {
+    if (maxSamples <= 1) return [points.first];
+    if (points.length <= maxSamples) return List.of(points);
+    final result = <List<double>>[];
+    final step = (points.length - 1) / (maxSamples - 1);
+    for (var i = 0; i < maxSamples; i++) {
+      result.add(points[(i * step).round()]);
+    }
+    return result;
   }
 }
