@@ -9,6 +9,8 @@ import 'theme/app_theme.dart';
 import 'theme/dark_map_style.dart';
 import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
+import 'widgets/poi_browser_sheet.dart';
+import 'widgets/poi_detail_sheet.dart';
 import 'widgets/route_summary_card.dart';
 import 'widgets/voice_settings_sheet.dart';
 import 'widgets/alert_banner.dart';
@@ -120,6 +122,7 @@ class _MapScreenState extends State<MapScreen> {
                 child: _MapActionCluster(
                   onRecenter: _onMyLocationPressed,
                   onLayers: _onLayersPressed,
+                  onPoiBrowser: _onPoiBrowserPressed,
                   onTruckProfile: _onTruckProfilePressed,
                   onGoPro: _onGoProPressed,
                   isPro: state.isPro,
@@ -277,9 +280,10 @@ class _MapScreenState extends State<MapScreen> {
           position: LatLng(poi.lat, poi.lng),
           infoWindow: InfoWindow(
             title: poi.name,
-            snippet: poi.type.name,
+            snippet: PoiDetailSheet.poiLabel(poi.type),
           ),
           icon: BitmapDescriptor.defaultMarkerWithHue(_getPoiColor(poi.type)),
+          onTap: () => _onPoiMarkerTap(poi),
         ),
       );
     }
@@ -375,6 +379,23 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onPoiBrowserPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const PoiBrowserSheet(),
+    );
+  }
+
+  void _onPoiMarkerTap(Poi poi) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => PoiDetailSheet(poi: poi),
+    );
+  }
+
   void _onGoProPressed() {
     HapticFeedback.selectionClick();
     Navigator.push<void>(
@@ -423,6 +444,7 @@ class _MapActionCluster extends StatelessWidget {
   const _MapActionCluster({
     required this.onRecenter,
     required this.onLayers,
+    required this.onPoiBrowser,
     required this.onTruckProfile,
     required this.onGoPro,
     required this.isPro,
@@ -430,6 +452,7 @@ class _MapActionCluster extends StatelessWidget {
 
   final VoidCallback onRecenter;
   final VoidCallback onLayers;
+  final VoidCallback onPoiBrowser;
   final VoidCallback onTruckProfile;
   final VoidCallback onGoPro;
   final bool isPro;
@@ -449,6 +472,12 @@ class _MapActionCluster extends StatelessWidget {
           icon: Icons.layers_rounded,
           tooltip: 'POI Layers',
           onPressed: onLayers,
+        ),
+        const SizedBox(height: AppTheme.spaceSM),
+        _ClusterFab(
+          icon: Icons.place_rounded,
+          tooltip: 'POI Browser',
+          onPressed: onPoiBrowser,
         ),
         const SizedBox(height: AppTheme.spaceSM),
         _ClusterFab(
