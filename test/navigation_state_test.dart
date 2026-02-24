@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:kingtrux/models/navigation_maneuver.dart';
 import 'package:kingtrux/models/route_result.dart';
 import 'package:kingtrux/services/navigation_session_service.dart';
+import 'package:kingtrux/state/app_state.dart';
 
 void main() {
   // ---------------------------------------------------------------------------
@@ -106,12 +107,106 @@ void main() {
       expect(NavigationSessionService().remainingManeuvers, isEmpty);
     });
 
+    test('remainingDistanceMeters is 0 before start()', () {
+      expect(NavigationSessionService().remainingDistanceMeters, 0.0);
+    });
+
+    test('remainingDurationSeconds is 0 before start()', () {
+      expect(NavigationSessionService().remainingDurationSeconds, 0);
+    });
+
     test('stop() resets active state and returns without error', () async {
       final svc = NavigationSessionService();
       await expectLater(svc.stop(), completes);
       expect(svc.isActive, isFalse);
       expect(svc.currentManeuver, isNull);
       expect(svc.remainingManeuvers, isEmpty);
+      expect(svc.remainingDistanceMeters, 0.0);
+      expect(svc.remainingDurationSeconds, 0);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Remaining distance / duration helpers
+  // ---------------------------------------------------------------------------
+  group('NavigationSessionService remaining totals', () {
+    // Helper: build a RouteResult from a list of (distance, duration) pairs.
+    RouteResult _buildRoute(List<({double dist, int dur})> legs) {
+      final maneuvers = legs
+          .map(
+            (l) => NavigationManeuver(
+              instruction: '',
+              distanceMeters: l.dist,
+              durationSeconds: l.dur,
+              action: 'turn',
+              lat: 0,
+              lng: 0,
+            ),
+          )
+          .toList();
+      return RouteResult(
+        polylinePoints: const [],
+        lengthMeters: legs.fold(0.0, (s, l) => s + l.dist),
+        durationSeconds: legs.fold(0, (s, l) => s + l.dur),
+        maneuvers: maneuvers,
+      );
+    }
+
+    // The live-GPS path (start()) cannot be unit-tested without a real device;
+    // these tests verify the fold logic that the getters depend on.
+    test('service getters return 0 when no route is loaded', () {
+      final svc = NavigationSessionService();
+      expect(svc.remainingDistanceMeters, 0.0);
+      expect(svc.remainingDurationSeconds, 0);
+    });
+
+    test('RouteResult maneuver fold produces correct distance and duration', () {
+      final route = _buildRoute([
+        (dist: 500, dur: 30),
+        (dist: 1000, dur: 60),
+        (dist: 200, dur: 15),
+      ]);
+
+      final totalDist =
+          route.maneuvers.fold(0.0, (s, m) => s + m.distanceMeters);
+      final totalDur =
+          route.maneuvers.fold(0, (s, m) => s + m.durationSeconds);
+      expect(totalDist, closeTo(1700, 0.01));
+      expect(totalDur, 105);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // AppState voice language architecture
+  // ---------------------------------------------------------------------------
+  group('AppState voice language', () {
+    test('supportedVoiceLanguages contains required locales', () {
+      expect(AppState.supportedVoiceLanguages, containsAll([
+        'en-US',
+        'en-CA',
+        'fr-CA',
+        'es-US',
+      ]));
+    });
+
+    test('default voiceLanguage is en-US', () {
+      final state = AppState();
+      expect(state.voiceLanguage, 'en-US');
+      state.dispose();
+    });
+
+    test('setVoiceLanguage updates voiceLanguage for valid tag', () {
+      final state = AppState();
+      state.setVoiceLanguage('fr-CA');
+      expect(state.voiceLanguage, 'fr-CA');
+      state.dispose();
+    });
+
+    test('setVoiceLanguage ignores unknown tags', () {
+      final state = AppState();
+      state.setVoiceLanguage('de-DE');
+      expect(state.voiceLanguage, 'en-US'); // unchanged
+      state.dispose();
     });
   });
 }

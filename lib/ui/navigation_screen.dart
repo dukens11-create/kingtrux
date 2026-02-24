@@ -35,7 +35,11 @@ class NavigationScreen extends StatelessWidget {
           body: Column(
             children: [
               // ── Next-maneuver banner ──────────────────────────────────────
-              _NextManeuverBanner(maneuver: state.currentManeuver),
+              _NextManeuverBanner(
+                maneuver: state.currentManeuver,
+                remainingDistanceMeters: state.remainingDistanceMeters,
+                remainingDurationSeconds: state.remainingDurationSeconds,
+              ),
 
               // ── Remaining maneuvers list ──────────────────────────────────
               Expanded(
@@ -152,8 +156,14 @@ class NavigationScreen extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _NextManeuverBanner extends StatelessWidget {
-  const _NextManeuverBanner({required this.maneuver});
+  const _NextManeuverBanner({
+    required this.maneuver,
+    required this.remainingDistanceMeters,
+    required this.remainingDurationSeconds,
+  });
   final NavigationManeuver? maneuver;
+  final double remainingDistanceMeters;
+  final int remainingDurationSeconds;
 
   @override
   Widget build(BuildContext context) {
@@ -172,34 +182,66 @@ class _NextManeuverBanner extends StatelessWidget {
         horizontal: AppTheme.spaceMD,
         vertical: AppTheme.spaceMD,
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ManeuverIcon(action: m.action, direction: m.direction, size: 40),
-          const SizedBox(width: AppTheme.spaceMD),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  m.instruction,
-                  style: tt.titleLarge?.copyWith(
-                    color: cs.onPrimaryContainer,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (m.distanceMeters > 0) ...[
-                  const SizedBox(height: AppTheme.spaceXS),
-                  Text(
-                    _formatDistance(m.distanceMeters),
-                    style: tt.bodyMedium?.copyWith(
-                      color: cs.onPrimaryContainer.withAlpha(178),
+          // ── Next maneuver ────────────────────────────────────────────────
+          Row(
+            children: [
+              _ManeuverIcon(action: m.action, direction: m.direction, size: 40),
+              const SizedBox(width: AppTheme.spaceMD),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      m.instruction,
+                      style: tt.titleLarge?.copyWith(
+                        color: cs.onPrimaryContainer,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    if (m.distanceMeters > 0) ...[
+                      const SizedBox(height: AppTheme.spaceXS),
+                      Text(
+                        _formatDistance(m.distanceMeters),
+                        style: tt.bodyMedium?.copyWith(
+                          color: cs.onPrimaryContainer.withAlpha(178),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          // ── Total remaining ──────────────────────────────────────────────
+          if (remainingDistanceMeters > 0 || remainingDurationSeconds > 0) ...[
+            const SizedBox(height: AppTheme.spaceSM),
+            Divider(
+              height: 1,
+              color: cs.onPrimaryContainer.withAlpha(50),
+            ),
+            const SizedBox(height: AppTheme.spaceSM),
+            Row(
+              children: [
+                Icon(
+                  Icons.outlined_flag_rounded,
+                  size: 14,
+                  color: cs.onPrimaryContainer.withAlpha(178),
+                ),
+                const SizedBox(width: AppTheme.spaceXS),
+                Text(
+                  'Remaining: ${_formatDistance(remainingDistanceMeters)}'
+                  ' · ${_formatDuration(remainingDurationSeconds)}',
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onPrimaryContainer.withAlpha(178),
                   ),
-                ],
+                ),
               ],
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -210,6 +252,15 @@ class _NextManeuverBanner extends StatelessWidget {
       return '${(meters / 1000).toStringAsFixed(1)} km';
     }
     return '${meters.toStringAsFixed(0)} m';
+  }
+
+  String _formatDuration(int seconds) {
+    if (seconds <= 0) return '0 min';
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    if (hours > 0) return '${hours}h ${minutes}m';
+    if (minutes > 0) return '${minutes}m';
+    return '<1 min';
   }
 }
 

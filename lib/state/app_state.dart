@@ -66,12 +66,33 @@ class AppState extends ChangeNotifier {
   /// Whether voice guidance (TTS) is enabled.
   bool voiceGuidanceEnabled = true;
 
+  /// BCP-47 language tag used for voice guidance TTS.
+  ///
+  /// Defaults to US English. Language-selection UI is delivered in PR4; this
+  /// field provides the underlying architecture so the setting can be wired in
+  /// without changes to the voice pipeline.
+  String voiceLanguage = 'en-US';
+
+  /// Voice languages supported by KINGTRUX (USA + Canada region).
+  static const List<String> supportedVoiceLanguages = [
+    'en-US',
+    'en-CA',
+    'fr-CA',
+    'es-US',
+  ];
+
   /// The maneuver the driver should execute next.
   NavigationManeuver? get currentManeuver => _navService.currentManeuver;
 
   /// All remaining maneuvers from the current position to the destination.
   List<NavigationManeuver> get remainingManeuvers =>
       _navService.remainingManeuvers;
+
+  /// Total remaining route distance in metres (sum of remaining maneuver legs).
+  double get remainingDistanceMeters => _navService.remainingDistanceMeters;
+
+  /// Total remaining route duration in seconds (sum of remaining maneuver legs).
+  int get remainingDurationSeconds => _navService.remainingDurationSeconds;
 
   // ---------------------------------------------------------------------------
   // Initialisation
@@ -294,10 +315,16 @@ class AppState extends ChangeNotifier {
       }
       ..onVoicePrompt = (text) {
         if (voiceGuidanceEnabled) {
-          _tts.speak(text).then(
-            (_) {},
-            onError: (Object e) => debugPrint('TTS error: $e'),
-          );
+          _tts
+              .setLanguage(voiceLanguage)
+              .then(
+                (_) => _tts.speak(text),
+                onError: (Object e) => debugPrint('TTS setLanguage error: $e'),
+              )
+              .then(
+                (_) {},
+                onError: (Object e) => debugPrint('TTS error: $e'),
+              );
         }
         debugPrint('Voice prompt: $text');
       };
@@ -326,6 +353,16 @@ class AppState extends ChangeNotifier {
         );
       }
     }
+    notifyListeners();
+  }
+
+  /// Set the BCP-47 voice guidance language.
+  ///
+  /// [language] must be one of [supportedVoiceLanguages]; other values are
+  /// silently ignored. The new language takes effect on the next voice prompt.
+  void setVoiceLanguage(String language) {
+    if (!supportedVoiceLanguages.contains(language)) return;
+    voiceLanguage = language;
     notifyListeners();
   }
 
