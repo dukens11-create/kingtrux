@@ -248,6 +248,9 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     for (final poi in state.pois) {
+      // Respect layer toggle: hide markers for disabled layers without
+      // requiring a full reload.
+      if (!state.enabledPoiLayers.contains(poi.type)) continue;
       markers.add(
         Marker(
           markerId: MarkerId('poi_${poi.id}'),
