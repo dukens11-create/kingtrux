@@ -5,6 +5,14 @@ import 'package:kingtrux/state/app_state.dart';
 import 'package:kingtrux/ui/paywall_screen.dart';
 
 /// Wraps [PaywallScreen] with the necessary Provider / MaterialApp context.
+///
+/// NOTE: These tests use a real [AppState] (and therefore a real
+/// [RevenueCatService]). When running on non-mobile CI hosts (Linux), the
+/// service's [hasKeys] returns `false`, so tests exercise the
+/// "keys not configured" path. To test the full purchase flow (offerings
+/// loaded, purchase success/failure), add a mock [RevenueCatService] and a
+/// [AppState] constructor that accepts it — this is left as a follow-up since
+/// the existing test infrastructure in this repo does not yet use mocks.
 Widget buildPaywallApp() {
   return ChangeNotifierProvider(
     create: (_) => AppState(),

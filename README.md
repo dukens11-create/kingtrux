@@ -319,6 +319,7 @@ Key packages used (see `pubspec.yaml` for complete list):
 - `flutter_polyline_points` - Route polyline rendering
 - `uuid` - Unique ID generation
 - `purchases_flutter` - RevenueCat in-app subscription SDK
+- `url_launcher` - Open Terms/Privacy URLs in the browser
 
 ## Troubleshooting
 

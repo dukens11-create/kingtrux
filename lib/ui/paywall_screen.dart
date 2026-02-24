@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
 import '../state/app_state.dart';
@@ -638,12 +639,15 @@ class _LegalLinks extends StatelessWidget {
     );
   }
 
-  /// Opens [url] via SnackBar feedback (url_launcher not included to minimise
-  /// dependencies; integrate url_launcher to actually launch the browser).
-  void _openUrl(BuildContext context, String url) {
-    // TODO: Replace with url_launcher when added as a dependency.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Open: $url')),
-    );
+  /// Opens [url] in the device browser.
+  Future<void> _openUrl(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open: $url')),
+      );
+    }
   }
 }
