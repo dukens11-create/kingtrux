@@ -3,16 +3,16 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/poi.dart';
 
-/// Persists and retrieves favourite [Poi] items using [SharedPreferences].
+/// Persists and retrieves favorite [Poi] items using [SharedPreferences].
 ///
-/// Favourites are stored as a JSON-encoded list of [Poi] maps under the key
+/// Favorites are stored as a JSON-encoded list of [Poi] maps under the key
 /// [_key].  Only the fields required to reconstruct a [Poi] are saved.
 class PoiFavoritesService {
   static const _key = 'poi_favorites';
 
-  /// Load the full list of favourite POIs from device storage.
+  /// Load the full list of favorite POIs from device storage.
   ///
-  /// Returns an empty list when no favourites have been saved yet or if the
+  /// Returns an empty list when no favorites have been saved yet or if the
   /// stored data cannot be parsed.
   Future<List<Poi>> load() async {
     try {

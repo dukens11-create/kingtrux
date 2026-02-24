@@ -174,9 +174,9 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // POI favourites management
+  // POI favorites management
   // ---------------------------------------------------------------------------
-  group('AppState POI favourites', () {
+  group('AppState POI favorites', () {
     test('favoritePoisIds is empty on construction', () {
       final state = AppState();
       expect(state.favoritePoisIds, isEmpty);
@@ -189,14 +189,14 @@ void main() {
       state.dispose();
     });
 
-    test('toggleFavorite adds poi to favourites', () {
+    test('toggleFavorite adds poi to favorites', () {
       final state = AppState();
       state.toggleFavorite('poi_1');
       expect(state.isFavorite('poi_1'), isTrue);
       state.dispose();
     });
 
-    test('toggleFavorite removes poi when already favourited', () {
+    test('toggleFavorite removes poi when already favorited', () {
       final state = AppState();
       state.toggleFavorite('poi_1');
       state.toggleFavorite('poi_1');

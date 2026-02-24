@@ -54,7 +54,7 @@ class AppState extends ChangeNotifier {
   Set<PoiType> enabledPoiLayers = {};
   List<Poi> pois = [];
 
-  /// IDs of POIs the driver has marked as favourites.
+  /// IDs of POIs the driver has marked as favorites.
   Set<String> favoritePoisIds = {};
 
   // ---------------------------------------------------------------------------
@@ -158,7 +158,7 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error loading truck profile: $e');
     }
-    // Load favourite POI ids
+    // Load favorite POI ids
     try {
       final favs = await _favoritesService.load();
       favoritePoisIds = favs.map((p) => p.id).toSet();
@@ -252,9 +252,9 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Toggle favourite status for a POI identified by [poiId].
+  /// Toggle favorite status for a POI identified by [poiId].
   ///
-  /// If the POI is already a favourite it is removed; otherwise it is added.
+  /// If the POI is already a favorite it is removed; otherwise it is added.
   /// The updated list is persisted via [PoiFavoritesService].
   void toggleFavorite(String poiId) {
     if (favoritePoisIds.contains(poiId)) {
@@ -263,14 +263,14 @@ class AppState extends ChangeNotifier {
       favoritePoisIds.add(poiId);
     }
     notifyListeners();
-    // Persist the POIs that are currently loaded and also favourited.
+    // Persist the POIs that are currently loaded and also favorited.
     final favPois = pois.where((p) => favoritePoisIds.contains(p.id)).toList();
     _favoritesService.save(favPois).catchError(
       (Object e) => debugPrint('Error saving favorites: $e'),
     );
   }
 
-  /// Whether [poiId] is in the current favourites set.
+  /// Whether [poiId] is in the current favorites set.
   bool isFavorite(String poiId) => favoritePoisIds.contains(poiId);
 
   // ---------------------------------------------------------------------------

@@ -334,7 +334,7 @@ class _PoiList extends StatelessWidget {
               isFav ? Icons.star_rounded : Icons.star_outline_rounded,
               color: isFav ? Colors.amber : cs.outline,
             ),
-            tooltip: isFav ? 'Remove favourite' : 'Add favourite',
+            tooltip: isFav ? 'Remove favorite' : 'Add favorite',
             onPressed: () {
               HapticFeedback.selectionClick();
               onToggleFavorite(poi.id);
