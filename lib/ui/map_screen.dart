@@ -9,6 +9,7 @@ import 'theme/app_theme.dart';
 import 'theme/dark_map_style.dart';
 import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
+import 'widgets/poi_browser_sheet.dart';
 import 'widgets/route_summary_card.dart';
 import 'widgets/voice_settings_sheet.dart';
 import 'widgets/alert_banner.dart';
@@ -120,6 +121,7 @@ class _MapScreenState extends State<MapScreen> {
                 child: _MapActionCluster(
                   onRecenter: _onMyLocationPressed,
                   onLayers: _onLayersPressed,
+                  onBrowsePois: _onBrowsePoisPressed,
                   onTruckProfile: _onTruckProfilePressed,
                   onGoPro: _onGoProPressed,
                   isPro: state.isPro,
@@ -375,6 +377,15 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onBrowsePoisPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const PoiBrowserSheet(),
+    );
+  }
+
   void _onGoProPressed() {
     HapticFeedback.selectionClick();
     Navigator.push<void>(
@@ -423,6 +434,7 @@ class _MapActionCluster extends StatelessWidget {
   const _MapActionCluster({
     required this.onRecenter,
     required this.onLayers,
+    required this.onBrowsePois,
     required this.onTruckProfile,
     required this.onGoPro,
     required this.isPro,
@@ -430,6 +442,7 @@ class _MapActionCluster extends StatelessWidget {
 
   final VoidCallback onRecenter;
   final VoidCallback onLayers;
+  final VoidCallback onBrowsePois;
   final VoidCallback onTruckProfile;
   final VoidCallback onGoPro;
   final bool isPro;
@@ -449,6 +462,12 @@ class _MapActionCluster extends StatelessWidget {
           icon: Icons.layers_rounded,
           tooltip: 'POI Layers',
           onPressed: onLayers,
+        ),
+        const SizedBox(height: AppTheme.spaceSM),
+        _ClusterFab(
+          icon: Icons.list_alt_rounded,
+          tooltip: 'Browse POIs',
+          onPressed: onBrowsePois,
         ),
         const SizedBox(height: AppTheme.spaceSM),
         _ClusterFab(

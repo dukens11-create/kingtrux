@@ -14,6 +14,7 @@ import '../services/weather_service.dart';
 import '../services/truck_profile_service.dart';
 import '../services/revenue_cat_service.dart';
 import '../services/voice_settings_service.dart';
+import '../services/favorite_poi_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -25,6 +26,7 @@ class AppState extends ChangeNotifier {
   final TruckProfileService _truckProfileService = TruckProfileService();
   final RevenueCatService revenueCatService = RevenueCatService();
   final VoiceSettingsService _voiceSettingsService = VoiceSettingsService();
+  final FavoritePoiService _favoritePoiService = FavoritePoiService();
   // Lazily initialised on first use; never touched during unit tests unless
   // voice guidance is explicitly invoked.
   FlutterTts? _ttsInstance;
@@ -54,6 +56,9 @@ class AppState extends ChangeNotifier {
   // POI layers
   Set<PoiType> enabledPoiLayers = {};
   List<Poi> pois = [];
+
+  // Favourite POIs (persisted by id)
+  Set<String> favoritePoisIds = {};
 
   // Loading states
   bool isLoadingRoute = false;
@@ -139,6 +144,12 @@ class AppState extends ChangeNotifier {
       debugPrint('Error loading voice settings: $e');
     }
     try {
+      favoritePoisIds = await _favoritePoiService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading favourite POIs: $e');
+    }
+    try {
       await refreshMyLocation();
     } catch (e) {
       debugPrint('Error initializing location: $e');
@@ -215,6 +226,22 @@ class AppState extends ChangeNotifier {
       enabledPoiLayers.remove(type);
     }
     notifyListeners();
+  }
+
+  /// Whether [id] is currently marked as a favourite.
+  bool isFavorite(String id) => favoritePoisIds.contains(id);
+
+  /// Toggle the favourite state of a POI by [id] and persist the change.
+  void toggleFavorite(String id) {
+    if (favoritePoisIds.contains(id)) {
+      favoritePoisIds = Set.of(favoritePoisIds)..remove(id);
+    } else {
+      favoritePoisIds = {...favoritePoisIds, id};
+    }
+    notifyListeners();
+    _favoritePoiService.save(favoritePoisIds).catchError(
+      (Object e) => debugPrint('Error saving favourite POIs: $e'),
+    );
   }
 
   /// Calculate truck route from current location to destination
