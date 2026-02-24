@@ -236,9 +236,26 @@ them in the browser (it is not included by default to minimise dependencies).
 2. Adjust sliders and toggles. Switch between **Metric** and **Imperial** display units at any time — values are stored internally in metric.
 3. Tap **Save Profile** — the profile is persisted to device storage and takes effect immediately.
 
-### Future HERE routing integration
+### HERE Routing integration
 
-Once HERE API keys are configured, the saved profile will automatically be passed to the HERE Routing API v8 to calculate truck-compliant routes that respect height/weight clearances, hazmat restrictions, and road-class limits.
+The saved profile is automatically passed to the HERE Routing API v8 every time
+a route is calculated. The following parameters are applied:
+
+| TruckProfile field | HERE API parameter | Unit |
+|--------------------|--------------------|------|
+| `heightMeters` | `truck[height]` | meters |
+| `widthMeters` | `truck[width]` | meters |
+| `lengthMeters` | `truck[length]` | meters |
+| `weightTons` | `truck[grossWeight]` | kilograms (×1 000) |
+| `axles` | `truck[axleCount]` | count |
+| `hazmat: true` | `truck[shippedHazardousGoods]` | `explosive` |
+
+Routes respect height/weight clearances, hazmat restrictions, and road-class
+limits. A HERE API key (`HERE_API_KEY`) must be configured — see
+[HERE_NAVIGATE_SETUP.md](HERE_NAVIGATE_SETUP.md).
+
+If required profile fields are zero or invalid, the app surfaces an actionable
+error before making any network request (no crash or silent fallback).
 
 ## UI Preview Gallery
 

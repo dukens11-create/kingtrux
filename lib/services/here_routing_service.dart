@@ -27,15 +27,7 @@ class HereRoutingService {
         'apiKey': Config.hereApiKey,
         'origin': '$originLat,$originLng',
         'destination': '$destLat,$destLng',
-        'transportMode': 'truck',
-        'return': 'polyline,summary,actions',
-        // Truck restrictions
-        'truck[height]': truckProfile.heightMeters.toString(),
-        'truck[width]': truckProfile.widthMeters.toString(),
-        'truck[length]': truckProfile.lengthMeters.toString(),
-        'truck[grossWeight]': (truckProfile.weightTons * 1000).toString(), // Convert to kg
-        'truck[axleCount]': truckProfile.axles.toString(),
-        if (truckProfile.hazmat) 'truck[shippedHazardousGoods]': 'explosive',
+        ...buildTruckParams(truckProfile),
       },
     );
 
@@ -45,7 +37,10 @@ class HereRoutingService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception('HERE Routing API error: ${response.statusCode} - ${response.body}');
+      throw Exception(
+          'HERE Routing API rejected the request (${response.statusCode}). '
+          'Check that all truck dimensions are within allowed limits. '
+          'Response: ${response.body}');
     }
 
     final data = json.decode(response.body);
@@ -88,6 +83,28 @@ class HereRoutingService {
       durationSeconds: (summary['duration'] as num).toInt(),
       maneuvers: maneuvers,
     );
+  }
+
+  /// Maps [TruckProfile] fields to HERE Routing API v8 truck query parameters.
+  ///
+  /// Weight is converted from metric tons to kilograms (×1 000) as required by
+  /// the HERE API. Hazmat is only added when the flag is set.
+  ///
+  /// Exposed as a static method so unit tests can verify the mapping without
+  /// making real HTTP requests.
+  static Map<String, String> buildTruckParams(TruckProfile profile) {
+    return {
+      'transportMode': 'truck',
+      'return': 'polyline,summary,actions',
+      // Truck physical restrictions (metric units as expected by HERE API v8)
+      'truck[height]': profile.heightMeters.toString(),
+      'truck[width]': profile.widthMeters.toString(),
+      'truck[length]': profile.lengthMeters.toString(),
+      // Weight: convert metric tons → kilograms (HERE expects kg)
+      'truck[grossWeight]': (profile.weightTons * 1000).toStringAsFixed(0),
+      'truck[axleCount]': profile.axles.toString(),
+      if (profile.hazmat) 'truck[shippedHazardousGoods]': 'explosive',
+    };
   }
 
   /// Decode HERE Flexible Polyline format

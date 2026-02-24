@@ -99,6 +99,21 @@ class TruckProfile {
   /// Converts US short tons to metric tons.
   static double shortTonsToMetricTons(double st) => st / 1.10231;
 
+  /// Validates the profile for use in route calculations.
+  ///
+  /// Returns a list of human-readable error messages describing any invalid
+  /// fields. An empty list means the profile is valid. A non-empty list should
+  /// be shown to the user before attempting a routing request.
+  List<String> validate() {
+    final errors = <String>[];
+    if (heightMeters <= 0) errors.add('Height must be greater than zero.');
+    if (widthMeters <= 0) errors.add('Width must be greater than zero.');
+    if (lengthMeters <= 0) errors.add('Length must be greater than zero.');
+    if (weightTons <= 0) errors.add('Weight must be greater than zero.');
+    if (axles <= 0) errors.add('Axle count must be greater than zero.');
+    return errors;
+  }
+
   /// Returns a human-readable summary of the profile.
   String summary({TruckUnit unit = TruckUnit.metric}) {
     if (unit == TruckUnit.imperial) {

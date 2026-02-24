@@ -191,6 +191,16 @@ class AppState extends ChangeNotifier {
       throw Exception('Location or destination not set');
     }
 
+    // Validate truck profile before calling the API so the user gets an
+    // actionable message rather than an opaque network error.
+    final profileErrors = truckProfile.validate();
+    if (profileErrors.isNotEmpty) {
+      throw Exception(
+        'Truck profile is incomplete — please update your truck settings:\n'
+        '${profileErrors.join('\n')}',
+      );
+    }
+
     isLoadingRoute = true;
     notifyListeners();
 
