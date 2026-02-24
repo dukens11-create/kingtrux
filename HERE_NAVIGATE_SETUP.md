@@ -260,6 +260,21 @@ Already added:
 ## 7. Voice guidance
 
 Voice prompts are emitted through `AppState.voiceGuidanceEnabled` and piped
-to `flutter_tts`. The default language is the device's system locale.
-Multi-language selection UI (en-US, en-CA, fr-CA, es-US) is tracked in a
-follow-up PR.
+to `flutter_tts`. Before each utterance the TTS engine is configured to the
+currently selected language via `flutter_tts.setLanguage(voiceLanguage)`.
+
+### Supported languages (USA + Canada region)
+
+| BCP-47 tag | Description |
+|---|---|
+| `en-US` | English (United States) – **default** |
+| `en-CA` | English (Canada) |
+| `fr-CA` | French (Canada) |
+| `es-US` | Spanish (United States) |
+
+These tags are defined as `AppState.supportedVoiceLanguages`. The active tag
+is stored in `AppState.voiceLanguage` and can be updated at runtime via
+`AppState.setVoiceLanguage(tag)`.
+
+The voice-language selection UI (PR4) will call `setVoiceLanguage()` directly
+without requiring any changes to the voice pipeline.

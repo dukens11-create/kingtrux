@@ -93,6 +93,16 @@ class NavigationSessionService {
     return route.maneuvers.sublist(_maneuverIndex);
   }
 
+  /// Sum of [NavigationManeuver.distanceMeters] for all remaining steps.
+  double get remainingDistanceMeters {
+    return remainingManeuvers.fold(0.0, (sum, m) => sum + m.distanceMeters);
+  }
+
+  /// Sum of [NavigationManeuver.durationSeconds] for all remaining steps.
+  int get remainingDurationSeconds {
+    return remainingManeuvers.fold(0, (sum, m) => sum + m.durationSeconds);
+  }
+
   // ---------------------------------------------------------------------------
   // Session lifecycle
   // ---------------------------------------------------------------------------
