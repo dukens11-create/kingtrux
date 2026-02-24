@@ -1,42 +1,36 @@
-/// Categories of in-app alert.
+/// Severity level of a navigation or system alert.
+enum AlertSeverity { info, warning, critical }
+
+/// Category of a navigation or system alert.
 enum AlertType {
-  navigationStarted,
-  navigationStopped,
   reroute,
   offRoute,
-  locationDisabled,
+  navigationStarted,
+  navigationStopped,
   lowGpsAccuracy,
+  locationDisabled,
+  generic,
 }
 
-/// Visual / audio severity of an alert.
-enum AlertSeverity { info, warning, error }
-
-/// An event displayed as a banner/toast on the main map screen.
+/// A discrete alert that can be displayed to the driver and optionally spoken.
 class AlertEvent {
-  /// Alert category.
-  final AlertType type;
-
-  /// Visual severity level.
-  final AlertSeverity severity;
-
-  /// Short headline shown in the banner.
-  final String title;
-
-  /// Optional detail text.
-  final String message;
-
-  /// When the alert was created.
-  final DateTime timestamp;
-
-  /// Whether TTS should read this alert aloud.
-  final bool speakable;
-
   const AlertEvent({
+    required this.id,
     required this.type,
-    required this.severity,
     required this.title,
     required this.message,
+    this.severity = AlertSeverity.info,
     required this.timestamp,
     this.speakable = false,
   });
+
+  final String id;
+  final AlertType type;
+  final String title;
+  final String message;
+  final AlertSeverity severity;
+  final DateTime timestamp;
+
+  /// Whether the alert should be spoken aloud when voice guidance is enabled.
+  final bool speakable;
 }
