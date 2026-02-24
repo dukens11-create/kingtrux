@@ -9,7 +9,12 @@ import 'theme/app_theme.dart';
 import 'theme/dark_map_style.dart';
 import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
+import 'widgets/poi_browser_sheet.dart';
+import 'widgets/poi_detail_sheet.dart';
 import 'widgets/route_summary_card.dart';
+import 'widgets/voice_settings_sheet.dart';
+import 'widgets/alert_banner.dart';
+import 'widgets/trip_planner_sheet.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
 
@@ -118,7 +123,9 @@ class _MapScreenState extends State<MapScreen> {
                 child: _MapActionCluster(
                   onRecenter: _onMyLocationPressed,
                   onLayers: _onLayersPressed,
+                  onPoiBrowser: _onPoiBrowserPressed,
                   onTruckProfile: _onTruckProfilePressed,
+                  onTripPlanner: _onTripPlannerPressed,
                   onGoPro: _onGoProPressed,
                   isPro: state.isPro,
                 ),
@@ -130,6 +137,14 @@ class _MapScreenState extends State<MapScreen> {
                 left: 0,
                 right: 0,
                 child: RouteSummaryCard(),
+              ),
+
+              // ── Alert banner (below status bar + app bar) ────────────────
+              Positioned(
+                top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceXS,
+                left: 0,
+                right: 0,
+                child: const AlertBanner(),
               ),
             ],
           );
@@ -165,6 +180,13 @@ class _MapScreenState extends State<MapScreen> {
                   const Text('KINGTRUX'),
                 ],
               ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.record_voice_over_rounded),
+            tooltip: 'Voice Settings',
+            onPressed: _onVoiceSettingsPressed,
+          ),
+        ],
       );
 
   // ---------------------------------------------------------------------------
@@ -260,9 +282,10 @@ class _MapScreenState extends State<MapScreen> {
           position: LatLng(poi.lat, poi.lng),
           infoWindow: InfoWindow(
             title: poi.name,
-            snippet: poi.type.name,
+            snippet: PoiDetailSheet.poiLabel(poi.type),
           ),
           icon: BitmapDescriptor.defaultMarkerWithHue(_getPoiColor(poi.type)),
+          onTap: () => _onPoiMarkerTap(poi),
         ),
       );
     }
@@ -342,11 +365,45 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onTripPlannerPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const TripPlannerSheet(),
+    );
+  }
+
+  void _onVoiceSettingsPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => const VoiceSettingsSheet(),
+    );
+  }
+
   void _onLayersPressed() {
     HapticFeedback.selectionClick();
     showModalBottomSheet(
       context: context,
       builder: (context) => const LayerSheet(),
+    );
+  }
+
+  void _onPoiBrowserPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const PoiBrowserSheet(),
+    );
+  }
+
+  void _onPoiMarkerTap(Poi poi) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => PoiDetailSheet(poi: poi),
     );
   }
 
@@ -398,14 +455,18 @@ class _MapActionCluster extends StatelessWidget {
   const _MapActionCluster({
     required this.onRecenter,
     required this.onLayers,
+    required this.onPoiBrowser,
     required this.onTruckProfile,
+    required this.onTripPlanner,
     required this.onGoPro,
     required this.isPro,
   });
 
   final VoidCallback onRecenter;
   final VoidCallback onLayers;
+  final VoidCallback onPoiBrowser;
   final VoidCallback onTruckProfile;
+  final VoidCallback onTripPlanner;
   final VoidCallback onGoPro;
   final bool isPro;
 
@@ -427,9 +488,21 @@ class _MapActionCluster extends StatelessWidget {
         ),
         const SizedBox(height: AppTheme.spaceSM),
         _ClusterFab(
+          icon: Icons.place_rounded,
+          tooltip: 'POI Browser',
+          onPressed: onPoiBrowser,
+        ),
+        const SizedBox(height: AppTheme.spaceSM),
+        _ClusterFab(
           icon: Icons.local_shipping_rounded,
           tooltip: 'Truck Profile',
           onPressed: onTruckProfile,
+        ),
+        const SizedBox(height: AppTheme.spaceSM),
+        _ClusterFab(
+          icon: Icons.route_rounded,
+          tooltip: 'Trip Planner',
+          onPressed: onTripPlanner,
         ),
         if (!isPro) ...[
           const SizedBox(height: AppTheme.spaceSM),

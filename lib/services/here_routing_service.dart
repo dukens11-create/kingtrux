@@ -9,6 +9,34 @@ import '../models/navigation_maneuver.dart';
 
 /// Service for calculating truck routes using HERE API v8
 class HereRoutingService {
+  /// Validates [profile] for use in a HERE Routing API request.
+  ///
+  /// Returns an error message string if the profile contains invalid values,
+  /// or `null` if the profile is valid.
+  static String? validateTruckProfileForRouting(TruckProfile profile) {
+    if (profile.heightMeters <= 0) return 'Truck height must be greater than zero';
+    if (profile.widthMeters <= 0) return 'Truck width must be greater than zero';
+    if (profile.lengthMeters <= 0) return 'Truck length must be greater than zero';
+    if (profile.weightTons <= 0) return 'Truck weight must be greater than zero';
+    if (profile.axles < 2) return 'Truck must have at least 2 axles';
+    return null;
+  }
+
+  /// Builds the HERE Routing API v8 truck query parameters from [profile].
+  ///
+  /// Returns a map of query parameter key-value strings ready to be added to
+  /// the routing request URL.
+  static Map<String, String> buildHereTruckQueryParams(TruckProfile profile) {
+    return {
+      'truck[height]': profile.heightMeters.toString(),
+      'truck[width]': profile.widthMeters.toString(),
+      'truck[length]': profile.lengthMeters.toString(),
+      'truck[grossWeight]': (profile.weightTons * 1000).toString(),
+      'truck[axleCount]': profile.axles.toString(),
+      if (profile.hazmat) 'truck[shippedHazardousGoods]': 'explosive',
+    };
+  }
+
   /// Calculate truck route from origin to destination
   Future<RouteResult> getTruckRoute({
     required double originLat,
@@ -21,13 +49,20 @@ class HereRoutingService {
       throw Exception('HERE API key not configured. Please set HERE_API_KEY environment variable.');
     }
 
+    final validationError = validateTruckProfileForRouting(truckProfile);
+    if (validationError != null) {
+      throw Exception(validationError);
+    }
+
     // Build URL with truck parameters
     final url = Uri.parse('${Config.hereRoutingBaseUrl}/routes').replace(
       queryParameters: {
         'apiKey': Config.hereApiKey,
         'origin': '$originLat,$originLng',
         'destination': '$destLat,$destLng',
-        ...buildTruckParams(truckProfile),
+        'transportMode': 'truck',
+        'return': 'polyline,summary,actions',
+        ...buildHereTruckQueryParams(truckProfile),
       },
     );
 
@@ -37,10 +72,7 @@ class HereRoutingService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception(
-          'HERE Routing API rejected the request (${response.statusCode}). '
-          'Check that all truck dimensions are within allowed limits. '
-          'Response: ${response.body}');
+      throw Exception('HERE Routing API error: ${response.statusCode} - ${response.body}');
     }
 
     final data = json.decode(response.body);
@@ -83,28 +115,6 @@ class HereRoutingService {
       durationSeconds: (summary['duration'] as num).toInt(),
       maneuvers: maneuvers,
     );
-  }
-
-  /// Maps [TruckProfile] fields to HERE Routing API v8 truck query parameters.
-  ///
-  /// Weight is converted from metric tons to kilograms (×1 000) as required by
-  /// the HERE API. Hazmat is only added when the flag is set.
-  ///
-  /// Exposed as a static method so unit tests can verify the mapping without
-  /// making real HTTP requests.
-  static Map<String, String> buildTruckParams(TruckProfile profile) {
-    return {
-      'transportMode': 'truck',
-      'return': 'polyline,summary,actions',
-      // Truck physical restrictions (metric units as expected by HERE API v8)
-      'truck[height]': profile.heightMeters.toString(),
-      'truck[width]': profile.widthMeters.toString(),
-      'truck[length]': profile.lengthMeters.toString(),
-      // Weight: convert metric tons → kilograms (HERE expects kg)
-      'truck[grossWeight]': (profile.weightTons * 1000).toStringAsFixed(0),
-      'truck[axleCount]': profile.axles.toString(),
-      if (profile.hazmat) 'truck[shippedHazardousGoods]': 'explosive',
-    };
   }
 
   /// Decode HERE Flexible Polyline format
