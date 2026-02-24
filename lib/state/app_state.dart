@@ -6,6 +6,8 @@ import '../models/route_result.dart';
 import '../models/weather_point.dart';
 import '../models/navigation_maneuver.dart';
 import '../models/poi.dart';
+import '../models/trip.dart';
+import '../models/trip_stop.dart';
 import '../services/location_service.dart';
 import '../services/here_routing_service.dart';
 import '../services/navigation_session_service.dart';
@@ -15,6 +17,9 @@ import '../services/truck_profile_service.dart';
 import '../services/revenue_cat_service.dart';
 import '../services/voice_settings_service.dart';
 import '../services/favorites_service.dart';
+import '../services/trip_service.dart';
+import '../services/trip_routing_service.dart';
+import '../services/stop_optimizer.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -27,6 +32,8 @@ class AppState extends ChangeNotifier {
   final RevenueCatService revenueCatService = RevenueCatService();
   final VoiceSettingsService _voiceSettingsService = VoiceSettingsService();
   final FavoritesService _favoritesService = FavoritesService();
+  final TripService _tripService = TripService();
+  final TripRoutingService _tripRoutingService = TripRoutingService();
   // Lazily initialised on first use; never touched during unit tests unless
   // voice guidance is explicitly invoked.
   FlutterTts? _ttsInstance;
@@ -59,6 +66,19 @@ class AppState extends ChangeNotifier {
 
   /// IDs of POIs the driver has marked as favorites.
   Set<String> favoritePois = {};
+
+  // ---------------------------------------------------------------------------
+  // Trip planner state
+  // ---------------------------------------------------------------------------
+
+  /// The currently active multi-stop trip, or `null` if no trip is planned.
+  Trip? activeTrip;
+
+  /// Whether a trip route is currently being calculated.
+  bool isLoadingTripRoute = false;
+
+  /// Error message from the last [buildTripRoute] call, or `null` on success.
+  String? tripRouteError;
 
   // Loading states
   bool isLoadingRoute = false;
@@ -148,6 +168,12 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading favorites: $e');
+    }
+    try {
+      activeTrip = await _tripService.loadActiveTrip();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading active trip: $e');
     }
     try {
       await refreshMyLocation();
@@ -353,6 +379,109 @@ class AppState extends ChangeNotifier {
     destLat = null;
     destLng = null;
     notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Trip planner
+  // ---------------------------------------------------------------------------
+
+  /// Replace the active trip with [trip] and persist it.
+  void setActiveTrip(Trip trip) {
+    activeTrip = trip;
+    notifyListeners();
+    _tripService.saveActiveTrip(trip).catchError(
+      (Object e) => debugPrint('Error saving active trip: $e'),
+    );
+  }
+
+  /// Add a stop to the current active trip (creates a new trip if needed).
+  void addTripStop(TripStop stop) {
+    final now = DateTime.now();
+    final current = activeTrip;
+    final updated = current == null
+        ? Trip(
+            id: stop.id,
+            stops: [stop],
+            createdAt: now,
+            updatedAt: now,
+          )
+        : current.copyWith(stops: [...current.stops, stop]);
+    setActiveTrip(updated);
+  }
+
+  /// Remove the stop with [stopId] from the active trip.
+  void removeTripStop(String stopId) {
+    final current = activeTrip;
+    if (current == null) return;
+    final updated = current.copyWith(
+      stops: current.stops.where((s) => s.id != stopId).toList(),
+    );
+    setActiveTrip(updated);
+  }
+
+  /// Reorder stops by moving the stop at [oldIndex] to [newIndex].
+  void reorderTripStop(int oldIndex, int newIndex) {
+    final current = activeTrip;
+    if (current == null) return;
+    final stops = List<TripStop>.of(current.stops);
+    if (oldIndex < 0 ||
+        oldIndex >= stops.length ||
+        newIndex < 0 ||
+        newIndex >= stops.length) return;
+    final stop = stops.removeAt(oldIndex);
+    stops.insert(newIndex, stop);
+    setActiveTrip(current.copyWith(stops: stops));
+  }
+
+  /// Optimize the intermediate stop order of the active trip using
+  /// nearest-neighbour + 2-opt heuristic.
+  ///
+  /// The first and last stops are kept fixed.
+  void optimizeTripStopOrder() {
+    final current = activeTrip;
+    if (current == null || current.stops.length < 3) return;
+    final optimized = StopOptimizer.optimize(current.stops);
+    setActiveTrip(current.copyWith(stops: optimized));
+  }
+
+  /// Calculate a combined route for all stops in the active trip.
+  Future<void> buildTripRoute() async {
+    final trip = activeTrip;
+    if (trip == null || trip.stops.length < 2) {
+      tripRouteError = 'Trip requires at least 2 stops.';
+      notifyListeners();
+      return;
+    }
+
+    tripRouteError = null;
+    isLoadingTripRoute = true;
+    notifyListeners();
+
+    try {
+      routeResult = await _tripRoutingService.buildTripRoute(
+        stops: trip.stops,
+        truckProfile: truckProfile,
+      );
+      routeError = null;
+    } catch (e) {
+      tripRouteError = e.toString();
+      routeResult = null;
+    } finally {
+      isLoadingTripRoute = false;
+      notifyListeners();
+    }
+  }
+
+  /// Clear the active trip and remove it from persistent storage.
+  void clearTrip() {
+    activeTrip = null;
+    routeResult = null;
+    routeError = null;
+    tripRouteError = null;
+    notifyListeners();
+    _tripService.clearActiveTrip().catchError(
+      (Object e) => debugPrint('Error clearing active trip: $e'),
+    );
   }
 
   // ---------------------------------------------------------------------------

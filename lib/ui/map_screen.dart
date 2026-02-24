@@ -14,6 +14,7 @@ import 'widgets/poi_detail_sheet.dart';
 import 'widgets/route_summary_card.dart';
 import 'widgets/voice_settings_sheet.dart';
 import 'widgets/alert_banner.dart';
+import 'widgets/trip_planner_sheet.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
 
@@ -124,6 +125,7 @@ class _MapScreenState extends State<MapScreen> {
                   onLayers: _onLayersPressed,
                   onPoiBrowser: _onPoiBrowserPressed,
                   onTruckProfile: _onTruckProfilePressed,
+                  onTripPlanner: _onTripPlannerPressed,
                   onGoPro: _onGoProPressed,
                   isPro: state.isPro,
                 ),
@@ -363,6 +365,15 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onTripPlannerPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const TripPlannerSheet(),
+    );
+  }
+
   void _onVoiceSettingsPressed() {
     HapticFeedback.selectionClick();
     showModalBottomSheet(
@@ -446,6 +457,7 @@ class _MapActionCluster extends StatelessWidget {
     required this.onLayers,
     required this.onPoiBrowser,
     required this.onTruckProfile,
+    required this.onTripPlanner,
     required this.onGoPro,
     required this.isPro,
   });
@@ -454,6 +466,7 @@ class _MapActionCluster extends StatelessWidget {
   final VoidCallback onLayers;
   final VoidCallback onPoiBrowser;
   final VoidCallback onTruckProfile;
+  final VoidCallback onTripPlanner;
   final VoidCallback onGoPro;
   final bool isPro;
 
@@ -484,6 +497,12 @@ class _MapActionCluster extends StatelessWidget {
           icon: Icons.local_shipping_rounded,
           tooltip: 'Truck Profile',
           onPressed: onTruckProfile,
+        ),
+        const SizedBox(height: AppTheme.spaceSM),
+        _ClusterFab(
+          icon: Icons.route_rounded,
+          tooltip: 'Trip Planner',
+          onPressed: onTripPlanner,
         ),
         if (!isPro) ...[
           const SizedBox(height: AppTheme.spaceSM),
