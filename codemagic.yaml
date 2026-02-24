@@ -4,11 +4,11 @@ workflows:
     environment:
       flutter: stable
     scripts:
-      - name: Get dependencies
+      - name: Get Flutter dependencies
         script: flutter pub get
-      - name: Build APK
+      - name: Build release APK
         script: flutter build apk --release
-      - name: Build AAB
+      - name: Build release App Bundle
         script: flutter build appbundle --release
     artifacts:
       - build/app/outputs/flutter-apk/app-release.apk
