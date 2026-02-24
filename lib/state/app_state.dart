@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../models/truck_profile.dart';
 import '../models/route_result.dart';
 import '../models/weather_point.dart';
+import '../models/navigation_maneuver.dart';
 import '../models/poi.dart';
 import '../services/location_service.dart';
 import '../services/here_routing_service.dart';
+import '../services/navigation_session_service.dart';
 import '../services/overpass_poi_service.dart';
 import '../services/weather_service.dart';
 import '../services/truck_profile_service.dart';
@@ -13,9 +16,14 @@ import '../services/truck_profile_service.dart';
 class AppState extends ChangeNotifier {
   final LocationService _locationService = LocationService();
   final HereRoutingService _routingService = HereRoutingService();
+  final NavigationSessionService _navService = NavigationSessionService();
   final OverpassPoiService _poiService = OverpassPoiService();
   final WeatherService _weatherService = WeatherService();
   final TruckProfileService _truckProfileService = TruckProfileService();
+  // Lazily initialised on first use; never touched during unit tests unless
+  // voice guidance is explicitly invoked.
+  FlutterTts? _ttsInstance;
+  FlutterTts get _tts => _ttsInstance ??= FlutterTts();
 
   // Current location
   double? myLat;
@@ -41,6 +49,27 @@ class AppState extends ChangeNotifier {
   // Loading states
   bool isLoadingRoute = false;
   bool isLoadingPois = false;
+
+  // ---------------------------------------------------------------------------
+  // Navigation state
+  // ---------------------------------------------------------------------------
+
+  /// Whether a navigation session is currently active.
+  bool isNavigating = false;
+
+  /// Whether voice guidance (TTS) is enabled.
+  bool voiceGuidanceEnabled = true;
+
+  /// The maneuver the driver should execute next.
+  NavigationManeuver? get currentManeuver => _navService.currentManeuver;
+
+  /// All remaining maneuvers from the current position to the destination.
+  List<NavigationManeuver> get remainingManeuvers =>
+      _navService.remainingManeuvers;
+
+  // ---------------------------------------------------------------------------
+  // Initialisation
+  // ---------------------------------------------------------------------------
 
   /// Initialize app state and get current location
   Future<void> init() async {
@@ -211,5 +240,86 @@ class AppState extends ChangeNotifier {
     destLat = null;
     destLng = null;
     notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Navigation session management
+  // ---------------------------------------------------------------------------
+
+  /// Start a turn-by-turn navigation session for the current [routeResult].
+  ///
+  /// Does nothing if no route has been calculated yet.
+  /// Voice prompts will be spoken if [voiceGuidanceEnabled] is true.
+  Future<void> startNavigation() async {
+    final route = routeResult;
+    if (route == null) return;
+
+    _navService
+      ..onManeuverUpdate = (_, __) => notifyListeners()
+      ..onArrival = () {
+        isNavigating = false;
+        notifyListeners();
+      }
+      ..onOffRoute = (dist) {
+        debugPrint('Off-route by ${dist.toStringAsFixed(0)} m — rerouting…');
+        rerouteIfNeeded();
+      }
+      ..onVoicePrompt = (text) {
+        if (voiceGuidanceEnabled) {
+          _tts.speak(text).then(
+            (_) {},
+            onError: (Object e) => debugPrint('TTS error: $e'),
+          );
+        }
+        debugPrint('Voice prompt: $text');
+      };
+
+    await _navService.start(route);
+    isNavigating = true;
+    notifyListeners();
+  }
+
+  /// Stop the active navigation session.
+  Future<void> stopNavigation() async {
+    await _navService.stop();
+    isNavigating = false;
+    notifyListeners();
+  }
+
+  /// Toggle voice guidance on or off.
+  void toggleVoiceGuidance() {
+    voiceGuidanceEnabled = !voiceGuidanceEnabled;
+    if (!voiceGuidanceEnabled) {
+      final tts = _ttsInstance;
+      if (tts != null) {
+        tts.stop().then(
+          (_) {},
+          onError: (Object e) => debugPrint('TTS stop error: $e'),
+        );
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Recalculate the route from the current position and restart navigation.
+  ///
+  /// Called automatically when an off-route condition is detected.
+  Future<void> rerouteIfNeeded() async {
+    if (destLat == null || destLng == null) return;
+    try {
+      await buildTruckRoute();
+      if (routeResult != null && isNavigating) {
+        await startNavigation();
+      }
+    } catch (e) {
+      debugPrint('Reroute failed: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _navService.stop();
+    _ttsInstance?.stop();
+    super.dispose();
   }
 }

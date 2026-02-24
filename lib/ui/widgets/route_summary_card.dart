@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../state/app_state.dart';
+import '../navigation_screen.dart';
 import '../theme/app_theme.dart';
 
 /// Card displaying route summary and POI loading controls.
@@ -193,6 +194,21 @@ class _RouteDetails extends StatelessWidget {
               Text(
                 _formatDuration(result.durationSeconds),
                 style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: AppTheme.spaceSM),
+              FilledButton.icon(
+                onPressed: () async {
+                  await state.startNavigation();
+                  if (context.mounted) {
+                    await Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const NavigationScreen(),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.navigation_rounded, size: 18),
+                label: const Text('Start Navigation'),
               ),
             ],
           ),
