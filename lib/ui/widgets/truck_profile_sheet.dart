@@ -20,6 +20,7 @@ class _TruckProfileSheetState extends State<TruckProfileSheet> {
   late double _weight;
   late int _axles;
   late bool _hazmat;
+  TruckUnit _unit = TruckUnit.metric;
 
   @override
   void initState() {
@@ -37,6 +38,7 @@ class _TruckProfileSheetState extends State<TruckProfileSheet> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final isImperial = _unit == TruckUnit.imperial;
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
@@ -57,52 +59,107 @@ class _TruckProfileSheetState extends State<TruckProfileSheet> {
                 Text('Truck Profile', style: tt.headlineSmall),
               ],
             ),
+            const SizedBox(height: AppTheme.spaceSM),
+
+            // Current profile summary
+            Text(
+              _currentSummary(),
+              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: AppTheme.spaceSM),
+
+            // Units toggle
+            SegmentedButton<TruckUnit>(
+              segments: const [
+                ButtonSegment(
+                  value: TruckUnit.metric,
+                  label: Text('Metric (m / t)'),
+                  icon: Icon(Icons.straighten_rounded),
+                ),
+                ButtonSegment(
+                  value: TruckUnit.imperial,
+                  label: Text('Imperial (ft / st)'),
+                  icon: Icon(Icons.straighten_rounded),
+                ),
+              ],
+              selected: {_unit},
+              onSelectionChanged: (s) => setState(() => _unit = s.first),
+            ),
             const SizedBox(height: AppTheme.spaceMD),
 
             // Height
             _SliderRow(
               label: 'Height',
-              value: _height,
-              unit: 'm',
-              min: 2.5,
-              max: 4.8,
+              helperText: isImperial
+                  ? 'Common US height limit: 13\'6\" (varies by state)'
+                  : 'Legal max in most EU countries: 4.0 m',
+              value: isImperial
+                  ? TruckProfile.metersToFeet(_height)
+                  : _height,
+              unit: isImperial ? 'ft' : 'm',
+              min: isImperial ? TruckProfile.metersToFeet(2.5) : 2.5,
+              max: isImperial ? TruckProfile.metersToFeet(4.8) : 4.8,
               divisions: 23,
-              onChanged: (v) => setState(() => _height = v),
+              onChanged: (v) => setState(() => _height =
+                  isImperial ? TruckProfile.feetToMeters(v) : v),
             ),
 
             // Width
             _SliderRow(
               label: 'Width',
-              value: _width,
-              unit: 'm',
-              min: 2.0,
-              max: 3.0,
+              helperText: isImperial
+                  ? 'Legal max in most US states: 8.5 ft'
+                  : 'Legal max in most EU countries: 2.55 m',
+              value: isImperial
+                  ? TruckProfile.metersToFeet(_width)
+                  : _width,
+              unit: isImperial ? 'ft' : 'm',
+              min: isImperial ? TruckProfile.metersToFeet(2.0) : 2.0,
+              max: isImperial ? TruckProfile.metersToFeet(3.0) : 3.0,
               divisions: 10,
-              onChanged: (v) => setState(() => _width = v),
+              onChanged: (v) => setState(() => _width =
+                  isImperial ? TruckProfile.feetToMeters(v) : v),
             ),
 
             // Length
             _SliderRow(
               label: 'Length',
-              value: _length,
-              unit: 'm',
-              min: 6.0,
-              max: 30.0,
+              helperText: isImperial
+                  ? 'Typical semi: 53 ft trailer + cab'
+                  : 'Typical semi: ~21 m total',
+              value: isImperial
+                  ? TruckProfile.metersToFeet(_length)
+                  : _length,
+              unit: isImperial ? 'ft' : 'm',
+              min: isImperial ? TruckProfile.metersToFeet(6.0) : 6.0,
+              max: isImperial ? TruckProfile.metersToFeet(30.0) : 30.0,
               divisions: 24,
               fractionDigits: 1,
-              onChanged: (v) => setState(() => _length = v),
+              onChanged: (v) => setState(() => _length =
+                  isImperial ? TruckProfile.feetToMeters(v) : v),
             ),
 
             // Weight
             _SliderRow(
               label: 'Weight',
-              value: _weight,
-              unit: 'tons',
-              min: 5.0,
-              max: 45.0,
+              helperText: isImperial
+                  ? 'US federal gross weight limit: 40 short tons'
+                  : 'EU gross weight limit: 40 t (44 t intermodal)',
+              value: isImperial
+                  ? TruckProfile.metricTonsToShortTons(_weight)
+                  : _weight,
+              unit: isImperial ? 'st' : 't',
+              min: isImperial
+                  ? TruckProfile.metricTonsToShortTons(5.0)
+                  : 5.0,
+              max: isImperial
+                  ? TruckProfile.metricTonsToShortTons(45.0)
+                  : 45.0,
               divisions: 40,
               fractionDigits: 1,
-              onChanged: (v) => setState(() => _weight = v),
+              onChanged: (v) => setState(() => _weight = isImperial
+                  ? TruckProfile.shortTonsToMetricTons(v)
+                  : v),
             ),
 
             // Axles
@@ -111,7 +168,17 @@ class _TruckProfileSheetState extends State<TruckProfileSheet> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text('Axles', style: tt.bodyMedium),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Axles', style: tt.bodyMedium),
+                        Text(
+                          'Total axle count affects weight distribution',
+                          style: tt.bodySmall
+                              ?.copyWith(color: cs.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
                   ),
                   DropdownButton<int>(
                     value: _axles,
@@ -133,6 +200,7 @@ class _TruckProfileSheetState extends State<TruckProfileSheet> {
                 color: _hazmat ? cs.error : cs.outline,
               ),
               title: const Text('Hazardous Materials'),
+              subtitle: const Text('Enables hazmat routing restrictions'),
               value: _hazmat,
               onChanged: (value) {
                 HapticFeedback.selectionClick();
@@ -158,6 +226,18 @@ class _TruckProfileSheetState extends State<TruckProfileSheet> {
     );
   }
 
+  String _currentSummary() {
+    final profile = TruckProfile(
+      heightMeters: _height,
+      widthMeters: _width,
+      lengthMeters: _length,
+      weightTons: _weight,
+      axles: _axles,
+      hazmat: _hazmat,
+    );
+    return profile.summary(unit: _unit);
+  }
+
   void _save() {
     HapticFeedback.mediumImpact();
     final profile = TruckProfile(
@@ -173,7 +253,7 @@ class _TruckProfileSheetState extends State<TruckProfileSheet> {
     Navigator.pop(context);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Truck profile updated')),
+      const SnackBar(content: Text('Truck profile saved')),
     );
   }
 }
@@ -192,6 +272,7 @@ class _SliderRow extends StatelessWidget {
     required this.divisions,
     required this.onChanged,
     this.fractionDigits = 2,
+    this.helperText,
   });
 
   final String label;
@@ -202,11 +283,14 @@ class _SliderRow extends StatelessWidget {
   final int divisions;
   final ValueChanged<double> onChanged;
   final int fractionDigits;
+  final String? helperText;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    // Clamp value to [min, max] to handle unit switching rounding.
+    final clamped = value.clamp(min, max);
     return Padding(
       padding: const EdgeInsets.only(bottom: AppTheme.spaceXS),
       child: Column(
@@ -217,7 +301,7 @@ class _SliderRow extends StatelessWidget {
             children: [
               Text(label, style: tt.bodyMedium),
               Text(
-                '${value.toStringAsFixed(fractionDigits)} $unit',
+                '${clamped.toStringAsFixed(fractionDigits)} $unit',
                 style: tt.bodyMedium?.copyWith(
                   color: cs.primary,
                   fontWeight: FontWeight.w600,
@@ -226,16 +310,26 @@ class _SliderRow extends StatelessWidget {
             ],
           ),
           Slider(
-            value: value,
+            value: clamped,
             min: min,
             max: max,
             divisions: divisions,
-            label: '${value.toStringAsFixed(fractionDigits)} $unit',
+            label: '${clamped.toStringAsFixed(fractionDigits)} $unit',
             onChanged: onChanged,
           ),
+          if (helperText != null)
+            Padding(
+              padding: const EdgeInsets.only(
+                left: AppTheme.spaceSM,
+                bottom: AppTheme.spaceXS,
+              ),
+              child: Text(
+                helperText!,
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ),
         ],
       ),
     );
   }
 }
-
