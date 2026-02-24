@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../config.dart';
 import '../models/truck_profile.dart';
 import '../models/route_result.dart';
+import '../models/navigation_maneuver.dart';
 
 /// Service for calculating truck routes using HERE API v8
 class HereRoutingService {
@@ -27,7 +28,7 @@ class HereRoutingService {
         'origin': '$originLat,$originLng',
         'destination': '$destLat,$destLng',
         'transportMode': 'truck',
-        'return': 'polyline,summary',
+        'return': 'polyline,summary,actions',
         // Truck restrictions
         'truck[height]': truckProfile.heightMeters.toString(),
         'truck[width]': truckProfile.widthMeters.toString(),
@@ -69,12 +70,23 @@ class HereRoutingService {
     }
 
     // Decode HERE Flexible Polyline
-    final polylinePoints = _decodeHerePolyline(polylineEncoded);
+    final polylinePoints = _decodeHerePolyline(polylineEncoded as String);
+
+    // Parse maneuver actions if present
+    final actionsList = section['actions'] as List?;
+    final maneuvers = actionsList
+            ?.map((a) => NavigationManeuver.fromHereAction(
+                  a as Map<String, dynamic>,
+                  polylinePoints,
+                ))
+            .toList() ??
+        <NavigationManeuver>[];
 
     return RouteResult(
       polylinePoints: polylinePoints,
       lengthMeters: (summary['length'] as num).toDouble(),
       durationSeconds: (summary['duration'] as num).toInt(),
+      maneuvers: maneuvers,
     );
   }
 

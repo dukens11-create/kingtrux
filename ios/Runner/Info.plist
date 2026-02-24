@@ -57,5 +57,11 @@
 	<!-- Google Maps API Key -->
 	<key>GMSApiKey</key>
 	<string>YOUR_GOOGLE_MAPS_API_KEY_HERE</string>
+
+	<!-- Background location for continuous navigation tracking -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 </dict>
 </plist>
