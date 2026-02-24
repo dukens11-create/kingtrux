@@ -100,8 +100,7 @@ class RevenueCatService {
   /// Throws a [PlatformException] on failure; use
   /// [PurchasesErrorHelper.getErrorCode] to classify the error.
   Future<CustomerInfo> purchase(Package package) async {
-    final result = await Purchases.purchase(PurchaseParams.package(package));
-    return result.customerInfo;
+    return Purchases.purchasePackage(package);
   }
 
   // ---------------------------------------------------------------------------

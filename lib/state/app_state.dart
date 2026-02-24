@@ -506,7 +506,7 @@ class AppState extends ChangeNotifier {
     if (route == null) return;
 
     _navService
-      ..onManeuverUpdate = (_, __) => notifyListeners()
+      ..onManeuverUpdate = (_, __) { notifyListeners(); }
       ..onArrival = () {
         isNavigating = false;
         notifyListeners();
