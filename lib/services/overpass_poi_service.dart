@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 import '../config.dart';
@@ -162,8 +163,23 @@ class OverpassPoiService {
             tags['brand'] as String? ??
             _defaultName(type);
 
+        // Build a stable id from OSM element type + numeric id so that nodes
+        // and ways with the same numeric id do not collide.
+        final elementType = element['type'] as String?;
+        final elementId = element['id'];
+        late final String stableId;
+        if (elementType != null && elementId != null) {
+          stableId = '${elementType}_$elementId';
+        } else {
+          stableId = _uuid.v4();
+          debugPrint(
+            'OverpassPoiService: element missing type/id fields '
+            '(type=$elementType, id=$elementId); falling back to UUID $stableId',
+          );
+        }
+
         pois.add(Poi(
-          id: element['id']?.toString() ?? _uuid.v4(),
+          id: stableId,
           type: type,
           name: name,
           lat: lat,
