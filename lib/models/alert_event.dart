@@ -14,7 +14,7 @@ enum AlertType {
 
 /// A discrete alert that can be displayed to the driver and optionally spoken.
 class AlertEvent {
-  AlertEvent({
+  const AlertEvent({
     required this.id,
     required this.type,
     required this.title,
