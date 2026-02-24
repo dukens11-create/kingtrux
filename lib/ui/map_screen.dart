@@ -10,6 +10,8 @@ import 'theme/dark_map_style.dart';
 import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/route_summary_card.dart';
+import 'widgets/alert_banner.dart';
+import 'settings_screen.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
 
@@ -124,6 +126,14 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
+              // ── Alert banner (top overlay) ──────────────────────────────
+              const Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: AlertBanner(),
+              ),
+
               // ── Route summary card (bottom overlay) ─────────────────────
               const Positioned(
                 bottom: 0,
@@ -165,6 +175,13 @@ class _MapScreenState extends State<MapScreen> {
                   const Text('KINGTRUX'),
                 ],
               ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_rounded),
+            tooltip: 'Settings',
+            onPressed: _onSettingsPressed,
+          ),
+        ],
       );
 
   // ---------------------------------------------------------------------------
@@ -355,6 +372,14 @@ class _MapScreenState extends State<MapScreen> {
     Navigator.push<void>(
       context,
       MaterialPageRoute<void>(builder: (_) => const PaywallScreen()),
+    );
+  }
+
+  void _onSettingsPressed() {
+    HapticFeedback.selectionClick();
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
     );
   }
 

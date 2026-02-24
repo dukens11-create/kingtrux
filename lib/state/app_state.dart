@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../models/app_settings.dart';
+import '../models/alert_event.dart';
 import '../models/truck_profile.dart';
 import '../models/route_result.dart';
 import '../models/weather_point.dart';
 import '../models/navigation_maneuver.dart';
 import '../models/poi.dart';
+import '../services/app_settings_service.dart';
 import '../services/location_service.dart';
 import '../services/here_routing_service.dart';
 import '../services/navigation_session_service.dart';
@@ -12,6 +15,7 @@ import '../services/overpass_poi_service.dart';
 import '../services/weather_service.dart';
 import '../services/truck_profile_service.dart';
 import '../services/revenue_cat_service.dart';
+import '../services/voice_guidance_controller.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -21,11 +25,16 @@ class AppState extends ChangeNotifier {
   final OverpassPoiService _poiService = OverpassPoiService();
   final WeatherService _weatherService = WeatherService();
   final TruckProfileService _truckProfileService = TruckProfileService();
+  final AppSettingsService _settingsService = AppSettingsService();
   final RevenueCatService revenueCatService = RevenueCatService();
   // Lazily initialised on first use; never touched during unit tests unless
   // voice guidance is explicitly invoked.
   FlutterTts? _ttsInstance;
   FlutterTts get _tts => _ttsInstance ??= FlutterTts();
+
+  /// Optional voice guidance back-end.  Replace with a TTS or HERE Navigate
+  /// implementation to enable app-side speech outside the navigation pipeline.
+  VoiceGuidanceController voiceController = const NoopVoiceGuidanceController();
 
   // Current location
   double? myLat;
@@ -67,15 +76,18 @@ class AppState extends ChangeNotifier {
   /// Whether a navigation session is currently active.
   bool isNavigating = false;
 
+  /// Persisted application settings (voice on/off, language, …).
+  AppSettings settings = AppSettings.defaults();
+
   /// Whether voice guidance (TTS) is enabled.
-  bool voiceGuidanceEnabled = true;
+  ///
+  /// Reads from [settings]; kept as a getter for backward compatibility.
+  bool get voiceGuidanceEnabled => settings.voiceEnabled;
 
   /// BCP-47 language tag used for voice guidance TTS.
   ///
-  /// Defaults to US English. Language-selection UI is delivered in PR4; this
-  /// field provides the underlying architecture so the setting can be wired in
-  /// without changes to the voice pipeline.
-  String voiceLanguage = 'en-US';
+  /// Reads from [settings]; kept as a getter for backward compatibility.
+  String get voiceLanguage => settings.voiceLanguage.localeTag;
 
   /// Voice languages supported by KINGTRUX (USA + Canada region).
   static const List<String> supportedVoiceLanguages = [
@@ -84,6 +96,29 @@ class AppState extends ChangeNotifier {
     'fr-CA',
     'es-US',
   ];
+
+  // ---------------------------------------------------------------------------
+  // Alert queue
+  // ---------------------------------------------------------------------------
+
+  final List<AlertEvent> _alertQueue = [];
+
+  /// The alert currently shown in the banner, or `null` when the queue is empty.
+  AlertEvent? get currentAlert =>
+      _alertQueue.isEmpty ? null : _alertQueue.first;
+
+  /// Enqueue an alert and notify listeners.
+  void pushAlert(AlertEvent alert) {
+    _alertQueue.add(alert);
+    notifyListeners();
+  }
+
+  /// Remove the front alert from the queue and notify listeners.
+  void dismissCurrentAlert() {
+    if (_alertQueue.isEmpty) return;
+    _alertQueue.removeAt(0);
+    notifyListeners();
+  }
 
   /// The maneuver the driver should execute next.
   NavigationManeuver? get currentManeuver => _navService.currentManeuver;
@@ -111,9 +146,22 @@ class AppState extends ChangeNotifier {
       debugPrint('Error loading truck profile: $e');
     }
     try {
+      settings = await _settingsService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading settings: $e');
+    }
+    try {
       await refreshMyLocation();
     } catch (e) {
       debugPrint('Error initializing location: $e');
+      pushAlert(AlertEvent(
+        type: AlertType.locationDisabled,
+        severity: AlertSeverity.error,
+        title: 'Location unavailable',
+        message: 'Enable location permissions to use navigation.',
+        timestamp: DateTime.now(),
+      ));
     }
     // Initialize RevenueCat and check current entitlement status.
     try {
@@ -176,6 +224,15 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     _truckProfileService.save(profile).catchError(
       (Object e) => debugPrint('Error saving truck profile: $e'),
+    );
+  }
+
+  /// Replace the entire [settings] object and persist to device storage.
+  void updateSettings(AppSettings newSettings) {
+    settings = newSettings;
+    notifyListeners();
+    _settingsService.save(settings).catchError(
+      (Object e) => debugPrint('Error saving settings: $e'),
     );
   }
 
@@ -323,6 +380,14 @@ class AppState extends ChangeNotifier {
       }
       ..onOffRoute = (dist) {
         debugPrint('Off-route by ${dist.toStringAsFixed(0)} m — rerouting…');
+        pushAlert(AlertEvent(
+          type: AlertType.offRoute,
+          severity: AlertSeverity.warning,
+          title: 'Off route',
+          message: 'Recalculating route…',
+          timestamp: DateTime.now(),
+          speakable: true,
+        ));
         rerouteIfNeeded();
       }
       ..onVoicePrompt = (text) {
@@ -343,6 +408,14 @@ class AppState extends ChangeNotifier {
 
     await _navService.start(route);
     isNavigating = true;
+    pushAlert(AlertEvent(
+      type: AlertType.navigationStarted,
+      severity: AlertSeverity.info,
+      title: 'Navigation started',
+      message: 'Follow the route guidance.',
+      timestamp: DateTime.now(),
+      speakable: true,
+    ));
     notifyListeners();
   }
 
@@ -350,13 +423,20 @@ class AppState extends ChangeNotifier {
   Future<void> stopNavigation() async {
     await _navService.stop();
     isNavigating = false;
+    pushAlert(AlertEvent(
+      type: AlertType.navigationStopped,
+      severity: AlertSeverity.info,
+      title: 'Navigation stopped',
+      message: 'Route guidance ended.',
+      timestamp: DateTime.now(),
+    ));
     notifyListeners();
   }
 
   /// Toggle voice guidance on or off.
   void toggleVoiceGuidance() {
-    voiceGuidanceEnabled = !voiceGuidanceEnabled;
-    if (!voiceGuidanceEnabled) {
+    settings = settings.copyWith(voiceEnabled: !settings.voiceEnabled);
+    if (!settings.voiceEnabled) {
       final tts = _ttsInstance;
       if (tts != null) {
         tts.stop().then(
@@ -365,6 +445,9 @@ class AppState extends ChangeNotifier {
         );
       }
     }
+    _settingsService.save(settings).catchError(
+      (Object e) => debugPrint('Error saving settings: $e'),
+    );
     notifyListeners();
   }
 
@@ -374,7 +457,10 @@ class AppState extends ChangeNotifier {
   /// silently ignored. The new language takes effect on the next voice prompt.
   void setVoiceLanguage(String language) {
     if (!supportedVoiceLanguages.contains(language)) return;
-    voiceLanguage = language;
+    settings = settings.copyWith(voiceLanguage: VoiceLanguage.fromTag(language));
+    _settingsService.save(settings).catchError(
+      (Object e) => debugPrint('Error saving settings: $e'),
+    );
     notifyListeners();
   }
 
@@ -386,6 +472,14 @@ class AppState extends ChangeNotifier {
     try {
       await buildTruckRoute();
       if (routeResult != null && isNavigating) {
+        pushAlert(AlertEvent(
+          type: AlertType.reroute,
+          severity: AlertSeverity.info,
+          title: 'Route updated',
+          message: 'New route calculated.',
+          timestamp: DateTime.now(),
+          speakable: true,
+        ));
         await startNavigation();
       }
     } catch (e) {
