@@ -138,6 +138,28 @@ abstract final class AppTheme {
   }
 
   // ---------------------------------------------------------------------------
+  // Dynamic seed-based themes (used when driver customises the color scheme)
+  // ---------------------------------------------------------------------------
+
+  /// Build a light [ThemeData] from the given [seedColor].
+  static ThemeData lightFromSeed(Color seedColor) {
+    final cs = ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: Brightness.light,
+    );
+    return _buildTheme(cs);
+  }
+
+  /// Build a dark [ThemeData] from the given [seedColor].
+  static ThemeData darkFromSeed(Color seedColor) {
+    final cs = ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: Brightness.dark,
+    );
+    return _buildTheme(cs);
+  }
+
+  // ---------------------------------------------------------------------------
   // Build ThemeData from a ColorScheme
   // ---------------------------------------------------------------------------
   static ThemeData _buildTheme(ColorScheme cs) => ThemeData(

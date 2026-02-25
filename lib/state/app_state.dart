@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
@@ -45,6 +46,7 @@ import '../services/truck_stop_brand_settings_service.dart';
 import '../services/truck_stop_filter_service.dart';
 import '../services/night_mode_service.dart';
 import '../services/roadside_assistance_service.dart';
+import '../services/theme_settings_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -77,6 +79,7 @@ class AppState extends ChangeNotifier {
       NightModeSettingsService();
   final RoadsideAssistanceService _roadsideAssistanceService =
       RoadsideAssistanceService();
+  final ThemeSettingsService _themeSettingsService = ThemeSettingsService();
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
@@ -215,6 +218,30 @@ class AppState extends ChangeNotifier {
       case NightModeOption.auto:
         return NightModeSettingsService.isNightByTime(DateTime.now());
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Color theme state
+  // ---------------------------------------------------------------------------
+
+  /// The driver's chosen color theme preset.
+  ///
+  /// Defaults to [ThemeOption.classic].
+  ThemeOption themeOption = ThemeOption.classic;
+
+  /// The custom accent color used when [themeOption] is [ThemeOption.custom].
+  ///
+  /// Defaults to [ThemeSettingsService.defaultSeedColor].
+  Color customAccentColor = ThemeSettingsService.defaultSeedColor;
+
+  /// The effective seed color for the current theme.
+  ///
+  /// When [themeOption] is [ThemeOption.custom], returns [customAccentColor].
+  /// Otherwise returns the preset color for the active [ThemeOption].
+  Color get effectiveSeedColor {
+    if (themeOption == ThemeOption.custom) return customAccentColor;
+    return ThemeSettingsService.presetSeedColors[themeOption] ??
+        ThemeSettingsService.defaultSeedColor;
   }
 
   // ---------------------------------------------------------------------------
@@ -395,6 +422,13 @@ class AppState extends ChangeNotifier {
       debugPrint('Error loading night mode settings: $e');
     }
     _startNightModeTimer();
+    try {
+      themeOption = await _themeSettingsService.loadOption();
+      customAccentColor = await _themeSettingsService.loadCustomAccent();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading theme settings: $e');
+    }
     try {
       await refreshMyLocation();
     } catch (e) {
@@ -997,6 +1031,39 @@ class AppState extends ChangeNotifier {
       (Object e) => debugPrint('Error saving night mode option: $e'),
     );
     _startNightModeTimer();
+    notifyListeners();
+  }
+
+  /// Change the active color theme to [option] and persist the choice.
+  void setThemeOption(ThemeOption option) {
+    themeOption = option;
+    _themeSettingsService.saveOption(option).catchError(
+      (Object e) => debugPrint('Error saving theme option: $e'),
+    );
+    notifyListeners();
+  }
+
+  /// Set a custom accent [color] (activates [ThemeOption.custom] automatically)
+  /// and persist the choice.
+  void setCustomAccentColor(Color color) {
+    customAccentColor = color;
+    themeOption = ThemeOption.custom;
+    _themeSettingsService.saveCustomAccent(color).catchError(
+      (Object e) => debugPrint('Error saving custom accent color: $e'),
+    );
+    _themeSettingsService.saveOption(ThemeOption.custom).catchError(
+      (Object e) => debugPrint('Error saving theme option: $e'),
+    );
+    notifyListeners();
+  }
+
+  /// Reset the color theme to the Classic default and persist the change.
+  void resetTheme() {
+    themeOption = ThemeOption.classic;
+    customAccentColor = ThemeSettingsService.defaultSeedColor;
+    _themeSettingsService.saveOption(ThemeOption.classic).catchError(
+      (Object e) => debugPrint('Error saving theme option: $e'),
+    );
     notifyListeners();
   }
 

@@ -14,6 +14,7 @@ import 'widgets/poi_detail_sheet.dart';
 import 'widgets/roadside_assistance_sheet.dart';
 import 'widgets/route_summary_card.dart';
 import 'widgets/voice_settings_sheet.dart';
+import 'widgets/theme_settings_sheet.dart';
 import 'widgets/alert_banner.dart';
 import 'widgets/trip_planner_sheet.dart';
 import 'widgets/speed_display.dart';
@@ -199,6 +200,11 @@ class _MapScreenState extends State<MapScreen> {
                 ],
               ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.palette_outlined),
+            tooltip: 'Color Theme',
+            onPressed: _onThemeSettingsPressed,
+          ),
           IconButton(
             icon: const Icon(Icons.record_voice_over_rounded),
             tooltip: 'Voice Settings',
@@ -409,6 +415,15 @@ class _MapScreenState extends State<MapScreen> {
       context: context,
       isScrollControlled: true,
       builder: (context) => const TripPlannerSheet(),
+    );
+  }
+
+  void _onThemeSettingsPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const ThemeSettingsSheet(),
     );
   }
 
