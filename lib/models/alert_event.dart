@@ -15,6 +15,9 @@ enum AlertType {
   overSpeed,
   underSpeed,
   commercialOverSpeed,
+  lowBridgeHazard,
+  sharpCurveHazard,
+  downgradeHillHazard,
   generic,
 }
 
