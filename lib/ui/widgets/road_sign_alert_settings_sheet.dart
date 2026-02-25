@@ -161,6 +161,22 @@ class RoadSignAlertSettingsSheet extends StatelessWidget {
                   onChanged: (v) => state.setHazardSettings(
                       hs.copyWith(enableWorkZoneWarnings: v)),
                 ),
+                _SignTile(
+                  icon: Icons.rotate_right_rounded,
+                  title: 'Truck Rollover Warning',
+                  subtitle: 'Sharp turns, steep ramps, high-risk segments',
+                  value: hs.enableTruckRolloverWarnings,
+                  onChanged: (v) => state.setHazardSettings(
+                      hs.copyWith(enableTruckRolloverWarnings: v)),
+                ),
+                _SignTile(
+                  icon: Icons.tunnel_rounded,
+                  title: 'Tunnel',
+                  subtitle: 'Height restrictions, hazmat, and cargo rules',
+                  value: hs.enableTunnelWarnings,
+                  onChanged: (v) => state.setHazardSettings(
+                      hs.copyWith(enableTunnelWarnings: v)),
+                ),
               ],
             ),
           ),

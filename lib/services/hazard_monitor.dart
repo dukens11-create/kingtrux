@@ -25,6 +25,8 @@ typedef HazardAlertCallback = void Function(
 /// - Merging traffic: [mergingTrafficThresholdMeters] (~1 mile)
 /// - Falling rocks: [fallingRocksThresholdMeters] (~1 mile)
 /// - Narrow bridges: [narrowBridgeThresholdMeters] (~1 mile)
+/// - Truck rollover warning signs: [truckRolloverThresholdMeters] (~1 mile)
+/// - Tunnels: [tunnelThresholdMeters] (~1 mile)
 ///
 /// Spam prevention: each hazard has an individual cooldown tracked by
 /// [Hazard.id].  Once an alert fires it will not fire again until
@@ -76,6 +78,12 @@ class HazardMonitor {
   /// Distance in metres at which a narrow-bridge alert fires (~1 mile).
   static const double narrowBridgeThresholdMeters = 1609.3;
 
+  /// Distance in metres at which a truck-rollover alert fires (~1 mile).
+  static const double truckRolloverThresholdMeters = 1609.3;
+
+  /// Distance in metres at which a tunnel alert fires (~1 mile).
+  static const double tunnelThresholdMeters = 1609.3;
+
   /// Minimum seconds between repeated alerts for the same hazard instance.
   static const int cooldownSeconds = 300;
 
@@ -120,6 +128,8 @@ class HazardMonitor {
     bool enableMergingTraffic = true,
     bool enableFallingRocks = true,
     bool enableNarrowBridge = true,
+    bool enableTruckRollover = true,
+    bool enableTunnel = true,
   }) {
     final now = DateTime.now();
     for (final hazard in hazards) {
@@ -138,6 +148,8 @@ class HazardMonitor {
         HazardType.mergingTraffic => enableMergingTraffic,
         HazardType.fallingRocks => enableFallingRocks,
         HazardType.narrowBridge => enableNarrowBridge,
+        HazardType.truckRollover => enableTruckRollover,
+        HazardType.tunnel => enableTunnel,
       };
       if (!enabled) continue;
 
@@ -266,6 +278,10 @@ class HazardMonitor {
         return fallingRocksThresholdMeters;
       case HazardType.narrowBridge:
         return narrowBridgeThresholdMeters;
+      case HazardType.truckRollover:
+        return truckRolloverThresholdMeters;
+      case HazardType.tunnel:
+        return tunnelThresholdMeters;
     }
   }
 

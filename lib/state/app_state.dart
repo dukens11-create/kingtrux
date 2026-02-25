@@ -1434,6 +1434,28 @@ class AppState extends ChangeNotifier {
             timestamp: DateTime.now(),
             speakable: hazardSettings.enableHazardTts,
           ));
+        case HazardType.truckRollover:
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.truckRolloverHazard,
+            title: 'Rollover Warning Ahead',
+            message:
+                'Rollover warning sign $distMi mi ahead. Reduce speed on sharp turn or ramp.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
+        case HazardType.tunnel:
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.tunnelHazard,
+            title: 'Tunnel Ahead',
+            message:
+                'Tunnel $distMi mi ahead. Check height and hazmat restrictions before entering.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
       }
     };
 
@@ -1499,6 +1521,8 @@ class AppState extends ChangeNotifier {
         enableMergingTraffic: hs.enableMergingTrafficWarnings,
         enableFallingRocks: hs.enableFallingRocksWarnings,
         enableNarrowBridge: hs.enableNarrowBridgeWarnings,
+        enableTruckRollover: hs.enableTruckRolloverWarnings,
+        enableTunnel: hs.enableTunnelWarnings,
       );
     }
   }

@@ -13,6 +13,8 @@ enum HazardType {
   mergingTraffic,
   fallingRocks,
   narrowBridge,
+  truckRollover,
+  tunnel,
 }
 
 /// A hazard point along the active route that the driver should be warned about.
