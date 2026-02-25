@@ -170,7 +170,7 @@ class RoadSignAlertSettingsSheet extends StatelessWidget {
                       hs.copyWith(enableTruckRolloverWarnings: v)),
                 ),
                 _SignTile(
-                  icon: Icons.tunnel_rounded,
+                  icon: Icons.warning_rounded,
                   title: 'Tunnel',
                   subtitle: 'Height restrictions, hazmat, and cargo rules',
                   value: hs.enableTunnelWarnings,
