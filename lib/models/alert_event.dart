@@ -14,6 +14,7 @@ enum AlertType {
   scaleActivity,
   overSpeed,
   underSpeed,
+  commercialOverSpeed,
   generic,
 }
 

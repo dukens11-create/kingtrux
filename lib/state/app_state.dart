@@ -34,6 +34,8 @@ import '../services/speed_monitor.dart';
 import '../services/speed_limit_service.dart';
 import '../services/speed_settings_service.dart';
 import '../services/here_geocoding_service.dart';
+import '../models/commercial_speed_settings.dart';
+import '../services/commercial_speed_monitor.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -55,6 +57,7 @@ class AppState extends ChangeNotifier {
   final SpeedMonitor _speedMonitor = SpeedMonitor();
   final SpeedLimitService _speedLimitService = SpeedLimitService();
   final SpeedSettingsService _speedSettingsService = SpeedSettingsService();
+  final CommercialSpeedMonitor _commercialSpeedMonitor = CommercialSpeedMonitor();
   final HereGeocodingService _geocodingService = HereGeocodingService();
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
@@ -138,6 +141,14 @@ class AppState extends ChangeNotifier {
   /// Number of mph below the posted speed limit that triggers an underspeed
   /// alert. Configurable by the driver; default is 10 mph.
   double underspeedThresholdMph = SpeedSettingsService.defaultUnderspeedThresholdMph;
+
+  // ---------------------------------------------------------------------------
+  // Commercial / truck max-speed state
+  // ---------------------------------------------------------------------------
+
+  /// Commercial max-speed alert settings (units, threshold, enable/disable).
+  CommercialSpeedSettings commercialSpeedSettings =
+      CommercialSpeedSettings.defaults();
 
   // ---------------------------------------------------------------------------
   // Trip planner state
@@ -265,6 +276,13 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading speed settings: $e');
+    }
+    try {
+      commercialSpeedSettings =
+          await _speedSettingsService.loadCommercialSettings();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading commercial speed settings: $e');
     }
     try {
       await refreshMyLocation();
@@ -1019,6 +1037,16 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Update commercial/truck max-speed alert settings and persist them.
+  void setCommercialSpeedSettings(CommercialSpeedSettings settings) {
+    commercialSpeedSettings = settings;
+    _commercialSpeedMonitor.reset();
+    _speedSettingsService.saveCommercialSettings(settings).catchError(
+      (Object e) => debugPrint('Error saving commercial speed settings: $e'),
+    );
+    notifyListeners();
+  }
+
   /// Start the continuous GPS subscription used for speed display and alerts.
   ///
   /// This runs independently of the route-monitor subscription so that speed
@@ -1065,6 +1093,31 @@ class AppState extends ChangeNotifier {
         }
       };
 
+    _commercialSpeedMonitor
+      ..reset()
+      ..onOverspeed = (speedMs, maxSpeedMs) {
+        final s = commercialSpeedSettings;
+        final speedDisplay =
+            s.unit == SpeedUnit.mph
+                ? CommercialSpeedSettings.msToMph(speedMs).toStringAsFixed(0)
+                : CommercialSpeedSettings.msToKmh(speedMs).toStringAsFixed(0);
+        final maxDisplay =
+            s.unit == SpeedUnit.mph
+                ? CommercialSpeedSettings.msToMph(maxSpeedMs).toStringAsFixed(0)
+                : CommercialSpeedSettings.msToKmh(maxSpeedMs).toStringAsFixed(0);
+        final unit = s.unitLabel;
+        addAlert(AlertEvent(
+          id: 'commercial_overspeed_${DateTime.now().millisecondsSinceEpoch}',
+          type: AlertType.commercialOverSpeed,
+          title: 'Truck Speed Limit',
+          message:
+              'Speed $speedDisplay $unit exceeds commercial limit of $maxDisplay $unit.',
+          severity: AlertSeverity.critical,
+          timestamp: DateTime.now(),
+          speakable: true,
+        ));
+      };
+
     const settings = LocationSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: 5,
@@ -1081,6 +1134,16 @@ class AppState extends ChangeNotifier {
     // Convert m/s → mph (1 m/s ≈ 2.23694 mph); clamp negative values from GPS.
     currentSpeedMph = (pos.speed * 2.23694).clamp(0.0, double.infinity);
     notifyListeners();
+
+    // Check commercial max-speed (navigation-only).
+    final commercial = commercialSpeedSettings;
+    if (commercial.enabled) {
+      _commercialSpeedMonitor.check(
+        pos.speed.clamp(0.0, double.infinity),
+        maxSpeedMs: commercial.maxSpeedMs,
+        isNavigating: isNavigating,
+      );
+    }
 
     // Query road speed limit (throttled – SpeedLimitService caches by distance).
     _speedLimitService.queryLimit(pos.latitude, pos.longitude).then(
