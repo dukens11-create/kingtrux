@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/navigation_maneuver.dart';
 import '../models/weather_forecast.dart';
+import '../services/trip_eta_service.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
 import 'widgets/compass_indicator.dart';
@@ -43,6 +44,15 @@ class NavigationScreen extends StatelessWidget {
                     maneuver: state.currentManeuver,
                     remainingDistanceMeters: state.remainingDistanceMeters,
                     remainingDurationSeconds: state.remainingDurationSeconds,
+                  ),
+
+                  // ── Trip ETA strip ──────────────────────────────────────────
+                  _TripEtaStrip(
+                    remainingDurationSeconds: state.remainingDurationSeconds,
+                    etaUtc: state.tripEtaUtc,
+                    etaAtDestination: state.tripEtaAtDestination,
+                    destinationTimeZoneName: state.destinationTimeZoneName,
+                    currentTimeZoneName: state.currentTimeZoneName,
                   ),
 
                   // ── Remaining maneuvers list ────────────────────────────────
@@ -296,6 +306,162 @@ class _NextManeuverBanner extends StatelessWidget {
     if (hours > 0) return '${hours}h ${minutes}m';
     if (minutes > 0) return '${minutes}m';
     return '<1 min';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Trip ETA strip
+// ---------------------------------------------------------------------------
+
+/// A compact horizontal strip shown below the next-maneuver banner during
+/// active navigation. Displays:
+///   - Remaining drive time
+///   - ETA at the destination (destination time zone)
+///   - Current wall-clock time (device local time or current-state TZ label)
+class _TripEtaStrip extends StatelessWidget {
+  const _TripEtaStrip({
+    required this.remainingDurationSeconds,
+    required this.etaUtc,
+    required this.etaAtDestination,
+    required this.destinationTimeZoneName,
+    required this.currentTimeZoneName,
+  });
+
+  final int remainingDurationSeconds;
+  final DateTime? etaUtc;
+  final DateTime? etaAtDestination;
+  final String? destinationTimeZoneName;
+  final String? currentTimeZoneName;
+
+  @override
+  Widget build(BuildContext context) {
+    // Only render when there is meaningful data.
+    if (remainingDurationSeconds <= 0 && etaUtc == null) {
+      return const SizedBox.shrink();
+    }
+
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    final durationLabel =
+        TripEtaService.formatDuration(remainingDurationSeconds);
+
+    // Arrival time: prefer destination-tz-converted ETA; fall back to UTC
+    // converted to device local time.
+    final arrivalDt = etaAtDestination ?? etaUtc?.toLocal();
+    final arrivalLabel =
+        arrivalDt != null ? TripEtaService.formatWallClock(arrivalDt) : '–';
+    final arrivalTzLabel = etaAtDestination != null
+        ? (destinationTimeZoneName ?? '')
+        : 'local';
+
+    // Current local time on the device.
+    final nowLocal = DateTime.now();
+    final nowLabel = TripEtaService.formatWallClock(nowLocal);
+    final nowTzLabel = currentTimeZoneName ?? 'local';
+
+    return Container(
+      color: cs.surfaceContainerHighest,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spaceMD,
+        vertical: AppTheme.spaceXS + 2,
+      ),
+      child: Row(
+        children: [
+          // ── Remaining drive time ───────────────────────────────────────
+          _EtaCell(
+            icon: Icons.timer_outlined,
+            value: durationLabel,
+            label: 'remaining',
+            tt: tt,
+            cs: cs,
+          ),
+          const _EtaDivider(),
+          // ── Arrival (ETA) ──────────────────────────────────────────────
+          _EtaCell(
+            icon: Icons.flag_rounded,
+            value: '$arrivalLabel ${arrivalTzLabel.isNotEmpty ? arrivalTzLabel : ''}'
+                .trim(),
+            label: 'arrival',
+            tt: tt,
+            cs: cs,
+          ),
+          const _EtaDivider(),
+          // ── Current time ───────────────────────────────────────────────
+          _EtaCell(
+            icon: Icons.access_time_rounded,
+            value: '$nowLabel $nowTzLabel'.trim(),
+            label: 'now',
+            tt: tt,
+            cs: cs,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EtaCell extends StatelessWidget {
+  const _EtaCell({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.tt,
+    required this.cs,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final TextTheme tt;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 14, color: cs.onSurfaceVariant),
+          const SizedBox(width: 4),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                value,
+                style: tt.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface,
+                  fontSize: 12,
+                ),
+              ),
+              Text(
+                label,
+                style: tt.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontSize: 9,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EtaDivider extends StatelessWidget {
+  const _EtaDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 28,
+      color: Theme.of(context).colorScheme.outlineVariant,
+      margin: const EdgeInsets.symmetric(horizontal: AppTheme.spaceXS),
+    );
   }
 }
 

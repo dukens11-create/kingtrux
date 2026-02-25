@@ -19,6 +19,8 @@ enum AlertType {
   sharpCurveHazard,
   downgradeHillHazard,
   workZoneHazard,
+  stateLimitChange,
+  timeZoneCrossing,
   truckCrossingHazard,
   wildAnimalCrossingHazard,
   schoolZoneHazard,
@@ -28,7 +30,6 @@ enum AlertType {
   mergingTrafficHazard,
   fallingRocksHazard,
   narrowBridgeHazard,
-  stateLimitChange,
   generic,
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/route_result.dart';
 import '../../models/toll_preference.dart';
+import '../../services/trip_eta_service.dart';
 import '../../state/app_state.dart';
 import '../navigation_screen.dart';
 import '../theme/app_theme.dart';
@@ -219,6 +220,20 @@ class _RouteDetails extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final result = state.routeResult!;
+
+    // Compute estimated arrival time based on route duration from now.
+    final etaUtc = TripEtaService.calculateEta(
+      DateTime.now(),
+      result.durationSeconds,
+    );
+    final etaAtDest = state.tripEtaAtDestination;
+    final destTzName = state.destinationTimeZoneName;
+    final arrivalDt = etaAtDest ?? etaUtc.toLocal();
+    final arrivalLabel = TripEtaService.formatWallClock(arrivalDt);
+    final arrivalTz = (etaAtDest != null && destTzName != null)
+        ? ' $destTzName'
+        : '';
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -236,6 +251,21 @@ class _RouteDetails extends StatelessWidget {
               Text(
                 _formatDuration(result.durationSeconds),
                 style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: AppTheme.spaceXS),
+              // ── ETA estimate ──────────────────────────────────────────
+              Row(
+                children: [
+                  Icon(Icons.flag_rounded, size: 14,
+                      color: cs.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Text(
+                    'ETA $arrivalLabel$arrivalTz',
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: AppTheme.spaceXS),
               _buildTollInfo(context, result, cs, tt),
