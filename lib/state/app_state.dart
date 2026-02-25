@@ -93,6 +93,11 @@ class AppState extends ChangeNotifier {
   FlutterTts? _ttsInstance;
   FlutterTts get _tts => _ttsInstance ??= FlutterTts();
 
+  // Cache of language codes reported by the TTS engine; null = not yet queried.
+  Set<String>? _ttsSupportedLanguages;
+  // Tracks whether the user has already been notified of an unsupported locale.
+  bool _ttsUnsupportedNotified = false;
+
   // State detection throttle
   DateTime? _lastStateCheckTime;
   static const _stateCheckMinIntervalSeconds = 300; // 5 minutes
@@ -865,18 +870,78 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Returns the language code that should actually be passed to the TTS
+  /// engine for the given [desiredLanguage].
+  ///
+  /// If [supportedLanguages] is empty (i.e., the engine's language list could
+  /// not be retrieved), the desired language is returned unchanged so the
+  /// engine still gets a chance to handle it. Otherwise, if the desired
+  /// language is not in the supported set, 'en-US' is used as a fallback.
+  ///
+  /// This is a pure function exposed as `static` so it can be unit-tested
+  /// without initialising platform channels.
+  static String effectiveTtsLanguage(
+    String desiredLanguage,
+    Set<String> supportedLanguages,
+  ) {
+    if (supportedLanguages.isEmpty) return desiredLanguage;
+    return supportedLanguages.contains(desiredLanguage)
+        ? desiredLanguage
+        : 'en-US';
+  }
+
+  /// Speaks [text] using the current [voiceLanguage], falling back to en-US
+  /// when the TTS engine does not support the selected locale.
+  ///
+  /// On the first call after a language change, the engine's language list is
+  /// queried and cached. If the locale is unsupported, a one-time in-app
+  /// warning alert is added so the user knows their selection is not available.
+  Future<void> _speakWithLocale(String text) async {
+    if (_ttsSupportedLanguages == null) {
+      try {
+        final dynamic langs = await _tts.getLanguages;
+        _ttsSupportedLanguages = (langs as List<dynamic>)
+            .map((e) => e.toString())
+            .toSet();
+      } catch (e) {
+        debugPrint('TTS getLanguages error: $e');
+        _ttsSupportedLanguages = {};
+      }
+    }
+
+    final lang =
+        effectiveTtsLanguage(voiceLanguage, _ttsSupportedLanguages!);
+
+    if (lang != voiceLanguage && !_ttsUnsupportedNotified) {
+      _ttsUnsupportedNotified = true;
+      addAlert(AlertEvent(
+        id: 'tts_lang_unsupported_${DateTime.now().millisecondsSinceEpoch}',
+        type: AlertType.ttsLanguageUnsupported,
+        title: 'Voice language unavailable',
+        message:
+            'Your device\'s speech engine does not support the selected '
+            'language. Voice guidance will use English.',
+        severity: AlertSeverity.warning,
+        timestamp: DateTime.now(),
+        speakable: false,
+      ));
+    }
+
+    try {
+      await _tts.setLanguage(lang);
+      await _tts.speak(text);
+    } catch (e) {
+      debugPrint('TTS speak error: $e');
+    }
+  }
+
   /// Speak [text] aloud via TTS.
   ///
   /// Unlike [addAlert], this method does not create an alert event and speaks
   /// regardless of the [voiceGuidanceEnabled] flag — it is intended for
   /// explicit user-initiated interactions such as voice commands.
   Future<void> speakText(String text) async {
-    try {
-      await _tts.setLanguage(voiceLanguage);
-      await _tts.speak(text);
-    } catch (e) {
-      debugPrint('TTS speakText error: $e');
-    }
+    await _speakWithLocale(text);
   }
 
   /// Geocode [address] via the HERE Geocoding API and, on success, add a new
@@ -943,16 +1008,9 @@ class AppState extends ChangeNotifier {
       }
       ..onVoicePrompt = (text) {
         if (voiceGuidanceEnabled) {
-          _tts
-              .setLanguage(voiceLanguage)
-              .then(
-                (_) => _tts.speak(text),
-                onError: (Object e) => debugPrint('TTS setLanguage error: $e'),
-              )
-              .then(
-                (_) {},
-                onError: (Object e) => debugPrint('TTS error: $e'),
-              );
+          _speakWithLocale(text).catchError(
+            (Object e) => debugPrint('TTS error: $e'),
+          );
         }
         debugPrint('Voice prompt: $text');
       };
@@ -1059,6 +1117,8 @@ class AppState extends ChangeNotifier {
   void setVoiceLanguage(String language) {
     if (!supportedVoiceLanguages.contains(language)) return;
     voiceLanguage = language;
+    // Allow a fresh unsupported-language notification for the new locale.
+    _ttsUnsupportedNotified = false;
     _voiceSettingsService.saveLanguage(language).catchError(
       (Object e) => debugPrint('Error saving voice language: $e'),
     );
@@ -1182,15 +1242,9 @@ class AppState extends ChangeNotifier {
         alert.speakable &&
         alert.severity != AlertSeverity.info &&
         alert.severity != AlertSeverity.success) {
-      _tts
-          .setLanguage(voiceLanguage)
-          .then(
-            (_) => _tts.speak(alert.message),
-            onError: (Object e) => debugPrint('TTS setLanguage error: $e'),
-          )
-          .catchError(
-            (Object e) => debugPrint('TTS alert error: $e'),
-          );
+      _speakWithLocale(alert.message).catchError(
+        (Object e) => debugPrint('TTS alert error: $e'),
+      );
     }
     notifyListeners();
   }

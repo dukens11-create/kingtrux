@@ -31,6 +31,7 @@ enum AlertType {
   fallingRocksHazard,
   narrowBridgeHazard,
   generic,
+  ttsLanguageUnsupported,
 }
 
 /// A discrete alert that can be displayed to the driver and optionally spoken.
