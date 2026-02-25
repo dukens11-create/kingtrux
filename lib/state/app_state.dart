@@ -8,6 +8,7 @@ import '../models/truck_profile.dart';
 import '../models/route_result.dart';
 import '../models/toll_preference.dart';
 import '../models/weather_point.dart';
+import '../models/weather_forecast.dart';
 import '../models/navigation_maneuver.dart';
 import '../models/poi.dart';
 import '../models/trip.dart';
@@ -58,6 +59,7 @@ class AppState extends ChangeNotifier {
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
+  Timer? _forecastTimer;
   // Lazily initialised on first use; never touched during unit tests unless
   // voice guidance is explicitly invoked.
   FlutterTts? _ttsInstance;
@@ -87,6 +89,20 @@ class AppState extends ChangeNotifier {
 
   // Weather
   WeatherPoint? weatherAtCurrentLocation;
+
+  // ---------------------------------------------------------------------------
+  // Navigation forecast state
+  // ---------------------------------------------------------------------------
+
+  /// Hourly + daily forecast shown on the navigation screen, or `null` when
+  /// not yet loaded or the API key is absent.
+  WeatherForecast? navigationForecast;
+
+  /// `true` while the forecast is being fetched.
+  bool isLoadingForecast = false;
+
+  /// Error message from the last forecast fetch, or `null` on success.
+  String? forecastError;
 
   // POI layers
   Set<PoiType> enabledPoiLayers = {};
@@ -703,10 +719,44 @@ class AppState extends ChangeNotifier {
       speakable: false,
     ));
     notifyListeners();
+
+    // Fetch forecast immediately and refresh every 12 minutes while navigating.
+    _fetchNavigationForecast();
+    _forecastTimer?.cancel();
+    _forecastTimer = Timer.periodic(
+      const Duration(minutes: 12),
+      (_) => _fetchNavigationForecast(),
+    );
+  }
+
+  /// Fetch (or refresh) the weather forecast for the current navigation position.
+  Future<void> _fetchNavigationForecast() async {
+    final lat = myLat;
+    final lng = myLng;
+    if (lat == null || lng == null) return;
+
+    isLoadingForecast = true;
+    forecastError = null;
+    notifyListeners();
+
+    try {
+      navigationForecast = await _weatherService.getForecast(lat: lat, lng: lng);
+      forecastError = null;
+    } catch (e) {
+      forecastError = e.toString();
+      debugPrint('Forecast fetch error: $e');
+    } finally {
+      isLoadingForecast = false;
+      notifyListeners();
+    }
   }
 
   /// Stop the active navigation session.
   Future<void> stopNavigation() async {
+    _forecastTimer?.cancel();
+    _forecastTimer = null;
+    navigationForecast = null;
+    forecastError = null;
     await _navService.stop();
     isNavigating = false;
     addAlert(AlertEvent(
