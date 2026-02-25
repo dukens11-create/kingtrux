@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/navigation_maneuver.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
+import 'widgets/compass_indicator.dart';
 
 /// Full-screen turn-by-turn navigation UI.
 ///
@@ -32,49 +33,60 @@ class NavigationScreen extends StatelessWidget {
         return Scaffold(
           backgroundColor: cs.surface,
           appBar: _buildAppBar(context, state, cs),
-          body: Column(
+          body: Stack(
             children: [
-              // ── Next-maneuver banner ──────────────────────────────────────
-              _NextManeuverBanner(
-                maneuver: state.currentManeuver,
-                remainingDistanceMeters: state.remainingDistanceMeters,
-                remainingDurationSeconds: state.remainingDurationSeconds,
-              ),
+              Column(
+                children: [
+                  // ── Next-maneuver banner ────────────────────────────────────
+                  _NextManeuverBanner(
+                    maneuver: state.currentManeuver,
+                    remainingDistanceMeters: state.remainingDistanceMeters,
+                    remainingDurationSeconds: state.remainingDurationSeconds,
+                  ),
 
-              // ── Remaining maneuvers list ──────────────────────────────────
-              Expanded(
-                child: state.remainingManeuvers.isEmpty
-                    ? _buildEmptyState(context, cs)
-                    : _ManeuverList(maneuvers: state.remainingManeuvers),
-              ),
+                  // ── Remaining maneuvers list ────────────────────────────────
+                  Expanded(
+                    child: state.remainingManeuvers.isEmpty
+                        ? _buildEmptyState(context, cs)
+                        : _ManeuverList(maneuvers: state.remainingManeuvers),
+                  ),
 
-              // ── End navigation button ─────────────────────────────────────
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppTheme.spaceMD),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: cs.error,
-                        foregroundColor: cs.onError,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: AppTheme.spaceSM + AppTheme.spaceXS,
+                  // ── End navigation button ───────────────────────────────────
+                  SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppTheme.spaceMD),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: cs.error,
+                            foregroundColor: cs.onError,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppTheme.spaceSM + AppTheme.spaceXS,
+                            ),
+                          ),
+                          onPressed: () async {
+                            HapticFeedback.mediumImpact();
+                            await state.stopNavigation();
+                            if (context.mounted &&
+                                Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop();
+                            }
+                          },
+                          icon: const Icon(Icons.stop_rounded),
+                          label: const Text('End Navigation'),
                         ),
                       ),
-                      onPressed: () async {
-                        HapticFeedback.mediumImpact();
-                        await state.stopNavigation();
-                        if (context.mounted &&
-                            Navigator.of(context).canPop()) {
-                          Navigator.of(context).pop();
-                        }
-                      },
-                      icon: const Icon(Icons.stop_rounded),
-                      label: const Text('End Navigation'),
                     ),
                   ),
-                ),
+                ],
+              ),
+
+              // ── Compass indicator (bottom-left overlay) ─────────────────
+              const Positioned(
+                left: AppTheme.spaceMD,
+                bottom: 96,
+                child: CompassIndicator(),
               ),
             ],
           ),
