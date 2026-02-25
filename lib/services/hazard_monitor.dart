@@ -16,6 +16,15 @@ typedef HazardAlertCallback = void Function(
 /// - Sharp curves: [sharpCurveThresholdMeters] (~1 mile)
 /// - Downgrade hills: [downgradeHillThresholdMeters] (~2 miles)
 /// - Work zones: [workZoneThresholdMeters] (~1 mile)
+/// - Truck crossings: [truckCrossingThresholdMeters] (~1 mile)
+/// - Wild animal crossings: [wildAnimalCrossingThresholdMeters] (~1 mile)
+/// - School zones: [schoolZoneThresholdMeters] (~0.5 miles)
+/// - Stop signs: [stopSignThresholdMeters] (~0.25 miles)
+/// - Railroad crossings: [railroadCrossingThresholdMeters] (~1 mile)
+/// - Slippery road: [slipperyRoadThresholdMeters] (~1 mile)
+/// - Merging traffic: [mergingTrafficThresholdMeters] (~1 mile)
+/// - Falling rocks: [fallingRocksThresholdMeters] (~1 mile)
+/// - Narrow bridges: [narrowBridgeThresholdMeters] (~1 mile)
 ///
 /// Spam prevention: each hazard has an individual cooldown tracked by
 /// [Hazard.id].  Once an alert fires it will not fire again until
@@ -39,6 +48,33 @@ class HazardMonitor {
 
   /// Distance in metres at which a work-zone alert fires (~1 mile).
   static const double workZoneThresholdMeters = 1609.3;
+
+  /// Distance in metres at which a truck-crossing alert fires (~1 mile).
+  static const double truckCrossingThresholdMeters = 1609.3;
+
+  /// Distance in metres at which a wild-animal-crossing alert fires (~1 mile).
+  static const double wildAnimalCrossingThresholdMeters = 1609.3;
+
+  /// Distance in metres at which a school-zone alert fires (~0.5 miles).
+  static const double schoolZoneThresholdMeters = 804.7;
+
+  /// Distance in metres at which a stop-sign alert fires (~0.25 miles).
+  static const double stopSignThresholdMeters = 402.3;
+
+  /// Distance in metres at which a railroad-crossing alert fires (~1 mile).
+  static const double railroadCrossingThresholdMeters = 1609.3;
+
+  /// Distance in metres at which a slippery-road alert fires (~1 mile).
+  static const double slipperyRoadThresholdMeters = 1609.3;
+
+  /// Distance in metres at which a merging-traffic alert fires (~1 mile).
+  static const double mergingTrafficThresholdMeters = 1609.3;
+
+  /// Distance in metres at which a falling-rocks alert fires (~1 mile).
+  static const double fallingRocksThresholdMeters = 1609.3;
+
+  /// Distance in metres at which a narrow-bridge alert fires (~1 mile).
+  static const double narrowBridgeThresholdMeters = 1609.3;
 
   /// Minimum seconds between repeated alerts for the same hazard instance.
   static const int cooldownSeconds = 300;
@@ -65,9 +101,8 @@ class HazardMonitor {
   /// [onHazardApproaching] for any hazard within its threshold whose cooldown
   /// has expired.
   ///
-  /// Per-type enable flags ([enableLowBridge], [enableSharpCurve],
-  /// [enableDowngradeHill], [enableWorkZone]) suppress alerts for disabled
-  /// categories without resetting cooldown state.
+  /// Per-type enable flags suppress alerts for disabled categories without
+  /// resetting cooldown state.
   void update({
     required double lat,
     required double lng,
@@ -76,6 +111,15 @@ class HazardMonitor {
     bool enableSharpCurve = true,
     bool enableDowngradeHill = true,
     bool enableWorkZone = true,
+    bool enableTruckCrossing = true,
+    bool enableWildAnimalCrossing = true,
+    bool enableSchoolZone = true,
+    bool enableStopSign = true,
+    bool enableRailroadCrossing = true,
+    bool enableSlipperyRoad = true,
+    bool enableMergingTraffic = true,
+    bool enableFallingRocks = true,
+    bool enableNarrowBridge = true,
   }) {
     final now = DateTime.now();
     for (final hazard in hazards) {
@@ -85,6 +129,15 @@ class HazardMonitor {
         HazardType.sharpCurve => enableSharpCurve,
         HazardType.downgradeHill => enableDowngradeHill,
         HazardType.workZone => enableWorkZone,
+        HazardType.truckCrossing => enableTruckCrossing,
+        HazardType.wildAnimalCrossing => enableWildAnimalCrossing,
+        HazardType.schoolZone => enableSchoolZone,
+        HazardType.stopSign => enableStopSign,
+        HazardType.railroadCrossing => enableRailroadCrossing,
+        HazardType.slipperyRoad => enableSlipperyRoad,
+        HazardType.mergingTraffic => enableMergingTraffic,
+        HazardType.fallingRocks => enableFallingRocks,
+        HazardType.narrowBridge => enableNarrowBridge,
       };
       if (!enabled) continue;
 
@@ -195,6 +248,24 @@ class HazardMonitor {
         return downgradeHillThresholdMeters;
       case HazardType.workZone:
         return workZoneThresholdMeters;
+      case HazardType.truckCrossing:
+        return truckCrossingThresholdMeters;
+      case HazardType.wildAnimalCrossing:
+        return wildAnimalCrossingThresholdMeters;
+      case HazardType.schoolZone:
+        return schoolZoneThresholdMeters;
+      case HazardType.stopSign:
+        return stopSignThresholdMeters;
+      case HazardType.railroadCrossing:
+        return railroadCrossingThresholdMeters;
+      case HazardType.slipperyRoad:
+        return slipperyRoadThresholdMeters;
+      case HazardType.mergingTraffic:
+        return mergingTrafficThresholdMeters;
+      case HazardType.fallingRocks:
+        return fallingRocksThresholdMeters;
+      case HazardType.narrowBridge:
+        return narrowBridgeThresholdMeters;
     }
   }
 
