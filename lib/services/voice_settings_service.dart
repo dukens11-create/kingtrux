@@ -12,6 +12,9 @@ class VoiceSettingsService {
     'en-CA',
     'fr-CA',
     'es-US',
+    'hi-IN',
+    'ht-HT',
+    'zh-CN',
   ];
 
   /// Load persisted voice settings.

@@ -65,9 +65,13 @@ class _TripPlannerContentState extends State<_TripPlannerContent> {
   void initState() {
     super.initState();
     _voiceService = VoiceCommandService()
+      ..language = widget.state.voiceLanguage
       ..onSpeak = widget.state.speakText
       ..onAddressRecognized = _handleAddressRecognized
       ..onBuildRoute = _handleBuildRoute
+      ..onLanguageChanged = (lang) {
+        widget.state.setVoiceLanguage(lang);
+      }
       ..onStateChanged = (_) {
         if (mounted) setState(() {});
       };
@@ -113,6 +117,8 @@ class _TripPlannerContentState extends State<_TripPlannerContent> {
 
   Future<void> _startListening() async {
     if (!_isSttAvailable || _isListening || _isProcessing) return;
+    // Keep service language in sync with app setting.
+    _voiceService.language = widget.state.voiceLanguage;
     await _speech.listen(
       onResult: (result) {
         if (result.finalResult && result.recognizedWords.isNotEmpty) {
@@ -132,7 +138,7 @@ class _TripPlannerContentState extends State<_TripPlannerContent> {
         }
       },
       listenFor: const Duration(seconds: 30),
-      localeId: 'en-US',
+      localeId: widget.state.voiceLanguage,
       cancelOnError: true,
     );
     if (mounted) setState(() => _isListening = true);

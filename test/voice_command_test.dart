@@ -236,4 +236,236 @@ void main() {
       expect(svc.state, VoiceCommandState.awaitingStopCount);
     });
   });
+
+  // ── Multilingual support ───────────────────────────────────────────────────
+
+  group('VoiceCommandService.parseLanguageCommand', () {
+    test('detects Hindi', () {
+      expect(
+        VoiceCommandService.parseLanguageCommand('kingtrux use hindi'),
+        'hi-IN',
+      );
+    });
+
+    test('detects Haitian Creole via "haitian"', () {
+      expect(
+        VoiceCommandService.parseLanguageCommand('kingtrux use haitian creole'),
+        'ht-HT',
+      );
+    });
+
+    test('detects Haitian Creole via "creole"', () {
+      expect(
+        VoiceCommandService.parseLanguageCommand('kingtrux use creole'),
+        'ht-HT',
+      );
+    });
+
+    test('detects Chinese via "chinese"', () {
+      expect(
+        VoiceCommandService.parseLanguageCommand('kingtrux use chinese'),
+        'zh-CN',
+      );
+    });
+
+    test('detects Chinese via "mandarin"', () {
+      expect(
+        VoiceCommandService.parseLanguageCommand('kingtrux use mandarin'),
+        'zh-CN',
+      );
+    });
+
+    test('detects English', () {
+      expect(
+        VoiceCommandService.parseLanguageCommand('kingtrux use english'),
+        'en-US',
+      );
+    });
+
+    test('returns null without "kingtrux"', () {
+      expect(
+        VoiceCommandService.parseLanguageCommand('use hindi'),
+        isNull,
+      );
+    });
+
+    test('returns null for unrecognised language', () {
+      expect(
+        VoiceCommandService.parseLanguageCommand('kingtrux use klingon'),
+        isNull,
+      );
+    });
+  });
+
+  group('VoiceCommandService.parseAddCommand multilingual', () {
+    test('detects Haitian Creole "ajoute" prefix', () {
+      expect(
+        VoiceCommandService.parseAddCommand(
+          'kingtrux ajoute 1600 pennsylvania avenue',
+          language: 'ht-HT',
+        ),
+        '1600 pennsylvania avenue',
+      );
+    });
+
+    test('detects Chinese prefix', () {
+      expect(
+        VoiceCommandService.parseAddCommand('金卡车添加北京路123号', language: 'zh-CN'),
+        '北京路123号',
+      );
+    });
+
+    test('detects Hindi Devanagari prefix', () {
+      expect(
+        VoiceCommandService.parseAddCommand(
+          'किंगट्रक्स जोड़ें मुंबई',
+          language: 'hi-IN',
+        ),
+        'मुंबई',
+      );
+    });
+
+    test('English fallback still works in non-English language mode', () {
+      expect(
+        VoiceCommandService.parseAddCommand(
+          'kingtrux add dallas tx',
+          language: 'hi-IN',
+        ),
+        'dallas tx',
+      );
+    });
+  });
+
+  group('VoiceCommandService.isMultipleStopCommand multilingual', () {
+    test('detects Haitian Creole trigger', () {
+      expect(
+        VoiceCommandService.isMultipleStopCommand(
+          'kingtrux plizyè stop',
+          language: 'ht-HT',
+        ),
+        isTrue,
+      );
+    });
+
+    test('detects Chinese trigger', () {
+      expect(
+        VoiceCommandService.isMultipleStopCommand(
+          '金卡车多站点',
+          language: 'zh-CN',
+        ),
+        isTrue,
+      );
+    });
+
+    test('detects Hindi trigger', () {
+      expect(
+        VoiceCommandService.isMultipleStopCommand(
+          'किंगट्रक्स मल्टीपल स्टॉप',
+          language: 'hi-IN',
+        ),
+        isTrue,
+      );
+    });
+  });
+
+  group('VoiceCommandService.parseStopCount multilingual', () {
+    test('Hindi number words', () {
+      expect(VoiceCommandService.parseStopCount('एक', language: 'hi-IN'), 1);
+      expect(VoiceCommandService.parseStopCount('दो', language: 'hi-IN'), 2);
+      expect(VoiceCommandService.parseStopCount('तीन', language: 'hi-IN'), 3);
+      expect(VoiceCommandService.parseStopCount('दस', language: 'hi-IN'), 10);
+    });
+
+    test('Haitian Creole number words', () {
+      expect(VoiceCommandService.parseStopCount('twa', language: 'ht-HT'), 3);
+      expect(VoiceCommandService.parseStopCount('kat', language: 'ht-HT'), 4);
+      expect(VoiceCommandService.parseStopCount('dis', language: 'ht-HT'), 10);
+    });
+
+    test('Chinese number characters', () {
+      expect(VoiceCommandService.parseStopCount('三', language: 'zh-CN'), 3);
+      expect(VoiceCommandService.parseStopCount('两', language: 'zh-CN'), 2);
+      expect(VoiceCommandService.parseStopCount('十', language: 'zh-CN'), 10);
+    });
+
+    test('digit strings still work for all languages', () {
+      expect(VoiceCommandService.parseStopCount('5', language: 'hi-IN'), 5);
+      expect(VoiceCommandService.parseStopCount('7', language: 'ht-HT'), 7);
+      expect(VoiceCommandService.parseStopCount('2', language: 'zh-CN'), 2);
+    });
+
+    test('English words still work as universal fallback', () {
+      expect(VoiceCommandService.parseStopCount('three', language: 'hi-IN'), 3);
+      expect(VoiceCommandService.parseStopCount('five', language: 'ht-HT'), 5);
+    });
+  });
+
+  group('VoiceCommandService language-switch state machine', () {
+    late VoiceCommandService svc;
+    final spoken = <String>[];
+    final states = <VoiceCommandState>[];
+    final languageChanges = <String>[];
+
+    setUp(() {
+      svc = VoiceCommandService();
+      spoken.clear();
+      states.clear();
+      languageChanges.clear();
+      svc
+        ..onSpeak = spoken.add
+        ..onStateChanged = states.add
+        ..onLanguageChanged = languageChanges.add;
+    });
+
+    test('language change command updates language field', () {
+      svc.startListening();
+      svc.process('Kingtrux use Hindi');
+      expect(svc.language, 'hi-IN');
+    });
+
+    test('language change fires onLanguageChanged callback', () {
+      svc.startListening();
+      svc.process('Kingtrux use Chinese');
+      expect(languageChanges, ['zh-CN']);
+    });
+
+    test('language change speaks localized confirmation', () {
+      svc.startListening();
+      spoken.clear();
+      svc.process('Kingtrux use Hindi');
+      expect(spoken.isNotEmpty, isTrue);
+      // Confirmation should be in Hindi.
+      expect(spoken.first.contains('हिंदी'), isTrue);
+    });
+
+    test('Hindi prompts after language switch', () {
+      svc.startListening();
+      svc.process('Kingtrux use Hindi');
+      spoken.clear();
+      // Re-start to get greeting in new language.
+      svc.startListening();
+      expect(spoken.first.contains('किंगट्रक्स'), isTrue);
+    });
+
+    test('Haitian Creole greeting after switch', () {
+      svc.language = 'ht-HT';
+      svc.startListening();
+      expect(spoken.first.contains('koute'), isTrue);
+    });
+
+    test('Chinese greeting after switch', () {
+      svc.language = 'zh-CN';
+      svc.startListening();
+      expect(spoken.first.contains('聆听'), isTrue);
+    });
+
+    test('address-not-found message is localized', () {
+      svc.language = 'hi-IN';
+      svc.startListening();
+      svc.process('किंगट्रक्स जोड़ें कहीं नहीं');
+      spoken.clear();
+      svc.rejectAddress();
+      expect(spoken.any((s) => s.contains('पता')), isTrue);
+    });
+  });
 }
