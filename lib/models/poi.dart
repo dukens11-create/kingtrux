@@ -6,6 +6,7 @@ enum PoiType {
   scale,
   truckStop,
   parking,
+  roadsideAssistance,
 }
 
 /// Point of Interest model

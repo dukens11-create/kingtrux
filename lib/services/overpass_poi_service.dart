@@ -223,6 +223,8 @@ class OverpassPoiService {
         return 'Truck Stop';
       case PoiType.parking:
         return 'Parking';
+      case PoiType.roadsideAssistance:
+        return 'Roadside Service';
     }
   }
 

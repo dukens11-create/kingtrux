@@ -168,6 +168,8 @@ class PoiDetailSheet extends StatelessWidget {
         return Icons.deck_rounded;
       case PoiType.gym:
         return Icons.fitness_center_rounded;
+      case PoiType.roadsideAssistance:
+        return Icons.emergency_rounded;
     }
   }
 
@@ -186,6 +188,8 @@ class PoiDetailSheet extends StatelessWidget {
         return 'Rest Area';
       case PoiType.gym:
         return 'Gym';
+      case PoiType.roadsideAssistance:
+        return 'Roadside Assistance';
     }
   }
 }

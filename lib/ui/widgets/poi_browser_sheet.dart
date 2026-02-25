@@ -111,7 +111,11 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppTheme.spaceMD,
                     ),
-                    children: PoiType.values.map((type) {
+                    children: PoiType.values
+                        // roadsideAssistance is served via the dedicated
+                        // "Get Help" flow, not the generic POI browser.
+                        .where((t) => t != PoiType.roadsideAssistance)
+                        .map((type) {
                       final enabled = state.enabledPoiLayers.contains(type);
                       return Padding(
                         padding: const EdgeInsets.only(right: AppTheme.spaceXS),
