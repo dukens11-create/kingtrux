@@ -12,6 +12,7 @@ A Flutter-based mobile application for truck drivers with advanced routing, POI 
 - **Truck-specific route planning** with HERE Routing API v8
   - Configurable truck profile (height, weight, width, length, axles, hazmat)
   - Route optimization considering truck restrictions
+  - **Toll vs Toll-Free selection** — driver toggle with estimated toll cost display
 - **Points of Interest (POI) discovery** via OpenStreetMap Overpass API
   - Fuel stations
   - Rest areas
@@ -280,7 +281,40 @@ limits. A HERE API key (`HERE_API_KEY`) must be configured — see
 If required profile fields are zero or invalid, the app surfaces an actionable
 error before making any network request (no crash or silent fallback).
 
-## UI Preview Gallery
+## Toll vs Toll-Free Route Selection
+
+Truck drivers can choose between routes that use toll roads and routes that
+avoid them entirely.
+
+### How to use
+
+1. A **Toll / Toll-Free** toggle is displayed in the route card at the bottom of
+   the map screen.
+2. Tap **Toll** to allow toll roads (default). When the HERE API returns cost
+   data, an **Est. tolls: $X.XX** estimate is shown below the route duration.
+3. Tap **Toll-Free** to request a route that avoids all toll roads.  A green
+   **✓ Toll-Free Route** badge is shown on the route card to confirm the
+   preference is active.
+4. Changing the preference while a route is already displayed automatically
+   recalculates the route with the new setting.
+
+### Global / persistent preference
+
+The selected preference is persisted to device storage via `SharedPreferences`.
+The app restores the preference on next launch so drivers do not have to
+re-select it every trip.
+
+### HERE API integration
+
+| Preference | HERE API parameter added | `return` field |
+|------------|--------------------------|----------------|
+| **Toll** (any) | *(none)* | `polyline,summary,actions,tolls` |
+| **Toll-Free** | `avoid[features]=tollRoad` | `polyline,summary,actions` |
+
+The toll cost estimate is parsed from the `sections[].tolls[].fares[].convertedPrice`
+field in the HERE Routing API v8 response.
+
+
 
 The app ships a built-in **UI Preview Gallery** that renders key components in
 both light and dark themes — no API keys required.
