@@ -4,6 +4,9 @@ import '../../models/alert_event.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
 
+// Alert types that should never surface as a visual banner on the map screen.
+const _suppressedAlertTypes = {AlertType.underSpeed};
+
 /// Overlay banner that displays the current [AlertEvent] from [AppState].
 ///
 /// Renders nothing when there are no pending alerts. The user can dismiss
@@ -18,6 +21,9 @@ class AlertBanner extends StatelessWidget {
       builder: (context, state, _) {
         final alert = state.currentAlert;
         if (alert == null) return const SizedBox.shrink();
+        if (_suppressedAlertTypes.contains(alert.type)) {
+          return const SizedBox.shrink();
+        }
         return _AlertBannerContent(alert: alert, state: state);
       },
     );
