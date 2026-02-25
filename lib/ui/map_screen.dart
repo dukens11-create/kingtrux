@@ -14,8 +14,9 @@ import 'widgets/poi_detail_sheet.dart';
 import 'widgets/roadside_assistance_sheet.dart';
 import 'widgets/route_summary_card.dart';
 import 'widgets/voice_settings_sheet.dart';
-import 'widgets/alert_banner.dart';
+import 'widgets/theme_settings_sheet.dart';
 import 'widgets/road_sign_alert_settings_sheet.dart';
+import 'widgets/alert_banner.dart';
 import 'widgets/trip_planner_sheet.dart';
 import 'widgets/speed_display.dart';
 import 'widgets/compass_indicator.dart';
@@ -204,6 +205,11 @@ class _MapScreenState extends State<MapScreen> {
             icon: const Icon(Icons.warning_amber_rounded),
             tooltip: 'Road Sign Alerts',
             onPressed: _onRoadSignAlertsPressed,
+          ),
+          IconButton(
+            icon: const Icon(Icons.palette_outlined),
+            tooltip: 'Color Theme',
+            onPressed: _onThemeSettingsPressed,
           ),
           IconButton(
             icon: const Icon(Icons.record_voice_over_rounded),
@@ -424,6 +430,15 @@ class _MapScreenState extends State<MapScreen> {
       context: context,
       isScrollControlled: true,
       builder: (context) => const RoadSignAlertSettingsSheet(),
+    );
+  }
+
+  void _onThemeSettingsPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const ThemeSettingsSheet(),
     );
   }
 

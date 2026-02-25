@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
@@ -44,9 +45,10 @@ import '../models/truck_stop_brand.dart';
 import '../services/truck_stop_brand_settings_service.dart';
 import '../services/truck_stop_filter_service.dart';
 import '../services/night_mode_service.dart';
+import '../services/roadside_assistance_service.dart';
+import '../services/theme_settings_service.dart';
 import '../services/trip_eta_service.dart';
 import '../services/timezone_service.dart';
-import '../services/roadside_assistance_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -79,11 +81,13 @@ class AppState extends ChangeNotifier {
       NightModeSettingsService();
   final RoadsideAssistanceService _roadsideAssistanceService =
       RoadsideAssistanceService();
+  final ThemeSettingsService _themeSettingsService = ThemeSettingsService();
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
   Timer? _forecastTimer;
   Timer? _nightModeTimer;
+  Timer? _etaTimer;
   // Lazily initialised on first use; never touched during unit tests unless
   // voice guidance is explicitly invoked.
   FlutterTts? _ttsInstance;
@@ -219,6 +223,30 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Color theme state
+  // ---------------------------------------------------------------------------
+
+  /// The driver's chosen color theme preset.
+  ///
+  /// Defaults to [ThemeOption.classic].
+  ThemeOption themeOption = ThemeOption.classic;
+
+  /// The custom accent color used when [themeOption] is [ThemeOption.custom].
+  ///
+  /// Defaults to [ThemeSettingsService.defaultSeedColor].
+  Color customAccentColor = ThemeSettingsService.defaultSeedColor;
+
+  /// The effective seed color for the current theme.
+  ///
+  /// When [themeOption] is [ThemeOption.custom], returns [customAccentColor].
+  /// Otherwise returns the preset color for the active [ThemeOption].
+  Color get effectiveSeedColor {
+    if (themeOption == ThemeOption.custom) return customAccentColor;
+    return ThemeSettingsService.presetSeedColors[themeOption] ??
+        ThemeSettingsService.defaultSeedColor;
+  }
+
   // Trip ETA and time zone state
   // ---------------------------------------------------------------------------
 
@@ -243,10 +271,6 @@ class AppState extends ChangeNotifier {
 
   /// UTC offset for the destination's time zone, or `null` when unknown.
   Duration? _destinationUtcOffset;
-
-  /// Periodic timer that refreshes [tripEtaUtc] and related fields every
-  /// minute while navigation is active.
-  Timer? _etaTimer;
 
   // ---------------------------------------------------------------------------
   // Hazard alert state
@@ -426,6 +450,13 @@ class AppState extends ChangeNotifier {
       debugPrint('Error loading night mode settings: $e');
     }
     _startNightModeTimer();
+    try {
+      themeOption = await _themeSettingsService.loadOption();
+      customAccentColor = await _themeSettingsService.loadCustomAccent();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading theme settings: $e');
+    }
     try {
       await refreshMyLocation();
     } catch (e) {
@@ -618,16 +649,10 @@ class AppState extends ChangeNotifier {
         truckProfile: truckProfile,
         avoidTolls: tollPreference == TollPreference.tollFree,
       );
-
       if (routeResult != null) {
         _startRouteMonitoring();
         _lookupDestinationState(destLat!, destLng!);
       }
-    } catch (e) {
-      routeError = e.toString();
-      routeResult = null;
-    } finally {
-      isLoadingRoute = false;
       notifyListeners();
     }
   }
@@ -825,7 +850,6 @@ class AppState extends ChangeNotifier {
         avoidTolls: tollPreference == TollPreference.tollFree,
       );
       routeError = null;
-
       if (routeResult != null) {
         _startRouteMonitoring();
         // Use the last stop's coordinates as the trip destination.
@@ -954,7 +978,6 @@ class AppState extends ChangeNotifier {
       (_) => _fetchNavigationForecast(),
     );
 
-
     // Compute ETA immediately and refresh every minute.
     _updateEta();
     _etaTimer?.cancel();
@@ -1052,6 +1075,39 @@ class AppState extends ChangeNotifier {
       (Object e) => debugPrint('Error saving night mode option: $e'),
     );
     _startNightModeTimer();
+    notifyListeners();
+  }
+
+  /// Change the active color theme to [option] and persist the choice.
+  void setThemeOption(ThemeOption option) {
+    themeOption = option;
+    _themeSettingsService.saveOption(option).catchError(
+      (Object e) => debugPrint('Error saving theme option: $e'),
+    );
+    notifyListeners();
+  }
+
+  /// Set a custom accent [color] (activates [ThemeOption.custom] automatically)
+  /// and persist the choice.
+  void setCustomAccentColor(Color color) {
+    customAccentColor = color;
+    themeOption = ThemeOption.custom;
+    _themeSettingsService.saveCustomAccent(color).catchError(
+      (Object e) => debugPrint('Error saving custom accent color: $e'),
+    );
+    _themeSettingsService.saveOption(ThemeOption.custom).catchError(
+      (Object e) => debugPrint('Error saving theme option: $e'),
+    );
+    notifyListeners();
+  }
+
+  /// Reset the color theme to the Classic default and persist the change.
+  void resetTheme() {
+    themeOption = ThemeOption.classic;
+    customAccentColor = ThemeSettingsService.defaultSeedColor;
+    _themeSettingsService.saveOption(ThemeOption.classic).catchError(
+      (Object e) => debugPrint('Error saving theme option: $e'),
+    );
     notifyListeners();
   }
 
@@ -1653,7 +1709,6 @@ class AppState extends ChangeNotifier {
         currentUsState = stateCode;
         stateTruckSpeedLimitMph = newLimit;
 
-
         // Update current time zone name and detect crossings.
         final newTzAbbr = TimeZoneService.getAbbreviation(stateCode, now);
         final prevTzAbbr = currentTimeZoneName;
@@ -1701,7 +1756,6 @@ class AppState extends ChangeNotifier {
       onError: (Object e) => debugPrint('State detection error: $e'),
     );
   }
-
 
   // ---------------------------------------------------------------------------
   // Trip ETA helpers
@@ -1759,7 +1813,6 @@ class AppState extends ChangeNotifier {
     _stopRouteMonitoring();
     _speedMonitorSub?.cancel();
     _nightModeTimer?.cancel();
-
     _etaTimer?.cancel();
     _navService.stop();
     _ttsInstance?.stop();

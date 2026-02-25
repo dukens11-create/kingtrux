@@ -15,8 +15,8 @@ class KingTruxApp extends StatelessWidget {
       child: Consumer<AppState>(
         builder: (context, state, _) => MaterialApp(
           title: 'KINGTRUX',
-          theme: AppTheme.light,
-          darkTheme: AppTheme.dark,
+          theme: AppTheme.lightFromSeed(state.effectiveSeedColor),
+          darkTheme: AppTheme.darkFromSeed(state.effectiveSeedColor),
           themeMode: state.isNightMode ? ThemeMode.dark : ThemeMode.light,
           home: const MapScreen(),
           debugShowCheckedModeBanner: false,
