@@ -40,6 +40,9 @@ import '../models/hazard.dart';
 import '../services/hazard_monitor.dart';
 import '../services/hazard_settings_service.dart';
 import '../services/truck_speed_limit_service.dart';
+import '../models/truck_stop_brand.dart';
+import '../services/truck_stop_brand_settings_service.dart';
+import '../services/truck_stop_filter_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -66,6 +69,8 @@ class AppState extends ChangeNotifier {
   final HazardMonitor _hazardMonitor = HazardMonitor();
   final HazardSettingsService _hazardSettingsService = HazardSettingsService();
   final TruckSpeedLimitService _truckSpeedLimitService = TruckSpeedLimitService();
+  final TruckStopBrandSettingsService _truckStopBrandSettingsService =
+      TruckStopBrandSettingsService();
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
@@ -121,6 +126,13 @@ class AppState extends ChangeNotifier {
   // POI layers
   Set<PoiType> enabledPoiLayers = {};
   List<Poi> pois = [];
+
+  /// Which truck stop brands are currently visible.
+  ///
+  /// Defaults to all brands enabled. When this set contains every
+  /// [TruckStopBrand] value, all truck stop POIs are shown regardless of brand.
+  Set<TruckStopBrand> enabledTruckStopBrands =
+      Set.of(TruckStopBrand.values);
 
   /// IDs of POIs the driver has marked as favorites.
   Set<String> favoritePois = {};
@@ -329,6 +341,12 @@ class AppState extends ChangeNotifier {
       debugPrint('Error loading hazard settings: $e');
     }
     try {
+      enabledTruckStopBrands = await _truckStopBrandSettingsService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading truck stop brand settings: $e');
+    }
+    try {
       await refreshMyLocation();
     } catch (e) {
       debugPrint('Error initializing location: $e');
@@ -407,6 +425,37 @@ class AppState extends ChangeNotifier {
       enabledPoiLayers.remove(type);
     }
     notifyListeners();
+  }
+
+  /// Toggle a per-brand filter for the Truck Stops POI layer.
+  void toggleTruckStopBrand(TruckStopBrand brand, bool enabled) {
+    if (enabled) {
+      enabledTruckStopBrands.add(brand);
+    } else {
+      enabledTruckStopBrands.remove(brand);
+    }
+    _truckStopBrandSettingsService.save(Set.of(enabledTruckStopBrands)).catchError(
+      (Object e) => debugPrint('Error saving truck stop brand settings: $e'),
+    );
+    notifyListeners();
+  }
+
+  /// Returns `true` if [poi] should be visible given the current brand filters.
+  ///
+  /// For non-truck-stop POIs this always returns `true`.  For truck stop POIs,
+  /// when all brands are enabled (default) every POI is shown.  When only some
+  /// brands are enabled, only POIs matching an enabled brand (or POIs whose
+  /// brand cannot be determined) are shown.
+  bool isTruckStopBrandVisible(Poi poi) {
+    if (poi.type != PoiType.truckStop) return true;
+    // All brands enabled → no filtering needed.
+    if (enabledTruckStopBrands.length == TruckStopBrand.values.length) {
+      return true;
+    }
+    final detected = TruckStopFilterService.detectBrand(poi.tags);
+    // Unknown brand → always show so drivers can still discover unlabelled stops.
+    if (detected == null) return true;
+    return enabledTruckStopBrands.contains(detected);
   }
 
   /// Toggle the favorite state of a POI identified by [poiId].

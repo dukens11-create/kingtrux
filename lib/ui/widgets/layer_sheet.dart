@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/poi.dart';
+import '../../models/truck_stop_brand.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
 
@@ -101,7 +102,7 @@ class LayerSheet extends StatelessWidget {
                     Icons.local_shipping_rounded,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  title: const Text('Truck Stops'),
+                  title: const Text('Major Truck Stops'),
                   subtitle: const Text('highway=services · amenity=truck_stop'),
                   value: state.enabledPoiLayers.contains(PoiType.truckStop),
                   onChanged: (value) {
@@ -110,6 +111,34 @@ class LayerSheet extends StatelessWidget {
                   },
                   contentPadding: EdgeInsets.zero,
                 ),
+
+                // Per-brand toggles (visible when Truck Stops layer is on)
+                if (state.enabledPoiLayers.contains(PoiType.truckStop)) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      left: AppTheme.spaceLG,
+                      bottom: AppTheme.spaceXS,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: TruckStopBrand.values.map((brand) {
+                        return CheckboxListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            brand.displayName,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          value: state.enabledTruckStopBrands.contains(brand),
+                          onChanged: (value) {
+                            HapticFeedback.selectionClick();
+                            state.toggleTruckStopBrand(brand, value ?? false);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
 
                 // Parking
                 SwitchListTile(

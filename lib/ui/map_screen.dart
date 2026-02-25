@@ -292,6 +292,8 @@ class _MapScreenState extends State<MapScreen> {
       // Respect layer toggle: hide markers for disabled layers without
       // requiring a full reload.
       if (!state.enabledPoiLayers.contains(poi.type)) continue;
+      // Respect per-brand filter for truck stop POIs.
+      if (!state.isTruckStopBrandVisible(poi)) continue;
       markers.add(
         Marker(
           markerId: MarkerId('poi_${poi.id}'),

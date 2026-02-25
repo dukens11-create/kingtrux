@@ -30,6 +30,7 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
         // POIs visible under current layer filters
         final visiblePois = state.pois
             .where((p) => state.enabledPoiLayers.contains(p.type))
+            .where(state.isTruckStopBrandVisible)
             .toList();
 
         return DraggableScrollableSheet(

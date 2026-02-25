@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 import '../config.dart';
 import '../models/poi.dart';
+import 'truck_stop_filter_service.dart';
 
 /// Service for fetching POIs from OpenStreetMap Overpass API
 class OverpassPoiService {
@@ -112,6 +113,12 @@ class OverpassPoiService {
     if (enabledTypes.contains(PoiType.truckStop)) {
       add('"highway"="services"');
       add('"amenity"="truck_stop"');
+      // Also capture branded fuel stops (TA, Petro, Love's, Pilot, Flying J).
+      const brandRegex = 'TA|TravelCenters|Petro|Love|Pilot|Flying.?J';
+      q.add('node["amenity"="fuel"]["brand"~"$brandRegex",i](around:$radius,$lat,$lng);');
+      q.add('way["amenity"="fuel"]["brand"~"$brandRegex",i](around:$radius,$lat,$lng);');
+      q.add('node["amenity"="fuel"]["operator"~"$brandRegex",i](around:$radius,$lat,$lng);');
+      q.add('way["amenity"="fuel"]["operator"~"$brandRegex",i](around:$radius,$lat,$lng);');
     }
     if (enabledTypes.contains(PoiType.parking)) {
       add('"amenity"="parking"');
@@ -132,7 +139,10 @@ class OverpassPoiService {
         // Determine POI type
         PoiType? type;
         if (tags['amenity'] == 'fuel') {
-          type = PoiType.fuel;
+          // Reclassify as truckStop when the station belongs to a major brand.
+          final isBranded =
+              TruckStopFilterService.detectBrand(tags) != null;
+          type = isBranded ? PoiType.truckStop : PoiType.fuel;
         } else if (tags['highway'] == 'rest_area') {
           type = PoiType.restArea;
         } else if (tags['amenity'] == 'weighbridge') {
