@@ -16,6 +16,8 @@ class HazardSettings {
     this.enableMergingTrafficWarnings = true,
     this.enableFallingRocksWarnings = true,
     this.enableNarrowBridgeWarnings = true,
+    this.enableTruckRolloverWarnings = true,
+    this.enableTunnelWarnings = true,
     this.enableHazardTts = true,
   });
 
@@ -58,6 +60,12 @@ class HazardSettings {
   /// Whether to show alerts for narrow bridges.
   final bool enableNarrowBridgeWarnings;
 
+  /// Whether to show alerts for truck rollover warning signs (sharp turns, steep ramps).
+  final bool enableTruckRolloverWarnings;
+
+  /// Whether to show alerts for tunnels (height restrictions, hazmat, etc.).
+  final bool enableTunnelWarnings;
+
   /// Whether hazard alerts should be spoken aloud.
   ///
   /// Both this flag **and** the global voice-guidance toggle must be true for
@@ -79,6 +87,8 @@ class HazardSettings {
     bool? enableMergingTrafficWarnings,
     bool? enableFallingRocksWarnings,
     bool? enableNarrowBridgeWarnings,
+    bool? enableTruckRolloverWarnings,
+    bool? enableTunnelWarnings,
     bool? enableHazardTts,
   }) {
     return HazardSettings(
@@ -108,6 +118,10 @@ class HazardSettings {
           enableFallingRocksWarnings ?? this.enableFallingRocksWarnings,
       enableNarrowBridgeWarnings:
           enableNarrowBridgeWarnings ?? this.enableNarrowBridgeWarnings,
+      enableTruckRolloverWarnings:
+          enableTruckRolloverWarnings ?? this.enableTruckRolloverWarnings,
+      enableTunnelWarnings:
+          enableTunnelWarnings ?? this.enableTunnelWarnings,
       enableHazardTts: enableHazardTts ?? this.enableHazardTts,
     );
   }
@@ -128,6 +142,8 @@ class HazardSettingsService {
   static const _keyMergingTraffic = 'hazard_enable_merging_traffic';
   static const _keyFallingRocks = 'hazard_enable_falling_rocks';
   static const _keyNarrowBridge = 'hazard_enable_narrow_bridge';
+  static const _keyTruckRollover = 'hazard_enable_truck_rollover';
+  static const _keyTunnel = 'hazard_enable_tunnel';
   static const _keyHazardTts = 'hazard_enable_tts';
 
   /// Load persisted hazard settings.
@@ -153,6 +169,8 @@ class HazardSettingsService {
         enableMergingTrafficWarnings: prefs.getBool(_keyMergingTraffic) ?? true,
         enableFallingRocksWarnings: prefs.getBool(_keyFallingRocks) ?? true,
         enableNarrowBridgeWarnings: prefs.getBool(_keyNarrowBridge) ?? true,
+        enableTruckRolloverWarnings: prefs.getBool(_keyTruckRollover) ?? true,
+        enableTunnelWarnings: prefs.getBool(_keyTunnel) ?? true,
         enableHazardTts: prefs.getBool(_keyHazardTts) ?? true,
       );
     } catch (_) {
@@ -179,6 +197,8 @@ class HazardSettingsService {
         _keyMergingTraffic, settings.enableMergingTrafficWarnings);
     await prefs.setBool(_keyFallingRocks, settings.enableFallingRocksWarnings);
     await prefs.setBool(_keyNarrowBridge, settings.enableNarrowBridgeWarnings);
+    await prefs.setBool(_keyTruckRollover, settings.enableTruckRolloverWarnings);
+    await prefs.setBool(_keyTunnel, settings.enableTunnelWarnings);
     await prefs.setBool(_keyHazardTts, settings.enableHazardTts);
   }
 }

@@ -20,6 +20,8 @@ void main() {
       expect(values, contains(HazardType.mergingTraffic));
       expect(values, contains(HazardType.fallingRocks));
       expect(values, contains(HazardType.narrowBridge));
+      expect(values, contains(HazardType.truckRollover));
+      expect(values, contains(HazardType.tunnel));
     });
   });
 
@@ -49,6 +51,8 @@ void main() {
       HazardType.mergingTraffic,
       HazardType.fallingRocks,
       HazardType.narrowBridge,
+      HazardType.truckRollover,
+      HazardType.tunnel,
     ]) {
       test('fires for ${type.name} when driver is at hazard location', () {
         final h = _sign('${type.name}_1', type);
@@ -191,6 +195,26 @@ void main() {
       expect(fired, isEmpty);
     });
 
+    test('enableTruckRollover=false suppresses truck rollover alert', () {
+      monitor.update(
+        lat: 37.0,
+        lng: -122.0,
+        hazards: [_sign(HazardType.truckRollover)],
+        enableTruckRollover: false,
+      );
+      expect(fired, isEmpty);
+    });
+
+    test('enableTunnel=false suppresses tunnel alert', () {
+      monitor.update(
+        lat: 37.0,
+        lng: -122.0,
+        hazards: [_sign(HazardType.tunnel)],
+        enableTunnel: false,
+      );
+      expect(fired, isEmpty);
+    });
+
     test('disabling one type does not suppress other types', () {
       final hazards = [
         Hazard(id: 'tc', type: HazardType.truckCrossing, lat: 37.0, lng: -122.0),
@@ -255,6 +279,14 @@ void main() {
       expect(HazardMonitor.narrowBridgeThresholdMeters, closeTo(1609.3, 1.0));
     });
 
+    test('truck rollover threshold is ~1 mile (≈1609 m)', () {
+      expect(HazardMonitor.truckRolloverThresholdMeters, closeTo(1609.3, 1.0));
+    });
+
+    test('tunnel threshold is ~1 mile (≈1609 m)', () {
+      expect(HazardMonitor.tunnelThresholdMeters, closeTo(1609.3, 1.0));
+    });
+
     test('stop sign fires within threshold but not outside', () {
       final monitor = HazardMonitor();
       final fired = <Hazard>[];
@@ -294,6 +326,8 @@ void main() {
       expect(s.enableMergingTrafficWarnings, isTrue);
       expect(s.enableFallingRocksWarnings, isTrue);
       expect(s.enableNarrowBridgeWarnings, isTrue);
+      expect(s.enableTruckRolloverWarnings, isTrue);
+      expect(s.enableTunnelWarnings, isTrue);
     });
 
     test('copyWith overrides only specified new fields', () {
@@ -311,6 +345,8 @@ void main() {
       expect(copy.enableMergingTrafficWarnings, isTrue);
       expect(copy.enableFallingRocksWarnings, isTrue);
       expect(copy.enableNarrowBridgeWarnings, isTrue);
+      expect(copy.enableTruckRolloverWarnings, isTrue);
+      expect(copy.enableTunnelWarnings, isTrue);
       expect(copy.enableHazardTts, isTrue);
     });
   });
@@ -338,6 +374,8 @@ void main() {
       expect(s.enableMergingTrafficWarnings, isTrue);
       expect(s.enableFallingRocksWarnings, isTrue);
       expect(s.enableNarrowBridgeWarnings, isTrue);
+      expect(s.enableTruckRolloverWarnings, isTrue);
+      expect(s.enableTunnelWarnings, isTrue);
     });
 
     test('save and reload round-trips all new road sign fields', () async {
@@ -351,6 +389,8 @@ void main() {
         enableMergingTrafficWarnings: true,
         enableFallingRocksWarnings: false,
         enableNarrowBridgeWarnings: true,
+        enableTruckRolloverWarnings: false,
+        enableTunnelWarnings: true,
       );
       await service.save(toSave);
       final loaded = await service.load();
@@ -363,6 +403,8 @@ void main() {
       expect(loaded.enableMergingTrafficWarnings, isTrue);
       expect(loaded.enableFallingRocksWarnings, isFalse);
       expect(loaded.enableNarrowBridgeWarnings, isTrue);
+      expect(loaded.enableTruckRolloverWarnings, isFalse);
+      expect(loaded.enableTunnelWarnings, isTrue);
     });
 
     test('overwriting save replaces previous road sign values', () async {

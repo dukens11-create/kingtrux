@@ -30,6 +30,8 @@ enum AlertType {
   mergingTrafficHazard,
   fallingRocksHazard,
   narrowBridgeHazard,
+  truckRolloverHazard,
+  tunnelHazard,
   generic,
   ttsLanguageUnsupported,
 }
