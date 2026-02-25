@@ -46,11 +46,11 @@ class _MapScreenState extends State<MapScreen> {
     _syncMapStyle();
   }
 
-  /// Apply dark/light map style to match app theme.
+  /// Apply dark/light map style to match night mode state.
   Future<void> _syncMapStyle() async {
     final controller = _mapController;
     if (controller == null) return;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = context.read<AppState>().isNightMode;
     if (isDark && !_darkMapApplied) {
       await controller.setMapStyle(kDarkMapStyle);
       _darkMapApplied = true;
