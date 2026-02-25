@@ -23,6 +23,9 @@ import '../services/trip_service.dart';
 import '../services/trip_routing_service.dart';
 import '../services/stop_optimizer.dart';
 import '../services/route_monitor.dart';
+import '../services/scale_monitor.dart';
+import '../services/scale_report_service.dart';
+import '../models/scale_report.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -38,6 +41,8 @@ class AppState extends ChangeNotifier {
   final TripService _tripService = TripService();
   final TripRoutingService _tripRoutingService = TripRoutingService();
   final RouteMonitor _routeMonitor = RouteMonitor();
+  final ScaleMonitor _scaleMonitor = ScaleMonitor();
+  final ScaleReportService _scaleReportService = ScaleReportService();
   StreamSubscription<Position>? _routeMonitorSub;
   // Lazily initialised on first use; never touched during unit tests unless
   // voice guidance is explicitly invoked.
@@ -71,6 +76,9 @@ class AppState extends ChangeNotifier {
 
   /// IDs of POIs the driver has marked as favorites.
   Set<String> favoritePois = {};
+
+  /// Driver-submitted scale status reports, keyed by POI ID (most recent wins).
+  List<ScaleReport> scaleReports = [];
 
   // ---------------------------------------------------------------------------
   // Trip planner state
@@ -181,6 +189,12 @@ class AppState extends ChangeNotifier {
       debugPrint('Error loading active trip: $e');
     }
     try {
+      scaleReports = await _scaleReportService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading scale reports: $e');
+    }
+    try {
       await refreshMyLocation();
     } catch (e) {
       debugPrint('Error initializing location: $e');
@@ -270,6 +284,51 @@ class AppState extends ChangeNotifier {
       (Object e) => debugPrint('Error saving favorites: $e'),
     );
     notifyListeners();
+  }
+
+  /// Submit a driver report for the status of a weigh scale.
+  ///
+  /// The previous report for [poiId] (if any) is replaced. The updated list
+  /// is persisted to device storage. An alert is enqueued confirming the
+  /// submission.
+  void submitScaleReport({
+    required String poiId,
+    required String poiName,
+    required double lat,
+    required double lng,
+    required ScaleStatus status,
+  }) {
+    final report = ScaleReport(
+      poiId: poiId,
+      poiName: poiName,
+      status: status,
+      lat: lat,
+      lng: lng,
+      reportedAt: DateTime.now(),
+    );
+    scaleReports = [
+      ...scaleReports.where((r) => r.poiId != poiId),
+      report,
+    ];
+    _scaleReportService.save(scaleReports).catchError(
+      (Object e) => debugPrint('Error saving scale reports: $e'),
+    );
+    final statusLabel = _scaleStatusLabel(status);
+    addAlert(AlertEvent(
+      id: 'scale_report_${poiId}_${report.reportedAt.millisecondsSinceEpoch}',
+      type: AlertType.scaleActivity,
+      title: 'Scale Status Reported',
+      message: '$poiName reported as $statusLabel.',
+      severity: AlertSeverity.info,
+      timestamp: report.reportedAt,
+      speakable: false,
+    ));
+  }
+
+  /// Returns the most recent [ScaleReport] for [poiId], or `null` if none.
+  ScaleReport? scaleReportFor(String poiId) {
+    final matches = scaleReports.where((r) => r.poiId == poiId);
+    return matches.isEmpty ? null : matches.last;
   }
 
   /// Calculate truck route from current location to destination
@@ -672,6 +731,7 @@ class AppState extends ChangeNotifier {
   void _startRouteMonitoring() {
     _routeMonitorSub?.cancel();
     _routeMonitor.reset();
+    _scaleMonitor.reset();
 
     _routeMonitor.onApproachingStop = (TripStop stop) {
       final label = stop.label ?? 'next stop';
@@ -710,6 +770,22 @@ class AppState extends ChangeNotifier {
       ));
     };
 
+    _scaleMonitor.onNearbyScale = (ScaleReport report, double dist) {
+      final statusLabel = _scaleStatusLabel(report.status);
+      final distKm = (dist / 1000).toStringAsFixed(1);
+      addAlert(AlertEvent(
+        id: 'scale_nearby_${report.poiId}_${report.reportedAt.millisecondsSinceEpoch}',
+        type: AlertType.scaleActivity,
+        title: 'Weigh Scale Ahead',
+        message: '${report.poiName} is $statusLabel — $distKm km away.',
+        severity: report.status == ScaleStatus.open
+            ? AlertSeverity.warning
+            : AlertSeverity.info,
+        timestamp: DateTime.now(),
+        speakable: true,
+      ));
+    };
+
     const settings = LocationSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: 10,
@@ -727,6 +803,7 @@ class AppState extends ChangeNotifier {
     _routeMonitorSub?.cancel();
     _routeMonitorSub = null;
     _routeMonitor.reset();
+    _scaleMonitor.reset();
   }
 
   void _onRouteMonitorPosition(Position pos) {
@@ -740,6 +817,23 @@ class AppState extends ChangeNotifier {
           route.polylinePoints.map((p) => [p.latitude, p.longitude]).toList(),
       stops: stops,
     );
+    _scaleMonitor.update(
+      lat: pos.latitude,
+      lng: pos.longitude,
+      reports: scaleReports,
+    );
+  }
+
+  /// Human-readable label for a [ScaleStatus].
+  static String _scaleStatusLabel(ScaleStatus status) {
+    switch (status) {
+      case ScaleStatus.open:
+        return 'open';
+      case ScaleStatus.closed:
+        return 'closed';
+      case ScaleStatus.monitoring:
+        return 'monitoring';
+    }
   }
 
   @override

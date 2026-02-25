@@ -11,6 +11,7 @@ enum AlertType {
   navigationStopped,
   lowGpsAccuracy,
   locationDisabled,
+  scaleActivity,
   generic,
 }
 
