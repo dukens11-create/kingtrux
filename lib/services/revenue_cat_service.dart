@@ -36,12 +36,24 @@ class RevenueCatService {
   /// Configure the RevenueCat SDK.
   ///
   /// Safe to call multiple times; subsequent calls are no-ops.
-  /// When no SDK key is set for the current platform the method returns
-  /// without initialising so the app does not crash during development.
+  /// Throws a [StateError] when the required SDK key is absent on iOS/macOS or
+  /// Android. The error is descriptive so developers know which
+  /// `--dart-define` flag to add. On non-mobile platforms the method logs a
+  /// warning and returns without throwing.
   Future<void> init() async {
     if (_initialized) return;
 
     if (!hasKeys) {
+      if (Platform.isIOS || Platform.isMacOS || Platform.isAndroid) {
+        final missingKey = (Platform.isIOS || Platform.isMacOS)
+            ? 'REVENUECAT_IOS_API_KEY'
+            : 'REVENUECAT_ANDROID_API_KEY';
+        throw StateError(
+          '[RevenueCat] SDK key not configured for ${Platform.operatingSystem}. '
+          'Pass --dart-define=$missingKey=<your_key> at build/run time. '
+          'See README for setup instructions.',
+        );
+      }
       debugPrint(
         '[RevenueCat] SDK key not configured for ${Platform.operatingSystem}. '
         'Pass REVENUECAT_IOS_API_KEY or REVENUECAT_ANDROID_API_KEY via '
