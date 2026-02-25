@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
+import 'commercial_speed_settings_sheet.dart';
 
 /// Bottom sheet for configuring voice guidance settings.
 ///
@@ -124,6 +125,32 @@ class VoiceSettingsSheet extends StatelessWidget {
                         ?.copyWith(color: cs.onSurfaceVariant),
                   ),
                 ],
+
+                const SizedBox(height: AppTheme.spaceSM),
+                const Divider(),
+
+                // Commercial speed alert shortcut
+                ListTile(
+                  leading: Icon(Icons.speed_rounded, color: cs.primary),
+                  title: const Text('Commercial Speed Limit'),
+                  subtitle: Text(
+                    state.commercialSpeedSettings.enabled
+                        ? 'Alert at ${state.commercialSpeedSettings.maxSpeedDisplay.toStringAsFixed(0)} ${state.commercialSpeedSettings.unitLabel}'
+                        : 'Disabled',
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  contentPadding: EdgeInsets.zero,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    Navigator.of(context).pop();
+                    showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (_) =>
+                          const CommercialSpeedSettingsSheet(),
+                    );
+                  },
+                ),
 
                 const SizedBox(height: AppTheme.spaceMD),
               ],
