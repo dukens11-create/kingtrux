@@ -1226,6 +1226,103 @@ class AppState extends ChangeNotifier {
             timestamp: DateTime.now(),
             speakable: hazardSettings.enableHazardTts,
           ));
+        case HazardType.truckCrossing:
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.truckCrossingHazard,
+            title: 'Truck Crossing Ahead',
+            message: 'Truck crossing $distMi mi ahead. Watch for crossing trucks.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
+        case HazardType.wildAnimalCrossing:
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.wildAnimalCrossingHazard,
+            title: 'Animal Crossing Ahead',
+            message:
+                'Wildlife crossing zone $distMi mi ahead. Watch for animals on road.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
+        case HazardType.schoolZone:
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.schoolZoneHazard,
+            title: 'School Zone Ahead',
+            message:
+                'School zone $distMi mi ahead. Reduce speed and watch for children.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
+        case HazardType.stopSign:
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.stopSignHazard,
+            title: 'Stop Sign Ahead',
+            message: 'Stop sign $distMi mi ahead. Prepare to stop.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
+        case HazardType.railroadCrossing:
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.railroadCrossingHazard,
+            title: 'Railroad Crossing Ahead',
+            message:
+                'Railroad crossing $distMi mi ahead. Reduce speed and watch for trains.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
+        case HazardType.slipperyRoad:
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.slipperyRoadHazard,
+            title: 'Slippery Road Ahead',
+            message:
+                'Slippery road conditions $distMi mi ahead. Reduce speed.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
+        case HazardType.mergingTraffic:
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.mergingTrafficHazard,
+            title: 'Merging Traffic Ahead',
+            message:
+                'Merging traffic $distMi mi ahead. Watch for vehicles entering.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
+        case HazardType.fallingRocks:
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.fallingRocksHazard,
+            title: 'Falling Rocks Zone Ahead',
+            message:
+                'Falling rocks zone $distMi mi ahead. Watch for debris on road.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
+        case HazardType.narrowBridge:
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.narrowBridgeHazard,
+            title: 'Narrow Bridge Ahead',
+            message:
+                'Narrow bridge $distMi mi ahead. Proceed with caution.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
       }
     };
 
@@ -1282,6 +1379,15 @@ class AppState extends ChangeNotifier {
         enableSharpCurve: hs.enableSharpCurveWarnings,
         enableDowngradeHill: hs.enableDowngradeHillWarnings,
         enableWorkZone: hs.enableWorkZoneWarnings,
+        enableTruckCrossing: hs.enableTruckCrossingWarnings,
+        enableWildAnimalCrossing: hs.enableWildAnimalCrossingWarnings,
+        enableSchoolZone: hs.enableSchoolZoneWarnings,
+        enableStopSign: hs.enableStopSignWarnings,
+        enableRailroadCrossing: hs.enableRailroadCrossingWarnings,
+        enableSlipperyRoad: hs.enableSlipperyRoadWarnings,
+        enableMergingTraffic: hs.enableMergingTrafficWarnings,
+        enableFallingRocks: hs.enableFallingRocksWarnings,
+        enableNarrowBridge: hs.enableNarrowBridgeWarnings,
       );
     }
   }
