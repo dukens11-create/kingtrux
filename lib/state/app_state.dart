@@ -211,6 +211,9 @@ class AppState extends ChangeNotifier {
     'en-CA',
     'fr-CA',
     'es-US',
+    'hi-IN',
+    'ht-HT',
+    'zh-CN',
   ];
 
   // ---------------------------------------------------------------------------

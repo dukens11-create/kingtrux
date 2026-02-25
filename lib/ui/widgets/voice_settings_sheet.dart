@@ -17,6 +17,9 @@ class VoiceSettingsSheet extends StatelessWidget {
     'en-CA': 'English (Canada)',
     'fr-CA': 'Français (Canada)',
     'es-US': 'Español (US)',
+    'hi-IN': 'हिंदी (Hindi)',
+    'ht-HT': 'Kreyòl Ayisyen (Haitian Creole)',
+    'zh-CN': '中文 (Chinese Mandarin)',
   };
 
   @override
