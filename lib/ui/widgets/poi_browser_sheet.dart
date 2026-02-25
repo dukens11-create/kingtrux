@@ -8,8 +8,16 @@ import 'poi_detail_sheet.dart';
 
 /// Full POI browser bottom sheet.
 ///
-/// Combines category filter toggles with a Near Me / Along Route discovery
+/// Combines category filter toggles with a **Near Me / Along Route** discovery
 /// selector and a scrollable list of loaded POIs.
+///
+/// ## How POI loading works
+/// 1. The user selects one or more category chips (Fuel, Truck Stop, etc.).
+/// 2. The user taps **"Load POIs Near Me"** (or "Load Along Route" when a
+///    route is active) to trigger a query against the Overpass API via
+///    [AppState.loadPois] / [AppState.loadPoisAlongRoute].
+/// 3. Results are displayed in the scrollable list below the controls.
+///    Tapping a row opens [PoiDetailSheet] for full details and navigation.
 class PoiBrowserSheet extends StatefulWidget {
   const PoiBrowserSheet({super.key});
 
@@ -152,7 +160,9 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
                         size: 18,
                       ),
                       label: Text(
-                        _modeIndex == 0 ? 'Load Near Me' : 'Load Along Route',
+                        _modeIndex == 0
+                            ? 'Load POIs Near Me'
+                            : 'Load Along Route',
                       ),
                       onPressed: state.enabledPoiLayers.isEmpty ||
                               state.isLoadingPois ||
@@ -243,7 +253,7 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
     } else if (state.isLoadingPois) {
       msg = 'Fetching POIs…';
     } else {
-      msg = 'No POIs loaded yet.\nTap Load to search.';
+      msg = 'No POIs loaded yet.\nTap "Load POIs Near Me" to search.';
     }
 
     return Center(
