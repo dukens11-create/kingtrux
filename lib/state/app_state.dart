@@ -658,6 +658,10 @@ class AppState extends ChangeNotifier {
         _startRouteMonitoring();
         _lookupDestinationState(destLat!, destLng!);
       }
+    } catch (e) {
+      routeError = e.toString();
+    } finally {
+      isLoadingRoute = false;
       notifyListeners();
     }
   }
