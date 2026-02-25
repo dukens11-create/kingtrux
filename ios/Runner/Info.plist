@@ -63,5 +63,11 @@
 	<array>
 		<string>location</string>
 	</array>
+
+	<!-- Microphone and speech recognition for voice commands -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app uses the microphone to accept spoken trip-planner commands.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>This app uses speech recognition to convert spoken commands into trip stops.</string>
 </dict>
 </plist>

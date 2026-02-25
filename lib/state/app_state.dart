@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:uuid/uuid.dart';
 import '../models/alert_event.dart';
 import '../models/truck_profile.dart';
 import '../models/route_result.dart';
@@ -31,6 +32,7 @@ import '../models/scale_report.dart';
 import '../services/speed_monitor.dart';
 import '../services/speed_limit_service.dart';
 import '../services/speed_settings_service.dart';
+import '../services/here_geocoding_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -52,6 +54,8 @@ class AppState extends ChangeNotifier {
   final SpeedMonitor _speedMonitor = SpeedMonitor();
   final SpeedLimitService _speedLimitService = SpeedLimitService();
   final SpeedSettingsService _speedSettingsService = SpeedSettingsService();
+  final HereGeocodingService _geocodingService = HereGeocodingService();
+  final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
   // Lazily initialised on first use; never touched during unit tests unless
@@ -593,6 +597,38 @@ class AppState extends ChangeNotifier {
       isLoadingTripRoute = false;
       notifyListeners();
     }
+  }
+
+  /// Speak [text] aloud via TTS.
+  ///
+  /// Unlike [addAlert], this method does not create an alert event and speaks
+  /// regardless of the [voiceGuidanceEnabled] flag — it is intended for
+  /// explicit user-initiated interactions such as voice commands.
+  Future<void> speakText(String text) async {
+    try {
+      await _tts.setLanguage(voiceLanguage);
+      await _tts.speak(text);
+    } catch (e) {
+      debugPrint('TTS speakText error: $e');
+    }
+  }
+
+  /// Geocode [address] via the HERE Geocoding API and, on success, add a new
+  /// [TripStop] to the active trip.
+  ///
+  /// Returns the resolved [GeocodedLocation] on success, or `null` if the
+  /// address could not be geocoded.
+  Future<GeocodedLocation?> geocodeAndAddTripStop(String address) async {
+    final location = await _geocodingService.geocode(address);
+    if (location == null) return null;
+    addTripStop(TripStop(
+      id: _uuid.v4(),
+      label: location.label,
+      lat: location.lat,
+      lng: location.lng,
+      createdAt: DateTime.now(),
+    ));
+    return location;
   }
 
   /// Clear the active trip and remove it from persistent storage.

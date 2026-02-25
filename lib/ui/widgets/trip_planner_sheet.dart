@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/trip_stop.dart';
+import '../../services/voice_command_service.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
 
@@ -38,7 +40,7 @@ class TripPlannerSheet extends StatelessWidget {
   }
 }
 
-class _TripPlannerContent extends StatelessWidget {
+class _TripPlannerContent extends StatefulWidget {
   const _TripPlannerContent({
     required this.scrollController,
     required this.state,
@@ -48,10 +50,127 @@ class _TripPlannerContent extends StatelessWidget {
   final AppState state;
 
   @override
+  State<_TripPlannerContent> createState() => _TripPlannerContentState();
+}
+
+class _TripPlannerContentState extends State<_TripPlannerContent> {
+  late final VoiceCommandService _voiceService;
+  final SpeechToText _speech = SpeechToText();
+
+  bool _isSttAvailable = false;
+  bool _isListening = false;
+  bool _isProcessing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _voiceService = VoiceCommandService()
+      ..onSpeak = widget.state.speakText
+      ..onAddressRecognized = _handleAddressRecognized
+      ..onBuildRoute = _handleBuildRoute
+      ..onStateChanged = (_) {
+        if (mounted) setState(() {});
+      };
+    _initStt();
+  }
+
+  Future<void> _initStt() async {
+    final available = await _speech.initialize(
+      onError: (error) {
+        debugPrint('STT error: ${error.errorMsg}');
+        if (mounted) setState(() => _isListening = false);
+      },
+      onStatus: (status) {
+        if ((status == 'done' || status == 'notListening') && mounted) {
+          setState(() => _isListening = false);
+        }
+      },
+    );
+    if (mounted) setState(() => _isSttAvailable = available);
+  }
+
+  Future<void> _handleAddressRecognized(String address) async {
+    if (!mounted) return;
+    setState(() => _isProcessing = true);
+    final result = await widget.state.geocodeAndAddTripStop(address);
+    if (!mounted) return;
+    setState(() => _isProcessing = false);
+    if (result != null) {
+      _voiceService.confirmAddressAdded(result.label);
+    } else {
+      _voiceService.rejectAddress();
+    }
+    if (_voiceService.state != VoiceCommandState.idle) {
+      _startListening();
+    }
+  }
+
+  Future<void> _handleBuildRoute() async {
+    if (!mounted) return;
+    await widget.state.buildTripRoute();
+    if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _startListening() async {
+    if (!_isSttAvailable || _isListening || _isProcessing) return;
+    await _speech.listen(
+      onResult: (result) {
+        if (result.finalResult && result.recognizedWords.isNotEmpty) {
+          if (mounted) setState(() => _isListening = false);
+          _voiceService.process(result.recognizedWords);
+          // Auto-restart for states that do not trigger async geocoding.
+          final nextState = _voiceService.state;
+          if (!_isProcessing &&
+              nextState != VoiceCommandState.idle &&
+              nextState != VoiceCommandState.awaitingStopAddress &&
+              nextState != VoiceCommandState.awaitingCommand) {
+            Future<void>.delayed(
+              const Duration(milliseconds: 800),
+              _startListening,
+            );
+          }
+        }
+      },
+      listenFor: const Duration(seconds: 30),
+      localeId: 'en-US',
+      cancelOnError: true,
+    );
+    if (mounted) setState(() => _isListening = true);
+  }
+
+  void _onMicPressed() {
+    if (_voiceService.state == VoiceCommandState.idle) {
+      _voiceService.startListening();
+      _startListening();
+    } else {
+      _stopVoiceCommand();
+    }
+  }
+
+  Future<void> _stopVoiceCommand() async {
+    await _speech.stop();
+    _voiceService.reset();
+    if (mounted) {
+      setState(() {
+        _isListening = false;
+        _isProcessing = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _speech.cancel();
+    _voiceService.reset();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final trip = state.activeTrip;
+    final trip = widget.state.activeTrip;
     final stops = trip?.stops ?? [];
+    final isVoiceActive = _voiceService.state != VoiceCommandState.idle;
 
     return Material(
       color: cs.surface,
@@ -79,6 +198,31 @@ class _TripPlannerContent extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
+                // Mic button — only shown when STT is available on this device
+                if (_isSttAvailable)
+                  IconButton(
+                    icon: _isProcessing
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: cs.primary,
+                            ),
+                          )
+                        : Icon(
+                            _isListening
+                                ? Icons.mic_rounded
+                                : Icons.mic_none_rounded,
+                            color: (_isListening || isVoiceActive)
+                                ? cs.error
+                                : cs.onSurfaceVariant,
+                          ),
+                    tooltip: isVoiceActive
+                        ? 'Stop voice command'
+                        : 'Start voice command',
+                    onPressed: _isProcessing ? null : _onMicPressed,
+                  ),
                 if (stops.isNotEmpty)
                   TextButton.icon(
                     icon: const Icon(Icons.delete_sweep_rounded, size: 18),
@@ -86,7 +230,7 @@ class _TripPlannerContent extends StatelessWidget {
                     style: TextButton.styleFrom(
                       foregroundColor: cs.error,
                     ),
-                    onPressed: () => _onClearTrip(context),
+                    onPressed: () => widget.state.clearTrip(),
                   ),
               ],
             ),
@@ -94,22 +238,56 @@ class _TripPlannerContent extends StatelessWidget {
 
           const Divider(height: 1),
 
+          // Voice command status bar
+          if (isVoiceActive)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.spaceMD,
+                vertical: AppTheme.spaceXS,
+              ),
+              child: Row(
+                children: [
+                  if (_isListening)
+                    Icon(Icons.graphic_eq_rounded,
+                        size: 16, color: cs.error)
+                  else if (_isProcessing)
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: cs.primary,
+                      ),
+                    )
+                  else
+                    Icon(Icons.mic_off_rounded,
+                        size: 16, color: cs.onSurfaceVariant),
+                  const SizedBox(width: AppTheme.spaceXS),
+                  Expanded(
+                    child: Text(
+                      _voiceStatusLabel(),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // Stop list
           Expanded(
             child: stops.isEmpty
                 ? _EmptyState(cs: cs)
                 : ReorderableListView.builder(
-                    scrollController: scrollController,
+                    scrollController: widget.scrollController,
                     padding: const EdgeInsets.symmetric(
                       vertical: AppTheme.spaceXS,
                     ),
                     itemCount: stops.length,
                     onReorder: (oldIndex, newIndex) {
                       if (newIndex > oldIndex) newIndex--;
-                      context.read<AppState>().reorderTripStop(
-                            oldIndex,
-                            newIndex,
-                          );
+                      widget.state.reorderTripStop(oldIndex, newIndex);
                     },
                     itemBuilder: (context, index) {
                       final stop = stops[index];
@@ -122,21 +300,21 @@ class _TripPlannerContent extends StatelessWidget {
                         isFirst: isFirst,
                         isLast: isLast,
                         onRemove: () =>
-                            context.read<AppState>().removeTripStop(stop.id),
+                            widget.state.removeTripStop(stop.id),
                       );
                     },
                   ),
           ),
 
           // Error message
-          if (state.tripRouteError != null)
+          if (widget.state.tripRouteError != null)
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppTheme.spaceMD,
                 vertical: AppTheme.spaceXS,
               ),
               child: Text(
-                state.tripRouteError!,
+                widget.state.tripRouteError!,
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
@@ -152,7 +330,7 @@ class _TripPlannerContent extends StatelessWidget {
                 horizontal: AppTheme.spaceMD,
                 vertical: AppTheme.spaceSM,
               ),
-              child: _ActionRow(state: state),
+              child: _ActionRow(state: widget.state),
             ),
           ),
         ],
@@ -160,8 +338,27 @@ class _TripPlannerContent extends StatelessWidget {
     );
   }
 
-  void _onClearTrip(BuildContext context) {
-    context.read<AppState>().clearTrip();
+  String _voiceStatusLabel() {
+    if (_isProcessing) return 'Resolving address\u2026';
+    if (_isListening) {
+      return switch (_voiceService.state) {
+        VoiceCommandState.awaitingCommand =>
+          'Say "Kingtrux add <address>" or "Kingtrux multiple stop"',
+        VoiceCommandState.awaitingStopCount => 'Say the number of stops',
+        VoiceCommandState.awaitingStopAddress => 'Speak the address',
+        VoiceCommandState.awaitingConfirm =>
+          'Say "build route" or "cancel"',
+        VoiceCommandState.idle => '',
+      };
+    }
+    return switch (_voiceService.state) {
+      VoiceCommandState.awaitingCommand => 'Tap mic to continue',
+      VoiceCommandState.awaitingStopCount => 'Tap mic to say stop count',
+      VoiceCommandState.awaitingStopAddress => 'Tap mic to speak address',
+      VoiceCommandState.awaitingConfirm =>
+        'Tap mic — say "build route" or "cancel"',
+      VoiceCommandState.idle => '',
+    };
   }
 }
 
