@@ -143,7 +143,7 @@ class _MapScreenState extends State<MapScreen> {
 
               // ── Speed display (bottom-left, above route card) ────────────
               const Positioned(
-                bottom: 192,
+                bottom: 264,
                 left: AppTheme.spaceMD,
                 child: SpeedDisplay(),
               ),
@@ -156,9 +156,9 @@ class _MapScreenState extends State<MapScreen> {
                 child: const AlertBanner(),
               ),
 
-              // ── Compass indicator (bottom-right) ─────────────────────────
+              // ── Compass indicator (bottom-left) ──────────────────────────
               const Positioned(
-                right: AppTheme.spaceMD,
+                left: AppTheme.spaceMD,
                 bottom: 200,
                 child: CompassIndicator(),
               ),
