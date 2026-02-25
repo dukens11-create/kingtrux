@@ -43,6 +43,8 @@ import '../services/truck_speed_limit_service.dart';
 import '../models/truck_stop_brand.dart';
 import '../services/truck_stop_brand_settings_service.dart';
 import '../services/truck_stop_filter_service.dart';
+import '../services/trip_eta_service.dart';
+import '../services/timezone_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -184,6 +186,36 @@ class AppState extends ChangeNotifier {
   /// Legal commercial truck speed limit for [currentUsState] in mph, or `null`
   /// when the state is unknown or has no entry in the database.
   double? stateTruckSpeedLimitMph;
+
+  // ---------------------------------------------------------------------------
+  // Trip ETA and time zone state
+  // ---------------------------------------------------------------------------
+
+  /// Estimated time of arrival expressed in UTC, or `null` when not navigating.
+  DateTime? tripEtaUtc;
+
+  /// ETA converted to the destination's local wall-clock time, or `null` when
+  /// the destination time zone is unknown.
+  DateTime? tripEtaAtDestination;
+
+  /// Time zone abbreviation for the final destination (e.g., `"CDT"`), or
+  /// `null` when the destination state has not yet been resolved.
+  String? destinationTimeZoneName;
+
+  /// Time zone abbreviation for the driver's current position (e.g., `"EDT"`),
+  /// or `null` when the current state is unknown.
+  String? currentTimeZoneName;
+
+  /// USPS 2-letter code for the US state containing the final destination, or
+  /// `null` when not yet resolved.
+  String? destinationUsState;
+
+  /// UTC offset for the destination's time zone, or `null` when unknown.
+  Duration? _destinationUtcOffset;
+
+  /// Periodic timer that refreshes [tripEtaUtc] and related fields every
+  /// minute while navigation is active.
+  Timer? _etaTimer;
 
   // ---------------------------------------------------------------------------
   // Hazard alert state
@@ -538,7 +570,10 @@ class AppState extends ChangeNotifier {
         truckProfile: truckProfile,
         avoidTolls: tollPreference == TollPreference.tollFree,
       );
-      if (routeResult != null) _startRouteMonitoring();
+      if (routeResult != null) {
+        _startRouteMonitoring();
+        _lookupDestinationState(destLat!, destLng!);
+      }
     } catch (e) {
       routeError = e.toString();
       routeResult = null;
@@ -716,7 +751,12 @@ class AppState extends ChangeNotifier {
         avoidTolls: tollPreference == TollPreference.tollFree,
       );
       routeError = null;
-      if (routeResult != null) _startRouteMonitoring();
+      if (routeResult != null) {
+        _startRouteMonitoring();
+        // Use the last stop's coordinates as the trip destination.
+        final lastStop = trip.stops.last;
+        _lookupDestinationState(lastStop.lat, lastStop.lng);
+      }
     } catch (e) {
       tripRouteError = e.toString();
       routeResult = null;
@@ -838,6 +878,14 @@ class AppState extends ChangeNotifier {
       const Duration(minutes: 12),
       (_) => _fetchNavigationForecast(),
     );
+
+    // Compute ETA immediately and refresh every minute.
+    _updateEta();
+    _etaTimer?.cancel();
+    _etaTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _updateEta(),
+    );
   }
 
   /// Fetch (or refresh) the weather forecast for the current navigation position.
@@ -868,6 +916,10 @@ class AppState extends ChangeNotifier {
     _forecastTimer = null;
     navigationForecast = null;
     forecastError = null;
+    _etaTimer?.cancel();
+    _etaTimer = null;
+    tripEtaUtc = null;
+    tripEtaAtDestination = null;
     await _navService.stop();
     isNavigating = false;
     addAlert(AlertEvent(
@@ -1377,12 +1429,24 @@ class AppState extends ChangeNotifier {
             stateTruckSpeedLimitMph = newLimit;
             notifyListeners();
           }
+          // Ensure currentTimeZoneName is populated on first detection.
+          if (currentTimeZoneName == null) {
+            currentTimeZoneName =
+                TimeZoneService.getAbbreviation(stateCode, now);
+            notifyListeners();
+          }
           return;
         }
 
         final prevState = currentUsState;
         currentUsState = stateCode;
         stateTruckSpeedLimitMph = newLimit;
+
+        // Update current time zone name and detect crossings.
+        final newTzAbbr = TimeZoneService.getAbbreviation(stateCode, now);
+        final prevTzAbbr = currentTimeZoneName;
+        currentTimeZoneName = newTzAbbr;
+
         notifyListeners();
 
         // Announce state crossing when actively navigating and settings permit.
@@ -1401,9 +1465,78 @@ class AppState extends ChangeNotifier {
             timestamp: now,
             speakable: true,
           ));
+          // Update ETA when speed limit changes.
+          _updateEta();
+        }
+
+        // Fire a time zone crossing alert when navigating and the TZ region changes.
+        if (prevTzAbbr != null &&
+            newTzAbbr != null &&
+            prevTzAbbr != newTzAbbr &&
+            isNavigating) {
+          addAlert(AlertEvent(
+            id: 'tz_crossing_${stateCode}_${now.millisecondsSinceEpoch}',
+            type: AlertType.timeZoneCrossing,
+            title: 'Time Zone Change',
+            message: 'Entering $newTzAbbr — ETA updated.',
+            severity: AlertSeverity.info,
+            timestamp: now,
+            speakable: true,
+          ));
         }
       },
       onError: (Object e) => debugPrint('State detection error: $e'),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Trip ETA helpers
+  // ---------------------------------------------------------------------------
+
+  /// Recomputes [tripEtaUtc], [tripEtaAtDestination], and related fields from
+  /// the current [remainingDurationSeconds].  Called when navigation starts,
+  /// every minute via [_etaTimer], and whenever the state (speed limit) changes.
+  void _updateEta() {
+    final remaining = remainingDurationSeconds;
+    if (remaining <= 0 && !isNavigating) {
+      tripEtaUtc = null;
+      tripEtaAtDestination = null;
+      notifyListeners();
+      return;
+    }
+
+    final now = DateTime.now().toUtc();
+    tripEtaUtc = TripEtaService.calculateEta(now, remaining);
+
+    // Convert to destination local time when the offset is known.
+    final destOffset = _destinationUtcOffset;
+    if (destOffset != null) {
+      tripEtaAtDestination = tripEtaUtc!.add(destOffset);
+    } else {
+      tripEtaAtDestination = null;
+    }
+
+    notifyListeners();
+  }
+
+  /// Reverse-geocodes [lat]/[lng] to determine the destination US state and
+  /// updates [destinationUsState], [destinationTimeZoneName], and
+  /// [_destinationUtcOffset].
+  void _lookupDestinationState(double lat, double lng) {
+    _geocodingService.reverseGeocodeStateCode(lat, lng).then(
+      (stateCode) {
+        if (stateCode == null) return;
+        final now = DateTime.now().toUtc();
+        destinationUsState = stateCode;
+        destinationTimeZoneName =
+            TimeZoneService.getAbbreviation(stateCode, now);
+        _destinationUtcOffset = TimeZoneService.getUtcOffset(stateCode, now);
+        // Refresh ETA with the newly-known destination time zone.
+        if (isNavigating) _updateEta();
+        notifyListeners();
+      },
+      onError: (Object e) =>
+          debugPrint('Destination state lookup error: $e'),
     );
   }
 
@@ -1411,6 +1544,7 @@ class AppState extends ChangeNotifier {
   void dispose() {
     _stopRouteMonitoring();
     _speedMonitorSub?.cancel();
+    _etaTimer?.cancel();
     _navService.stop();
     _ttsInstance?.stop();
     super.dispose();

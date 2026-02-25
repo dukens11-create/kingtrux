@@ -20,6 +20,7 @@ enum AlertType {
   downgradeHillHazard,
   workZoneHazard,
   stateLimitChange,
+  timeZoneCrossing,
   generic,
 }
 
