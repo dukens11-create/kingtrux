@@ -21,6 +21,16 @@ enum AlertType {
   workZoneHazard,
   stateLimitChange,
   timeZoneCrossing,
+  truckCrossingHazard,
+  wildAnimalCrossingHazard,
+  schoolZoneHazard,
+  stopSignHazard,
+  railroadCrossingHazard,
+  slipperyRoadHazard,
+  mergingTrafficHazard,
+  fallingRocksHazard,
+  narrowBridgeHazard,
+  stateLimitChange,
   generic,
 }
 

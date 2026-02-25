@@ -7,6 +7,15 @@ class HazardSettings {
     this.enableSharpCurveWarnings = true,
     this.enableDowngradeHillWarnings = true,
     this.enableWorkZoneWarnings = true,
+    this.enableTruckCrossingWarnings = true,
+    this.enableWildAnimalCrossingWarnings = true,
+    this.enableSchoolZoneWarnings = true,
+    this.enableStopSignWarnings = true,
+    this.enableRailroadCrossingWarnings = true,
+    this.enableSlipperyRoadWarnings = true,
+    this.enableMergingTrafficWarnings = true,
+    this.enableFallingRocksWarnings = true,
+    this.enableNarrowBridgeWarnings = true,
     this.enableHazardTts = true,
   });
 
@@ -22,6 +31,33 @@ class HazardSettings {
   /// Whether to show alerts for road work zones.
   final bool enableWorkZoneWarnings;
 
+  /// Whether to show alerts for truck crossing signs.
+  final bool enableTruckCrossingWarnings;
+
+  /// Whether to show alerts for deer/wild animal migration crossings.
+  final bool enableWildAnimalCrossingWarnings;
+
+  /// Whether to show alerts for school zones and crosswalks.
+  final bool enableSchoolZoneWarnings;
+
+  /// Whether to show alerts for stop signs on the route.
+  final bool enableStopSignWarnings;
+
+  /// Whether to show alerts for railroad/train crossings.
+  final bool enableRailroadCrossingWarnings;
+
+  /// Whether to show alerts for slippery road conditions.
+  final bool enableSlipperyRoadWarnings;
+
+  /// Whether to show alerts for merging traffic.
+  final bool enableMergingTrafficWarnings;
+
+  /// Whether to show alerts for falling rocks zones.
+  final bool enableFallingRocksWarnings;
+
+  /// Whether to show alerts for narrow bridges.
+  final bool enableNarrowBridgeWarnings;
+
   /// Whether hazard alerts should be spoken aloud.
   ///
   /// Both this flag **and** the global voice-guidance toggle must be true for
@@ -34,6 +70,15 @@ class HazardSettings {
     bool? enableSharpCurveWarnings,
     bool? enableDowngradeHillWarnings,
     bool? enableWorkZoneWarnings,
+    bool? enableTruckCrossingWarnings,
+    bool? enableWildAnimalCrossingWarnings,
+    bool? enableSchoolZoneWarnings,
+    bool? enableStopSignWarnings,
+    bool? enableRailroadCrossingWarnings,
+    bool? enableSlipperyRoadWarnings,
+    bool? enableMergingTrafficWarnings,
+    bool? enableFallingRocksWarnings,
+    bool? enableNarrowBridgeWarnings,
     bool? enableHazardTts,
   }) {
     return HazardSettings(
@@ -45,6 +90,24 @@ class HazardSettings {
           enableDowngradeHillWarnings ?? this.enableDowngradeHillWarnings,
       enableWorkZoneWarnings:
           enableWorkZoneWarnings ?? this.enableWorkZoneWarnings,
+      enableTruckCrossingWarnings:
+          enableTruckCrossingWarnings ?? this.enableTruckCrossingWarnings,
+      enableWildAnimalCrossingWarnings: enableWildAnimalCrossingWarnings ??
+          this.enableWildAnimalCrossingWarnings,
+      enableSchoolZoneWarnings:
+          enableSchoolZoneWarnings ?? this.enableSchoolZoneWarnings,
+      enableStopSignWarnings:
+          enableStopSignWarnings ?? this.enableStopSignWarnings,
+      enableRailroadCrossingWarnings:
+          enableRailroadCrossingWarnings ?? this.enableRailroadCrossingWarnings,
+      enableSlipperyRoadWarnings:
+          enableSlipperyRoadWarnings ?? this.enableSlipperyRoadWarnings,
+      enableMergingTrafficWarnings:
+          enableMergingTrafficWarnings ?? this.enableMergingTrafficWarnings,
+      enableFallingRocksWarnings:
+          enableFallingRocksWarnings ?? this.enableFallingRocksWarnings,
+      enableNarrowBridgeWarnings:
+          enableNarrowBridgeWarnings ?? this.enableNarrowBridgeWarnings,
       enableHazardTts: enableHazardTts ?? this.enableHazardTts,
     );
   }
@@ -56,6 +119,15 @@ class HazardSettingsService {
   static const _keySharpCurve = 'hazard_enable_sharp_curve';
   static const _keyDowngradeHill = 'hazard_enable_downgrade_hill';
   static const _keyWorkZone = 'hazard_enable_work_zone';
+  static const _keyTruckCrossing = 'hazard_enable_truck_crossing';
+  static const _keyWildAnimalCrossing = 'hazard_enable_wild_animal_crossing';
+  static const _keySchoolZone = 'hazard_enable_school_zone';
+  static const _keyStopSign = 'hazard_enable_stop_sign';
+  static const _keyRailroadCrossing = 'hazard_enable_railroad_crossing';
+  static const _keySlipperyRoad = 'hazard_enable_slippery_road';
+  static const _keyMergingTraffic = 'hazard_enable_merging_traffic';
+  static const _keyFallingRocks = 'hazard_enable_falling_rocks';
+  static const _keyNarrowBridge = 'hazard_enable_narrow_bridge';
   static const _keyHazardTts = 'hazard_enable_tts';
 
   /// Load persisted hazard settings.
@@ -70,6 +142,17 @@ class HazardSettingsService {
         enableSharpCurveWarnings: prefs.getBool(_keySharpCurve) ?? true,
         enableDowngradeHillWarnings: prefs.getBool(_keyDowngradeHill) ?? true,
         enableWorkZoneWarnings: prefs.getBool(_keyWorkZone) ?? true,
+        enableTruckCrossingWarnings: prefs.getBool(_keyTruckCrossing) ?? true,
+        enableWildAnimalCrossingWarnings:
+            prefs.getBool(_keyWildAnimalCrossing) ?? true,
+        enableSchoolZoneWarnings: prefs.getBool(_keySchoolZone) ?? true,
+        enableStopSignWarnings: prefs.getBool(_keyStopSign) ?? true,
+        enableRailroadCrossingWarnings:
+            prefs.getBool(_keyRailroadCrossing) ?? true,
+        enableSlipperyRoadWarnings: prefs.getBool(_keySlipperyRoad) ?? true,
+        enableMergingTrafficWarnings: prefs.getBool(_keyMergingTraffic) ?? true,
+        enableFallingRocksWarnings: prefs.getBool(_keyFallingRocks) ?? true,
+        enableNarrowBridgeWarnings: prefs.getBool(_keyNarrowBridge) ?? true,
         enableHazardTts: prefs.getBool(_keyHazardTts) ?? true,
       );
     } catch (_) {
@@ -84,6 +167,18 @@ class HazardSettingsService {
     await prefs.setBool(_keySharpCurve, settings.enableSharpCurveWarnings);
     await prefs.setBool(_keyDowngradeHill, settings.enableDowngradeHillWarnings);
     await prefs.setBool(_keyWorkZone, settings.enableWorkZoneWarnings);
+    await prefs.setBool(_keyTruckCrossing, settings.enableTruckCrossingWarnings);
+    await prefs.setBool(
+        _keyWildAnimalCrossing, settings.enableWildAnimalCrossingWarnings);
+    await prefs.setBool(_keySchoolZone, settings.enableSchoolZoneWarnings);
+    await prefs.setBool(_keyStopSign, settings.enableStopSignWarnings);
+    await prefs.setBool(
+        _keyRailroadCrossing, settings.enableRailroadCrossingWarnings);
+    await prefs.setBool(_keySlipperyRoad, settings.enableSlipperyRoadWarnings);
+    await prefs.setBool(
+        _keyMergingTraffic, settings.enableMergingTrafficWarnings);
+    await prefs.setBool(_keyFallingRocks, settings.enableFallingRocksWarnings);
+    await prefs.setBool(_keyNarrowBridge, settings.enableNarrowBridgeWarnings);
     await prefs.setBool(_keyHazardTts, settings.enableHazardTts);
   }
 }
