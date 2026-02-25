@@ -28,6 +28,9 @@ import '../services/scale_monitor.dart';
 import '../services/scale_report_service.dart';
 import '../services/toll_preference_service.dart';
 import '../models/scale_report.dart';
+import '../services/speed_monitor.dart';
+import '../services/speed_limit_service.dart';
+import '../services/speed_settings_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -46,7 +49,11 @@ class AppState extends ChangeNotifier {
   final ScaleMonitor _scaleMonitor = ScaleMonitor();
   final ScaleReportService _scaleReportService = ScaleReportService();
   final TollPreferenceService _tollPreferenceService = TollPreferenceService();
+  final SpeedMonitor _speedMonitor = SpeedMonitor();
+  final SpeedLimitService _speedLimitService = SpeedLimitService();
+  final SpeedSettingsService _speedSettingsService = SpeedSettingsService();
   StreamSubscription<Position>? _routeMonitorSub;
+  StreamSubscription<Position>? _speedMonitorSub;
   // Lazily initialised on first use; never touched during unit tests unless
   // voice guidance is explicitly invoked.
   FlutterTts? _ttsInstance;
@@ -96,6 +103,21 @@ class AppState extends ChangeNotifier {
   /// Defaults to [TollPreference.any] (tolls allowed).  Persisted between
   /// sessions via [TollPreferenceService].
   TollPreference tollPreference = TollPreference.any;
+
+  // ---------------------------------------------------------------------------
+  // Speed monitoring state
+  // ---------------------------------------------------------------------------
+
+  /// Driver's current speed in miles per hour (derived from GPS).
+  double currentSpeedMph = 0.0;
+
+  /// Posted road speed limit at the current location in mph, or `null` if
+  /// unknown (e.g., the Overpass query has not yet returned a result).
+  double? roadSpeedLimitMph;
+
+  /// Number of mph below the posted speed limit that triggers an underspeed
+  /// alert. Configurable by the driver; default is 10 mph.
+  double underspeedThresholdMph = SpeedSettingsService.defaultUnderspeedThresholdMph;
 
   // ---------------------------------------------------------------------------
   // Trip planner state
@@ -218,10 +240,18 @@ class AppState extends ChangeNotifier {
       debugPrint('Error loading toll preference: $e');
     }
     try {
+      underspeedThresholdMph =
+          await _speedSettingsService.loadUnderspeedThreshold();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading speed settings: $e');
+    }
+    try {
       await refreshMyLocation();
     } catch (e) {
       debugPrint('Error initializing location: $e');
     }
+    _startSpeedMonitoring();
     // Initialize RevenueCat and check current entitlement status.
     try {
       await revenueCatService.init();
@@ -741,7 +771,8 @@ class AppState extends ChangeNotifier {
     _alertQueue.add(alert);
     if (voiceGuidanceEnabled &&
         alert.speakable &&
-        alert.severity != AlertSeverity.info) {
+        alert.severity != AlertSeverity.info &&
+        alert.severity != AlertSeverity.success) {
       _tts
           .setLanguage(voiceLanguage)
           .then(
@@ -884,9 +915,111 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Speed monitoring
+  // ---------------------------------------------------------------------------
+
+  /// Update the underspeed alert threshold and persist it.
+  ///
+  /// [thresholdMph] is the number of mph below the posted speed limit at which
+  /// an underspeed alert fires.  Must be ≥ 0; values < 0 are ignored.
+  void setUnderspeedThreshold(double thresholdMph) {
+    if (thresholdMph < 0) return;
+    underspeedThresholdMph = thresholdMph;
+    _speedMonitor.underspeedMarginMph = thresholdMph;
+    _speedSettingsService.saveUnderspeedThreshold(thresholdMph).catchError(
+      (Object e) => debugPrint('Error saving speed settings: $e'),
+    );
+    notifyListeners();
+  }
+
+  /// Start the continuous GPS subscription used for speed display and alerts.
+  ///
+  /// This runs independently of the route-monitor subscription so that speed
+  /// information is available even before a route is calculated.
+  void _startSpeedMonitoring() {
+    _speedMonitorSub?.cancel();
+    _speedMonitor
+      ..underspeedMarginMph = underspeedThresholdMph
+      ..reset()
+      ..onStateChange = (state, speedMph, limitMph) {
+        switch (state) {
+          case SpeedAlertState.overSpeed:
+            addAlert(AlertEvent(
+              id: 'overspeed_${DateTime.now().millisecondsSinceEpoch}',
+              type: AlertType.overSpeed,
+              title: 'Overspeeding',
+              message:
+                  'Speed ${speedMph.toStringAsFixed(0)} mph exceeds limit of ${limitMph.toStringAsFixed(0)} mph.',
+              severity: AlertSeverity.critical,
+              timestamp: DateTime.now(),
+              speakable: true,
+            ));
+          case SpeedAlertState.underSpeed:
+            addAlert(AlertEvent(
+              id: 'underspeed_${DateTime.now().millisecondsSinceEpoch}',
+              type: AlertType.underSpeed,
+              title: 'Below Speed Limit',
+              message:
+                  'Speed ${speedMph.toStringAsFixed(0)} mph is more than ${underspeedThresholdMph.toStringAsFixed(0)} mph below limit.',
+              severity: AlertSeverity.warning,
+              timestamp: DateTime.now(),
+              speakable: true,
+            ));
+          case SpeedAlertState.correct:
+            addAlert(AlertEvent(
+              id: 'correct_speed_${DateTime.now().millisecondsSinceEpoch}',
+              type: AlertType.generic,
+              title: 'Speed OK',
+              message: 'Speed is within the acceptable range.',
+              severity: AlertSeverity.success,
+              timestamp: DateTime.now(),
+              speakable: false,
+            ));
+        }
+      };
+
+    const settings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 5,
+    );
+
+    _speedMonitorSub =
+        Geolocator.getPositionStream(locationSettings: settings).listen(
+          _onSpeedPosition,
+          onError: (Object e) => debugPrint('SpeedMonitor: GPS error: $e'),
+        );
+  }
+
+  void _onSpeedPosition(Position pos) {
+    // Convert m/s → mph (1 m/s ≈ 2.23694 mph); clamp negative values from GPS.
+    currentSpeedMph = (pos.speed * 2.23694).clamp(0.0, double.infinity);
+    notifyListeners();
+
+    // Query road speed limit (throttled – SpeedLimitService caches by distance).
+    _speedLimitService.queryLimit(pos.latitude, pos.longitude).then(
+      (limit) {
+        if (limit != null && limit != roadSpeedLimitMph) {
+          roadSpeedLimitMph = limit;
+          // Re-seed the monitor so it does not fire spuriously on the first
+          // update after a new limit is loaded.
+          _speedMonitor.reset();
+          notifyListeners();
+        }
+        // Feed current speed into the monitor whenever a limit is known.
+        final knownLimit = roadSpeedLimitMph;
+        if (knownLimit != null) {
+          _speedMonitor.update(currentSpeedMph, knownLimit);
+        }
+      },
+      onError: (Object e) => debugPrint('SpeedLimitService error: $e'),
+    );
+  }
+
   @override
   void dispose() {
     _stopRouteMonitoring();
+    _speedMonitorSub?.cancel();
     _navService.stop();
     _ttsInstance?.stop();
     super.dispose();
