@@ -11,6 +11,7 @@ import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/poi_browser_sheet.dart';
 import 'widgets/poi_detail_sheet.dart';
+import 'widgets/roadside_assistance_sheet.dart';
 import 'widgets/route_summary_card.dart';
 import 'widgets/voice_settings_sheet.dart';
 import 'widgets/alert_banner.dart';
@@ -128,6 +129,7 @@ class _MapScreenState extends State<MapScreen> {
                   onPoiBrowser: _onPoiBrowserPressed,
                   onTruckProfile: _onTruckProfilePressed,
                   onTripPlanner: _onTripPlannerPressed,
+                  onGetHelp: _onGetHelpPressed,
                   onGoPro: _onGoProPressed,
                   isPro: state.isPro,
                 ),
@@ -308,6 +310,22 @@ class _MapScreenState extends State<MapScreen> {
       );
     }
 
+    // Roadside assistance providers (always shown when loaded).
+    for (final provider in state.roadsideProviders) {
+      markers.add(
+        Marker(
+          markerId: MarkerId('roadside_${provider.id}'),
+          position: LatLng(provider.lat, provider.lng),
+          infoWindow: InfoWindow(
+            title: provider.name,
+            snippet: PoiDetailSheet.poiLabel(provider.type),
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          onTap: () => _onPoiMarkerTap(provider),
+        ),
+      );
+    }
+
     return markers;
   }
 
@@ -325,6 +343,8 @@ class _MapScreenState extends State<MapScreen> {
         return BitmapDescriptor.hueCyan;
       case PoiType.parking:
         return BitmapDescriptor.hueGreen;
+      case PoiType.roadsideAssistance:
+        return BitmapDescriptor.hueRed;
     }
   }
 
@@ -417,6 +437,15 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onGetHelpPressed() {
+    HapticFeedback.heavyImpact();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const RoadsideAssistanceSheet(),
+    );
+  }
+
   void _onPoiMarkerTap(Poi poi) {
     HapticFeedback.selectionClick();
     showModalBottomSheet<void>(
@@ -476,6 +505,7 @@ class _MapActionCluster extends StatelessWidget {
     required this.onPoiBrowser,
     required this.onTruckProfile,
     required this.onTripPlanner,
+    required this.onGetHelp,
     required this.onGoPro,
     required this.isPro,
   });
@@ -485,6 +515,7 @@ class _MapActionCluster extends StatelessWidget {
   final VoidCallback onPoiBrowser;
   final VoidCallback onTruckProfile;
   final VoidCallback onTripPlanner;
+  final VoidCallback onGetHelp;
   final VoidCallback onGoPro;
   final bool isPro;
 
@@ -522,6 +553,9 @@ class _MapActionCluster extends StatelessWidget {
           tooltip: 'Trip Planner',
           onPressed: onTripPlanner,
         ),
+        const SizedBox(height: AppTheme.spaceSM),
+        // "Get Help" emergency button — always visible, styled in error colour.
+        _GetHelpFab(onPressed: onGetHelp),
         if (!isPro) ...[
           const SizedBox(height: AppTheme.spaceSM),
           _ClusterFab(
@@ -553,6 +587,26 @@ class _ClusterFab extends StatelessWidget {
       tooltip: tooltip,
       onPressed: onPressed,
       child: Icon(icon),
+    );
+  }
+}
+
+/// A prominent emergency "Get Help" FAB styled with the error colour scheme.
+class _GetHelpFab extends StatelessWidget {
+  const _GetHelpFab({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return FloatingActionButton.small(
+      heroTag: 'Get Help',
+      tooltip: 'Get Help',
+      backgroundColor: cs.error,
+      foregroundColor: cs.onError,
+      onPressed: onPressed,
+      child: const Icon(Icons.emergency_rounded),
     );
   }
 }
