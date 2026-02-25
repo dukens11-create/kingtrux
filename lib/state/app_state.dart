@@ -43,6 +43,7 @@ import '../services/truck_speed_limit_service.dart';
 import '../models/truck_stop_brand.dart';
 import '../services/truck_stop_brand_settings_service.dart';
 import '../services/truck_stop_filter_service.dart';
+import '../services/night_mode_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -71,10 +72,13 @@ class AppState extends ChangeNotifier {
   final TruckSpeedLimitService _truckSpeedLimitService = TruckSpeedLimitService();
   final TruckStopBrandSettingsService _truckStopBrandSettingsService =
       TruckStopBrandSettingsService();
+  final NightModeSettingsService _nightModeSettingsService =
+      NightModeSettingsService();
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
   Timer? _forecastTimer;
+  Timer? _nightModeTimer;
   // Lazily initialised on first use; never touched during unit tests unless
   // voice guidance is explicitly invoked.
   FlutterTts? _ttsInstance;
@@ -184,6 +188,31 @@ class AppState extends ChangeNotifier {
   /// Legal commercial truck speed limit for [currentUsState] in mph, or `null`
   /// when the state is unknown or has no entry in the database.
   double? stateTruckSpeedLimitMph;
+
+  // ---------------------------------------------------------------------------
+  // Night mode state
+  // ---------------------------------------------------------------------------
+
+  /// Controls when the app switches to the dark/night theme.
+  ///
+  /// Defaults to [NightModeOption.auto] (night hours 20:00–05:59).
+  NightModeOption nightModeOption = NightModeOption.auto;
+
+  /// Returns `true` when the dark/night theme should currently be active.
+  ///
+  /// - [NightModeOption.alwaysOn] → always `true`
+  /// - [NightModeOption.alwaysOff] → always `false`
+  /// - [NightModeOption.auto] → `true` between 20:00 and 05:59 local time
+  bool get isNightMode {
+    switch (nightModeOption) {
+      case NightModeOption.alwaysOn:
+        return true;
+      case NightModeOption.alwaysOff:
+        return false;
+      case NightModeOption.auto:
+        return NightModeSettingsService.isNightByTime(DateTime.now());
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Hazard alert state
@@ -346,6 +375,13 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error loading truck stop brand settings: $e');
     }
+    try {
+      nightModeOption = await _nightModeSettingsService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading night mode settings: $e');
+    }
+    _startNightModeTimer();
     try {
       await refreshMyLocation();
     } catch (e) {
@@ -913,6 +949,33 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Update the night mode option and persist it.
+  ///
+  /// In [NightModeOption.auto] mode a minute-level timer keeps the theme in
+  /// sync as the day transitions; the timer is started/stopped automatically.
+  void setNightModeOption(NightModeOption option) {
+    nightModeOption = option;
+    _nightModeSettingsService.save(option).catchError(
+      (Object e) => debugPrint('Error saving night mode option: $e'),
+    );
+    _startNightModeTimer();
+    notifyListeners();
+  }
+
+  /// Starts (or restarts) the periodic timer that keeps [isNightMode] up to
+  /// date when [nightModeOption] is [NightModeOption.auto].
+  ///
+  /// The timer fires every minute and calls [notifyListeners] so that widgets
+  /// rebuild when the day/night boundary is crossed.  When auto mode is not
+  /// active the timer is cancelled because [isNightMode] is constant.
+  void _startNightModeTimer() {
+    _nightModeTimer?.cancel();
+    if (nightModeOption != NightModeOption.auto) return;
+    _nightModeTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      notifyListeners();
+    });
+  }
+
   /// Update the global toll avoidance preference and persist it.
   ///
   /// If a destination is already set, the route is automatically recalculated
@@ -1411,6 +1474,7 @@ class AppState extends ChangeNotifier {
   void dispose() {
     _stopRouteMonitoring();
     _speedMonitorSub?.cancel();
+    _nightModeTimer?.cancel();
     _navService.stop();
     _ttsInstance?.stop();
     super.dispose();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../state/app_state.dart';
+import '../../services/night_mode_service.dart';
 import '../theme/app_theme.dart';
 import 'commercial_speed_settings_sheet.dart';
 
@@ -20,6 +21,12 @@ class VoiceSettingsSheet extends StatelessWidget {
     'hi-IN': 'हिंदी (Hindi)',
     'ht-HT': 'Kreyòl Ayisyen (Haitian Creole)',
     'zh-CN': '中文 (Chinese Mandarin)',
+  };
+
+  static const Map<NightModeOption, String> _nightModeLabels = {
+    NightModeOption.auto: 'Auto',
+    NightModeOption.alwaysOn: 'Always On',
+    NightModeOption.alwaysOff: 'Always Off',
   };
 
   @override
@@ -128,6 +135,52 @@ class VoiceSettingsSheet extends StatelessWidget {
                         ?.copyWith(color: cs.onSurfaceVariant),
                   ),
                 ],
+
+                const SizedBox(height: AppTheme.spaceSM),
+                const Divider(),
+
+                // Night mode option
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      vertical: AppTheme.spaceXS),
+                  child: Row(
+                    children: [
+                      Icon(Icons.nightlight_round, color: cs.primary),
+                      const SizedBox(width: AppTheme.spaceSM),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Night Mode', style: tt.bodyMedium),
+                            Text(
+                              'Dims UI and map for night driving',
+                              style: tt.bodySmall
+                                  ?.copyWith(color: cs.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SegmentedButton<NightModeOption>(
+                  segments: NightModeOption.values
+                      .map(
+                        (o) => ButtonSegment(
+                          value: o,
+                          label: Text(_nightModeLabels[o]!),
+                        ),
+                      )
+                      .toList(),
+                  selected: {state.nightModeOption},
+                  onSelectionChanged: (selected) {
+                    HapticFeedback.selectionClick();
+                    state.setNightModeOption(selected.first);
+                  },
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
 
                 const SizedBox(height: AppTheme.spaceSM),
                 const Divider(),
