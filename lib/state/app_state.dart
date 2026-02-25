@@ -36,6 +36,9 @@ import '../services/speed_settings_service.dart';
 import '../services/here_geocoding_service.dart';
 import '../models/commercial_speed_settings.dart';
 import '../services/commercial_speed_monitor.dart';
+import '../models/hazard.dart';
+import '../services/hazard_monitor.dart';
+import '../services/hazard_settings_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -59,6 +62,8 @@ class AppState extends ChangeNotifier {
   final SpeedSettingsService _speedSettingsService = SpeedSettingsService();
   final CommercialSpeedMonitor _commercialSpeedMonitor = CommercialSpeedMonitor();
   final HereGeocodingService _geocodingService = HereGeocodingService();
+  final HazardMonitor _hazardMonitor = HazardMonitor();
+  final HazardSettingsService _hazardSettingsService = HazardSettingsService();
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
@@ -149,6 +154,18 @@ class AppState extends ChangeNotifier {
   /// Commercial max-speed alert settings (units, threshold, enable/disable).
   CommercialSpeedSettings commercialSpeedSettings =
       CommercialSpeedSettings.defaults();
+
+  // ---------------------------------------------------------------------------
+  // Hazard alert state
+  // ---------------------------------------------------------------------------
+
+  /// Settings controlling which hazard types are alerted and whether TTS fires.
+  HazardSettings hazardSettings = const HazardSettings();
+
+  /// Hazard points built from the current route polyline (and, in the future,
+  /// from HERE routing warnings).  Populated when a route is started; cleared
+  /// on [_stopRouteMonitoring].
+  List<Hazard> _activeHazards = [];
 
   // ---------------------------------------------------------------------------
   // Trip planner state
@@ -283,6 +300,12 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading commercial speed settings: $e');
+    }
+    try {
+      hazardSettings = await _hazardSettingsService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading hazard settings: $e');
     }
     try {
       await refreshMyLocation();
@@ -911,6 +934,21 @@ class AppState extends ChangeNotifier {
     _routeMonitorSub?.cancel();
     _routeMonitor.reset();
     _scaleMonitor.reset();
+    _hazardMonitor.reset();
+
+    // Build hazard list from the current route polyline.
+    _activeHazards = [];
+    final route = routeResult;
+    if (route != null && route.polylinePoints.isNotEmpty) {
+      final polylineList =
+          route.polylinePoints.map((p) => [p.latitude, p.longitude]).toList();
+      // Sharp curves derived from polyline bearing-change analysis.
+      _activeHazards = HazardMonitor.detectSharpCurves(polylineList);
+      // TODO(hazards): add low-bridge hazards from HERE routing warnings when
+      //   provider data is available.  Do not guess from polyline geometry.
+      // TODO(hazards): add downgrade-hill hazards from HERE routing warnings
+      //   when elevation/grade data is available.  Do not ship noisy heuristics.
+    }
 
     _routeMonitor.onApproachingStop = (TripStop stop) {
       final label = stop.label ?? 'next stop';
@@ -965,6 +1003,50 @@ class AppState extends ChangeNotifier {
       ));
     };
 
+    _hazardMonitor.onHazardApproaching = (Hazard hazard, double dist) {
+      final distMi = (dist / 1609.344).toStringAsFixed(1);
+      switch (hazard.type) {
+        case HazardType.lowBridge:
+          final heightStr = hazard.maxHeightMeters != null
+              ? ' — clearance ${hazard.maxHeightMeters!.toStringAsFixed(1)} m'
+              : '';
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.lowBridgeHazard,
+            title: 'Low Bridge Ahead',
+            message:
+                'Low bridge$heightStr, $distMi mi ahead. Check your vehicle height.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
+        case HazardType.sharpCurve:
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.sharpCurveHazard,
+            title: 'Sharp Curve Ahead',
+            message: 'Sharp curve $distMi mi ahead. Reduce speed.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
+        case HazardType.downgradeHill:
+          final gradeStr = hazard.gradePercent != null
+              ? ' — ${hazard.gradePercent!.toStringAsFixed(0)}% grade'
+              : '';
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.downgradeHillHazard,
+            title: 'Steep Downgrade Ahead',
+            message:
+                'Steep downgrade$gradeStr, $distMi mi ahead. Use lower gear.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
+      }
+    };
+
     const settings = LocationSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: 10,
@@ -983,6 +1065,8 @@ class AppState extends ChangeNotifier {
     _routeMonitorSub = null;
     _routeMonitor.reset();
     _scaleMonitor.reset();
+    _hazardMonitor.reset();
+    _activeHazards = [];
   }
 
   void _onRouteMonitorPosition(Position pos) {
@@ -1005,6 +1089,18 @@ class AppState extends ChangeNotifier {
       lng: pos.longitude,
       reports: scaleReports,
     );
+    // Hazard alerts only fire during active navigation.
+    if (isNavigating) {
+      final hs = hazardSettings;
+      _hazardMonitor.update(
+        lat: pos.latitude,
+        lng: pos.longitude,
+        hazards: _activeHazards,
+        enableLowBridge: hs.enableLowBridgeWarnings,
+        enableSharpCurve: hs.enableSharpCurveWarnings,
+        enableDowngradeHill: hs.enableDowngradeHillWarnings,
+      );
+    }
   }
 
   /// Human-readable label for a [ScaleStatus].
@@ -1043,6 +1139,15 @@ class AppState extends ChangeNotifier {
     _commercialSpeedMonitor.reset();
     _speedSettingsService.saveCommercialSettings(settings).catchError(
       (Object e) => debugPrint('Error saving commercial speed settings: $e'),
+    );
+    notifyListeners();
+  }
+
+  /// Update hazard alert settings and persist them.
+  void setHazardSettings(HazardSettings settings) {
+    hazardSettings = settings;
+    _hazardSettingsService.save(settings).catchError(
+      (Object e) => debugPrint('Error saving hazard settings: $e'),
     );
     notifyListeners();
   }
