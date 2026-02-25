@@ -37,13 +37,18 @@ class HereRoutingService {
     };
   }
 
-  /// Calculate truck route from origin to destination
+  /// Calculate truck route from origin to destination.
+  ///
+  /// Set [avoidTolls] to `true` to request a toll-free route.  When `false`
+  /// (the default) the HERE API may return toll cost information that is
+  /// stored in [RouteResult.estimatedTollCostUsd].
   Future<RouteResult> getTruckRoute({
     required double originLat,
     required double originLng,
     required double destLat,
     required double destLng,
     required TruckProfile truckProfile,
+    bool avoidTolls = false,
   }) async {
     if (Config.hereApiKey.isEmpty) {
       throw Exception('HERE API key not configured. Please set HERE_API_KEY environment variable.');
@@ -61,7 +66,8 @@ class HereRoutingService {
         'origin': '$originLat,$originLng',
         'destination': '$destLat,$destLng',
         'transportMode': 'truck',
-        'return': 'polyline,summary,actions',
+        'return': avoidTolls ? 'polyline,summary,actions' : 'polyline,summary,actions,tolls',
+        if (avoidTolls) 'avoid[features]': 'tollRoad',
         ...buildHereTruckQueryParams(truckProfile),
       },
     );
@@ -109,11 +115,37 @@ class HereRoutingService {
             .toList() ??
         <NavigationManeuver>[];
 
+    // Parse estimated toll cost when tolls were not avoided
+    double? estimatedTollCostUsd;
+    if (!avoidTolls) {
+      final tollsList = section['tolls'] as List?;
+      if (tollsList != null && tollsList.isNotEmpty) {
+        double totalCost = 0.0;
+        for (final toll in tollsList) {
+          final fares = (toll as Map<String, dynamic>)['fares'] as List?;
+          if (fares != null) {
+            for (final fare in fares) {
+              final convertedPrice =
+                  (fare as Map<String, dynamic>)['convertedPrice']
+                      as Map<String, dynamic>?;
+              if (convertedPrice != null) {
+                totalCost +=
+                    (convertedPrice['value'] as num?)?.toDouble() ?? 0.0;
+              }
+            }
+          }
+        }
+        if (totalCost > 0) estimatedTollCostUsd = totalCost;
+      }
+    }
+
     return RouteResult(
       polylinePoints: polylinePoints,
       lengthMeters: (summary['length'] as num).toDouble(),
       durationSeconds: (summary['duration'] as num).toInt(),
       maneuvers: maneuvers,
+      avoidedTolls: avoidTolls,
+      estimatedTollCostUsd: estimatedTollCostUsd,
     );
   }
 
