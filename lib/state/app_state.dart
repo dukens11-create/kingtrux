@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import '../models/alert_event.dart';
 import '../models/truck_profile.dart';
 import '../models/route_result.dart';
+import '../models/toll_preference.dart';
 import '../models/weather_point.dart';
 import '../models/navigation_maneuver.dart';
 import '../models/poi.dart';
@@ -25,6 +26,7 @@ import '../services/stop_optimizer.dart';
 import '../services/route_monitor.dart';
 import '../services/scale_monitor.dart';
 import '../services/scale_report_service.dart';
+import '../services/toll_preference_service.dart';
 import '../models/scale_report.dart';
 
 /// Application state management using ChangeNotifier
@@ -43,6 +45,7 @@ class AppState extends ChangeNotifier {
   final RouteMonitor _routeMonitor = RouteMonitor();
   final ScaleMonitor _scaleMonitor = ScaleMonitor();
   final ScaleReportService _scaleReportService = ScaleReportService();
+  final TollPreferenceService _tollPreferenceService = TollPreferenceService();
   StreamSubscription<Position>? _routeMonitorSub;
   // Lazily initialised on first use; never touched during unit tests unless
   // voice guidance is explicitly invoked.
@@ -83,6 +86,16 @@ class AppState extends ChangeNotifier {
 
   /// Driver-submitted scale status reports, keyed by POI ID (most recent wins).
   List<ScaleReport> scaleReports = [];
+
+  // ---------------------------------------------------------------------------
+  // Toll preference state
+  // ---------------------------------------------------------------------------
+
+  /// Driver's global preference for toll vs toll-free routes.
+  ///
+  /// Defaults to [TollPreference.any] (tolls allowed).  Persisted between
+  /// sessions via [TollPreferenceService].
+  TollPreference tollPreference = TollPreference.any;
 
   // ---------------------------------------------------------------------------
   // Trip planner state
@@ -197,6 +210,12 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading scale reports: $e');
+    }
+    try {
+      tollPreference = await _tollPreferenceService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading toll preference: $e');
     }
     try {
       await refreshMyLocation();
@@ -356,6 +375,7 @@ class AppState extends ChangeNotifier {
         destLat: destLat!,
         destLng: destLng!,
         truckProfile: truckProfile,
+        avoidTolls: tollPreference == TollPreference.tollFree,
       );
       if (routeResult != null) _startRouteMonitoring();
     } catch (e) {
@@ -532,6 +552,7 @@ class AppState extends ChangeNotifier {
       routeResult = await _tripRoutingService.buildTripRoute(
         stops: trip.stops,
         truckProfile: truckProfile,
+        avoidTolls: tollPreference == TollPreference.tollFree,
       );
       routeError = null;
       if (routeResult != null) _startRouteMonitoring();
@@ -663,6 +684,24 @@ class AppState extends ChangeNotifier {
       (Object e) => debugPrint('Error saving voice language: $e'),
     );
     notifyListeners();
+  }
+
+  /// Update the global toll avoidance preference and persist it.
+  ///
+  /// If a destination is already set, the route is automatically recalculated
+  /// with the new preference so the driver sees the updated route immediately.
+  Future<void> setTollPreference(TollPreference preference) async {
+    tollPreference = preference;
+    notifyListeners();
+    _tollPreferenceService.save(preference).catchError(
+      (Object e) => debugPrint('Error saving toll preference: $e'),
+    );
+    // Recalculate active route so the new preference takes effect immediately.
+    if (activeTrip != null && (activeTrip!.stops.length) >= 2) {
+      await buildTripRoute();
+    } else if (destLat != null && destLng != null) {
+      await buildTruckRoute();
+    }
   }
 
   /// Recalculate the route from the current position and restart navigation.

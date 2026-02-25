@@ -19,10 +19,12 @@ class TripRoutingService {
 
   /// Calculate a combined route for [stops] using [truckProfile].
   ///
+  /// Set [avoidTolls] to `true` to request toll-free routing for every leg.
   /// Throws if there are fewer than 2 stops, or if any leg fails.
   Future<RouteResult> buildTripRoute({
     required List<TripStop> stops,
     required TruckProfile truckProfile,
+    bool avoidTolls = false,
   }) async {
     if (stops.length < 2) {
       throw Exception('A trip requires at least 2 stops (origin + destination).');
@@ -32,6 +34,7 @@ class TripRoutingService {
     double totalLength = 0;
     int totalDuration = 0;
     final List<NavigationManeuver> allManeuvers = [];
+    double? totalTollCost;
 
     for (int i = 0; i < stops.length - 1; i++) {
       final from = stops[i];
@@ -43,6 +46,7 @@ class TripRoutingService {
         destLat: to.lat,
         destLng: to.lng,
         truckProfile: truckProfile,
+        avoidTolls: avoidTolls,
       );
 
       // Concatenate polyline — skip the first point of every leg after the
@@ -56,6 +60,11 @@ class TripRoutingService {
       totalLength += leg.lengthMeters;
       totalDuration += leg.durationSeconds;
       allManeuvers.addAll(leg.maneuvers);
+
+      // Accumulate toll cost estimates across legs.
+      if (leg.estimatedTollCostUsd != null) {
+        totalTollCost = (totalTollCost ?? 0) + leg.estimatedTollCostUsd!;
+      }
     }
 
     return RouteResult(
@@ -63,6 +72,8 @@ class TripRoutingService {
       lengthMeters: totalLength,
       durationSeconds: totalDuration,
       maneuvers: allManeuvers,
+      avoidedTolls: avoidTolls,
+      estimatedTollCostUsd: totalTollCost,
     );
   }
 }
