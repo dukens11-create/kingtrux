@@ -38,11 +38,21 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Check RevenueCat API key configuration
+        env:
+          REVENUECAT_ANDROID_API_KEY: ${{ secrets.REVENUECAT_ANDROID_API_KEY }}
+        run: |
+          echo "REVENUECAT_ANDROID_API_KEY: $( [ -n "$REVENUECAT_ANDROID_API_KEY" ] && echo 'set' || echo 'unset' )"
+
       - name: Build APK (release)
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release \
+            --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }}
 
       - name: Build App Bundle (release)
-        run: flutter build appbundle --release
+        run: |
+          flutter build appbundle --release \
+            --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

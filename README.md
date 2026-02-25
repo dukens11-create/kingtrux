@@ -194,6 +194,21 @@ flutter build apk --release \
   --dart-define=REVENUECAT_ANDROID_API_KEY=$REVENUECAT_ANDROID_API_KEY
 ```
 
+#### GitHub Actions — adding repository secrets
+
+The CI workflows read the keys from [GitHub repository secrets](https://docs.github.com/en/actions/security-guides/encrypted-secrets). To add them:
+
+1. Open your repository on GitHub.com.
+2. Go to **Settings → Secrets and variables → Actions**.
+3. Click **New repository secret** and add each of the following:
+
+   | Secret name | Value |
+   |---|---|
+   | `REVENUECAT_IOS_API_KEY` | Your RevenueCat iOS public SDK key (starts with `appl_`) |
+   | `REVENUECAT_ANDROID_API_KEY` | Your RevenueCat Android public SDK key (starts with `goog_`) |
+
+4. The CI workflows (`ci.yml` and `android-build.yml`) automatically pass these secrets to Flutter via `--dart-define` on every build run.
+
 If no key is set, the app shows a descriptive error on the paywall instead of crashing.
 
 ### 3. Configure products & offering in RevenueCat
