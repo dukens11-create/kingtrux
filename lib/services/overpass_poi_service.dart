@@ -6,11 +6,30 @@ import '../config.dart';
 import '../models/poi.dart';
 import 'truck_stop_filter_service.dart';
 
-/// Service for fetching POIs from OpenStreetMap Overpass API
+/// Service for fetching Points of Interest (POIs) from the OpenStreetMap
+/// Overpass API.
+///
+/// Call [fetchPois] to load POIs around a single geographic coordinate, or
+/// [fetchPoisAlongRoute] to sample POIs at multiple points along a route
+/// polyline.  Results are returned as a list of [Poi] objects with stable ids
+/// derived from the OSM element type and numeric id.
+///
+/// Typical usage from [AppState]:
+/// ```dart
+/// final pois = await _poiService.fetchPois(
+///   centerLat: myLat,
+///   centerLng: myLng,
+///   enabledTypes: enabledPoiLayers,
+/// );
+/// ```
 class OverpassPoiService {
   final _uuid = const Uuid();
 
-  /// Fetch POIs around a center point
+  /// Fetch POIs around a center point within [radiusMeters].
+  ///
+  /// Queries the Overpass API for all OSM elements matching the supplied
+  /// [enabledTypes].  Returns an empty list immediately when [enabledTypes] is
+  /// empty.  Throws an [Exception] on network error or non-200 HTTP status.
   Future<List<Poi>> fetchPois({
     required double centerLat,
     required double centerLng,
@@ -45,9 +64,13 @@ class OverpassPoiService {
     return _parseResponse(response.body);
   }
 
-  /// Fetch POIs along a route by sampling up to [maxSamples] points from
-  /// [routeLatLngs] (each as `[lat, lng]`) and querying with [radiusMeters].
-  /// Results are deduplicated by OSM element id.
+  /// Fetch POIs along a route by sampling up to [maxSamples] evenly-spaced
+  /// points from [routeLatLngs] (each as `[lat, lng]`) and querying with a
+  /// corridor of [radiusMeters] around each sample point.
+  ///
+  /// A 500 ms pause is introduced between consecutive Overpass requests to
+  /// respect the API rate limit.  Results are deduplicated by OSM element id
+  /// so the same POI is never returned twice.
   Future<List<Poi>> fetchPoisAlongRoute({
     required List<List<double>> routeLatLngs,
     required Set<PoiType> enabledTypes,
