@@ -90,6 +90,17 @@ class NavigationScreen extends StatelessWidget {
                 child: CompassIndicator(),
               ),
 
+              // ── State truck speed limit badge (bottom-left, above compass) ─
+              if (state.currentUsState != null)
+                Positioned(
+                  left: AppTheme.spaceMD,
+                  bottom: 148,
+                  child: _StateTruckSpeedBadge(
+                    stateCode: state.currentUsState!,
+                    limitMph: state.stateTruckSpeedLimitMph,
+                  ),
+                ),
+
               // ── Weather forecast overlay (bottom-right) ──────────────────
               Positioned(
                 right: AppTheme.spaceMD,
@@ -593,5 +604,78 @@ class _ManeuverIcon extends StatelessWidget {
       default:
         return Icons.straight_rounded;
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// State truck speed limit badge
+// ---------------------------------------------------------------------------
+
+/// A compact badge displayed during navigation showing the legal commercial
+/// truck speed limit for the current US state.
+class _StateTruckSpeedBadge extends StatelessWidget {
+  const _StateTruckSpeedBadge({
+    required this.stateCode,
+    required this.limitMph,
+  });
+
+  final String stateCode;
+  final double? limitMph;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final limitLabel = limitMph != null
+        ? '${limitMph!.toStringAsFixed(0)}'
+        : '–';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSM),
+        border: Border.all(color: Colors.red.shade700, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(40),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spaceXS + 2,
+        vertical: AppTheme.spaceXS,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'TRUCK',
+            style: tt.labelSmall?.copyWith(
+              fontSize: 7,
+              color: Colors.black87,
+              letterSpacing: 0.5,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            limitLabel,
+            style: tt.labelLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+              height: 1.1,
+            ),
+          ),
+          Text(
+            'mph  $stateCode',
+            style: tt.labelSmall?.copyWith(
+              fontSize: 7,
+              color: Colors.black87,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -6,6 +6,7 @@ class HazardSettings {
     this.enableLowBridgeWarnings = true,
     this.enableSharpCurveWarnings = true,
     this.enableDowngradeHillWarnings = true,
+    this.enableWorkZoneWarnings = true,
     this.enableHazardTts = true,
   });
 
@@ -18,6 +19,9 @@ class HazardSettings {
   /// Whether to show alerts for steep downgrade hills.
   final bool enableDowngradeHillWarnings;
 
+  /// Whether to show alerts for road work zones.
+  final bool enableWorkZoneWarnings;
+
   /// Whether hazard alerts should be spoken aloud.
   ///
   /// Both this flag **and** the global voice-guidance toggle must be true for
@@ -29,6 +33,7 @@ class HazardSettings {
     bool? enableLowBridgeWarnings,
     bool? enableSharpCurveWarnings,
     bool? enableDowngradeHillWarnings,
+    bool? enableWorkZoneWarnings,
     bool? enableHazardTts,
   }) {
     return HazardSettings(
@@ -38,6 +43,8 @@ class HazardSettings {
           enableSharpCurveWarnings ?? this.enableSharpCurveWarnings,
       enableDowngradeHillWarnings:
           enableDowngradeHillWarnings ?? this.enableDowngradeHillWarnings,
+      enableWorkZoneWarnings:
+          enableWorkZoneWarnings ?? this.enableWorkZoneWarnings,
       enableHazardTts: enableHazardTts ?? this.enableHazardTts,
     );
   }
@@ -48,6 +55,7 @@ class HazardSettingsService {
   static const _keyLowBridge = 'hazard_enable_low_bridge';
   static const _keySharpCurve = 'hazard_enable_sharp_curve';
   static const _keyDowngradeHill = 'hazard_enable_downgrade_hill';
+  static const _keyWorkZone = 'hazard_enable_work_zone';
   static const _keyHazardTts = 'hazard_enable_tts';
 
   /// Load persisted hazard settings.
@@ -61,6 +69,7 @@ class HazardSettingsService {
         enableLowBridgeWarnings: prefs.getBool(_keyLowBridge) ?? true,
         enableSharpCurveWarnings: prefs.getBool(_keySharpCurve) ?? true,
         enableDowngradeHillWarnings: prefs.getBool(_keyDowngradeHill) ?? true,
+        enableWorkZoneWarnings: prefs.getBool(_keyWorkZone) ?? true,
         enableHazardTts: prefs.getBool(_keyHazardTts) ?? true,
       );
     } catch (_) {
@@ -74,6 +83,7 @@ class HazardSettingsService {
     await prefs.setBool(_keyLowBridge, settings.enableLowBridgeWarnings);
     await prefs.setBool(_keySharpCurve, settings.enableSharpCurveWarnings);
     await prefs.setBool(_keyDowngradeHill, settings.enableDowngradeHillWarnings);
+    await prefs.setBool(_keyWorkZone, settings.enableWorkZoneWarnings);
     await prefs.setBool(_keyHazardTts, settings.enableHazardTts);
   }
 }

@@ -15,6 +15,7 @@ typedef HazardAlertCallback = void Function(
 /// - Low bridges: [lowBridgeThresholdMeters] (~2 miles)
 /// - Sharp curves: [sharpCurveThresholdMeters] (~1 mile)
 /// - Downgrade hills: [downgradeHillThresholdMeters] (~2 miles)
+/// - Work zones: [workZoneThresholdMeters] (~1 mile)
 ///
 /// Spam prevention: each hazard has an individual cooldown tracked by
 /// [Hazard.id].  Once an alert fires it will not fire again until
@@ -35,6 +36,9 @@ class HazardMonitor {
 
   /// Distance in metres at which a downgrade-hill alert fires (~2 miles).
   static const double downgradeHillThresholdMeters = 3218.7;
+
+  /// Distance in metres at which a work-zone alert fires (~1 mile).
+  static const double workZoneThresholdMeters = 1609.3;
 
   /// Minimum seconds between repeated alerts for the same hazard instance.
   static const int cooldownSeconds = 300;
@@ -62,8 +66,8 @@ class HazardMonitor {
   /// has expired.
   ///
   /// Per-type enable flags ([enableLowBridge], [enableSharpCurve],
-  /// [enableDowngradeHill]) suppress alerts for disabled categories without
-  /// resetting cooldown state.
+  /// [enableDowngradeHill], [enableWorkZone]) suppress alerts for disabled
+  /// categories without resetting cooldown state.
   void update({
     required double lat,
     required double lng,
@@ -71,6 +75,7 @@ class HazardMonitor {
     bool enableLowBridge = true,
     bool enableSharpCurve = true,
     bool enableDowngradeHill = true,
+    bool enableWorkZone = true,
   }) {
     final now = DateTime.now();
     for (final hazard in hazards) {
@@ -79,6 +84,7 @@ class HazardMonitor {
         HazardType.lowBridge => enableLowBridge,
         HazardType.sharpCurve => enableSharpCurve,
         HazardType.downgradeHill => enableDowngradeHill,
+        HazardType.workZone => enableWorkZone,
       };
       if (!enabled) continue;
 
@@ -187,6 +193,8 @@ class HazardMonitor {
         return sharpCurveThresholdMeters;
       case HazardType.downgradeHill:
         return downgradeHillThresholdMeters;
+      case HazardType.workZone:
+        return workZoneThresholdMeters;
     }
   }
 

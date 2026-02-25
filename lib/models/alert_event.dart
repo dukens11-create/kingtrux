@@ -18,6 +18,8 @@ enum AlertType {
   lowBridgeHazard,
   sharpCurveHazard,
   downgradeHillHazard,
+  workZoneHazard,
+  stateLimitChange,
   generic,
 }
 
