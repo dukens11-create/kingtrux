@@ -219,7 +219,30 @@ static const String privacyUrl = 'https://kingtrux.com/privacy';
 Replace these with your actual policy pages. Integrate `url_launcher` to open
 them in the browser (it is not included by default to minimise dependencies).
 
-## Truck Profile
+## Speed Limit Display & Driver Speed Alerts
+
+KINGTRUX shows the posted road speed limit and the driver's GPS speed at all times as a compact on-screen overlay (bottom-left of the map).
+
+### Speed state color coding
+
+| State | Condition | Banner colour | Voice alert |
+|-------|-----------|--------------|-------------|
+| **Overspeeding** | Driver speed > limit + 2 mph | 🔴 Red (critical) | ✅ Yes |
+| **Underspeeding** | Driver speed < limit − threshold | 🟡 Amber (warning) | ✅ Yes |
+| **Correct speed** | Driver speed within range | 🟢 Green (success) | ❌ No |
+
+### Configuration
+
+The **underspeed threshold** (default **10 mph**) can be changed programmatically via `AppState.setUnderspeedThreshold(double thresholdMph)`.  The value is persisted to device storage under the SharedPreferences key `speed_underspeed_threshold_mph`.
+
+### How it works
+
+1. A background GPS stream (`distanceFilter: 5 m`) updates `AppState.currentSpeedMph` from the device's GPS speed (m/s → mph).
+2. The posted road speed limit is fetched from OpenStreetMap via the Overpass API (`maxspeed` tag on nearby ways within 50 m).  Queries are throttled: a new request is only sent after the driver has moved > 200 m from the last query position.
+3. When the speed state transitions (e.g., correct → overspeeding) a colour-coded `AlertBanner` is shown and, for overspeed/underspeed, a TTS voice alert is triggered.
+4. Alerts fire instantly on threshold crossing; they do not repeat until the state changes again.
+
+
 
 | Field | Description | Range |
 |-------|-------------|-------|

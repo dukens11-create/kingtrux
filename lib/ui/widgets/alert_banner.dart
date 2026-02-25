@@ -48,6 +48,10 @@ class _AlertBannerContent extends StatelessWidget {
         bgColor = cs.tertiary;
         fgColor = cs.onTertiary;
         leadingIcon = Icons.warning_amber_rounded;
+      case AlertSeverity.success:
+        bgColor = const Color(0xFF2E7D32); // Material green-800
+        fgColor = Colors.white;
+        leadingIcon = Icons.check_circle_outline_rounded;
       case AlertSeverity.info:
         bgColor = cs.primaryContainer;
         fgColor = cs.onPrimaryContainer;

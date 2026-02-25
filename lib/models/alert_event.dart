@@ -1,5 +1,5 @@
 /// Severity level of a navigation or system alert.
-enum AlertSeverity { info, warning, critical }
+enum AlertSeverity { info, warning, critical, success }
 
 /// Category of a navigation or system alert.
 enum AlertType {
@@ -12,6 +12,8 @@ enum AlertType {
   lowGpsAccuracy,
   locationDisabled,
   scaleActivity,
+  overSpeed,
+  underSpeed,
   generic,
 }
 
