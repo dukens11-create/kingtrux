@@ -43,6 +43,7 @@ import '../services/truck_speed_limit_service.dart';
 import '../models/truck_stop_brand.dart';
 import '../services/truck_stop_brand_settings_service.dart';
 import '../services/truck_stop_filter_service.dart';
+import '../services/night_mode_service.dart';
 import '../services/trip_eta_service.dart';
 import '../services/timezone_service.dart';
 
@@ -73,10 +74,13 @@ class AppState extends ChangeNotifier {
   final TruckSpeedLimitService _truckSpeedLimitService = TruckSpeedLimitService();
   final TruckStopBrandSettingsService _truckStopBrandSettingsService =
       TruckStopBrandSettingsService();
+  final NightModeSettingsService _nightModeSettingsService =
+      NightModeSettingsService();
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
   Timer? _forecastTimer;
+  Timer? _nightModeTimer;
   // Lazily initialised on first use; never touched during unit tests unless
   // voice guidance is explicitly invoked.
   FlutterTts? _ttsInstance;
@@ -188,6 +192,30 @@ class AppState extends ChangeNotifier {
   double? stateTruckSpeedLimitMph;
 
   // ---------------------------------------------------------------------------
+  // Night mode state
+  // ---------------------------------------------------------------------------
+
+  /// Controls when the app switches to the dark/night theme.
+  ///
+  /// Defaults to [NightModeOption.auto] (night hours 20:00–05:59).
+  NightModeOption nightModeOption = NightModeOption.auto;
+
+  /// Returns `true` when the dark/night theme should currently be active.
+  ///
+  /// - [NightModeOption.alwaysOn] → always `true`
+  /// - [NightModeOption.alwaysOff] → always `false`
+  /// - [NightModeOption.auto] → `true` between 20:00 and 05:59 local time
+  bool get isNightMode {
+    switch (nightModeOption) {
+      case NightModeOption.alwaysOn:
+        return true;
+      case NightModeOption.alwaysOff:
+        return false;
+      case NightModeOption.auto:
+        return NightModeSettingsService.isNightByTime(DateTime.now());
+    }
+  }
+
   // Trip ETA and time zone state
   // ---------------------------------------------------------------------------
 
@@ -378,6 +406,13 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error loading truck stop brand settings: $e');
     }
+    try {
+      nightModeOption = await _nightModeSettingsService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading night mode settings: $e');
+    }
+    _startNightModeTimer();
     try {
       await refreshMyLocation();
     } catch (e) {
@@ -570,6 +605,7 @@ class AppState extends ChangeNotifier {
         truckProfile: truckProfile,
         avoidTolls: tollPreference == TollPreference.tollFree,
       );
+
       if (routeResult != null) {
         _startRouteMonitoring();
         _lookupDestinationState(destLat!, destLng!);
@@ -751,6 +787,7 @@ class AppState extends ChangeNotifier {
         avoidTolls: tollPreference == TollPreference.tollFree,
       );
       routeError = null;
+
       if (routeResult != null) {
         _startRouteMonitoring();
         // Use the last stop's coordinates as the trip destination.
@@ -879,6 +916,7 @@ class AppState extends ChangeNotifier {
       (_) => _fetchNavigationForecast(),
     );
 
+
     // Compute ETA immediately and refresh every minute.
     _updateEta();
     _etaTimer?.cancel();
@@ -916,6 +954,7 @@ class AppState extends ChangeNotifier {
     _forecastTimer = null;
     navigationForecast = null;
     forecastError = null;
+
     _etaTimer?.cancel();
     _etaTimer = null;
     tripEtaUtc = null;
@@ -963,6 +1002,33 @@ class AppState extends ChangeNotifier {
       (Object e) => debugPrint('Error saving voice language: $e'),
     );
     notifyListeners();
+  }
+
+  /// Update the night mode option and persist it.
+  ///
+  /// In [NightModeOption.auto] mode a minute-level timer keeps the theme in
+  /// sync as the day transitions; the timer is started/stopped automatically.
+  void setNightModeOption(NightModeOption option) {
+    nightModeOption = option;
+    _nightModeSettingsService.save(option).catchError(
+      (Object e) => debugPrint('Error saving night mode option: $e'),
+    );
+    _startNightModeTimer();
+    notifyListeners();
+  }
+
+  /// Starts (or restarts) the periodic timer that keeps [isNightMode] up to
+  /// date when [nightModeOption] is [NightModeOption.auto].
+  ///
+  /// The timer fires every minute and calls [notifyListeners] so that widgets
+  /// rebuild when the day/night boundary is crossed.  When auto mode is not
+  /// active the timer is cancelled because [isNightMode] is constant.
+  void _startNightModeTimer() {
+    _nightModeTimer?.cancel();
+    if (nightModeOption != NightModeOption.auto) return;
+    _nightModeTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      notifyListeners();
+    });
   }
 
   /// Update the global toll avoidance preference and persist it.
@@ -1429,6 +1495,7 @@ class AppState extends ChangeNotifier {
             stateTruckSpeedLimitMph = newLimit;
             notifyListeners();
           }
+
           // Ensure currentTimeZoneName is populated on first detection.
           if (currentTimeZoneName == null) {
             currentTimeZoneName =
@@ -1441,6 +1508,7 @@ class AppState extends ChangeNotifier {
         final prevState = currentUsState;
         currentUsState = stateCode;
         stateTruckSpeedLimitMph = newLimit;
+
 
         // Update current time zone name and detect crossings.
         final newTzAbbr = TimeZoneService.getAbbreviation(stateCode, now);
@@ -1465,6 +1533,7 @@ class AppState extends ChangeNotifier {
             timestamp: now,
             speakable: true,
           ));
+
           // Update ETA when speed limit changes.
           _updateEta();
         }
@@ -1488,6 +1557,7 @@ class AppState extends ChangeNotifier {
       onError: (Object e) => debugPrint('State detection error: $e'),
     );
   }
+
 
   // ---------------------------------------------------------------------------
   // Trip ETA helpers
@@ -1544,6 +1614,8 @@ class AppState extends ChangeNotifier {
   void dispose() {
     _stopRouteMonitoring();
     _speedMonitorSub?.cancel();
+    _nightModeTimer?.cancel();
+
     _etaTimer?.cancel();
     _navService.stop();
     _ttsInstance?.stop();

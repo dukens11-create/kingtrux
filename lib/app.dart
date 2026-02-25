@@ -12,13 +12,15 @@ class KingTruxApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AppState(),
-      child: MaterialApp(
-        title: 'KINGTRUX',
-        theme: AppTheme.light,
-        darkTheme: AppTheme.dark,
-        themeMode: ThemeMode.system,
-        home: const MapScreen(),
-        debugShowCheckedModeBanner: false,
+      child: Consumer<AppState>(
+        builder: (context, state, _) => MaterialApp(
+          title: 'KINGTRUX',
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: state.isNightMode ? ThemeMode.dark : ThemeMode.light,
+          home: const MapScreen(),
+          debugShowCheckedModeBanner: false,
+        ),
       ),
     );
   }
