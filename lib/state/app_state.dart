@@ -53,6 +53,10 @@ class AppState extends ChangeNotifier {
   double? myLat;
   double? myLng;
 
+  /// Current device heading in degrees (0–360, where 0 = North).
+  /// `null` when no heading data is available yet.
+  double? currentHeading;
+
   // Destination
   double? destLat;
   double? destLng;
@@ -229,6 +233,7 @@ class AppState extends ChangeNotifier {
       final position = await _locationService.getCurrentPosition();
       myLat = position.latitude;
       myLng = position.longitude;
+      if (position.heading >= 0) currentHeading = position.heading;
       notifyListeners();
 
       // Fetch weather for current location
@@ -807,6 +812,10 @@ class AppState extends ChangeNotifier {
   }
 
   void _onRouteMonitorPosition(Position pos) {
+    if (pos.heading >= 0) {
+      currentHeading = pos.heading;
+      notifyListeners();
+    }
     final route = routeResult;
     if (route == null || route.polylinePoints.isEmpty) return;
     final stops = activeTrip?.stops ?? const [];

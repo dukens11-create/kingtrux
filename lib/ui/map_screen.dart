@@ -15,6 +15,7 @@ import 'widgets/route_summary_card.dart';
 import 'widgets/voice_settings_sheet.dart';
 import 'widgets/alert_banner.dart';
 import 'widgets/trip_planner_sheet.dart';
+import 'widgets/compass_indicator.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
 
@@ -145,6 +146,13 @@ class _MapScreenState extends State<MapScreen> {
                 left: 0,
                 right: 0,
                 child: const AlertBanner(),
+              ),
+
+              // ── Compass indicator (bottom-left) ──────────────────────────
+              const Positioned(
+                left: AppTheme.spaceMD,
+                bottom: 200,
+                child: CompassIndicator(),
               ),
             ],
           );
