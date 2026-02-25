@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/navigation_maneuver.dart';
+import '../models/weather_forecast.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
 import 'widgets/compass_indicator.dart';
@@ -87,6 +88,17 @@ class NavigationScreen extends StatelessWidget {
                 left: AppTheme.spaceMD,
                 bottom: 96,
                 child: CompassIndicator(),
+              ),
+
+              // ── Weather forecast overlay (bottom-right) ──────────────────
+              Positioned(
+                right: AppTheme.spaceMD,
+                bottom: 96,
+                child: _ForecastPanel(
+                  forecast: state.navigationForecast,
+                  isLoading: state.isLoadingForecast,
+                  error: state.forecastError,
+                ),
               ),
             ],
           ),
@@ -327,6 +339,196 @@ class _ManeuverList extends StatelessWidget {
       return '${(meters / 1000).toStringAsFixed(1)} km';
     }
     return '${meters.toStringAsFixed(0)} m';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Weather forecast overlay panel
+// ---------------------------------------------------------------------------
+
+class _ForecastPanel extends StatelessWidget {
+  const _ForecastPanel({
+    required this.forecast,
+    required this.isLoading,
+    required this.error,
+  });
+
+  final WeatherForecast? forecast;
+  final bool isLoading;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    // No API key or forecast not yet available → show nothing while loading.
+    if (isLoading && forecast == null) {
+      return const SizedBox.shrink();
+    }
+
+    // If there was an error and no data, show nothing (graceful degradation).
+    if (error != null && forecast == null) {
+      return const SizedBox.shrink();
+    }
+
+    // No forecast (e.g. API key absent) → render nothing.
+    if (forecast == null) return const SizedBox.shrink();
+
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 160),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.surface.withAlpha(230),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(40),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spaceSM,
+          vertical: AppTheme.spaceXS + 2,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── Hourly row ────────────────────────────────────────────────
+            if (forecast!.hourly.isNotEmpty) ...[
+              Text(
+                'Hourly',
+                style: tt.labelLarge?.copyWith(
+                  color: cs.primary,
+                  fontSize: 10,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: forecast!.hourly
+                    .map((h) => _HourlyChip(entry: h))
+                    .toList(),
+              ),
+              const SizedBox(height: AppTheme.spaceXS),
+            ],
+
+            // ── Daily row ─────────────────────────────────────────────────
+            if (forecast!.daily.isNotEmpty) ...[
+              Text(
+                'Daily',
+                style: tt.labelLarge?.copyWith(
+                  color: cs.primary,
+                  fontSize: 10,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: forecast!.daily
+                    .map((d) => _DailyRow(entry: d))
+                    .toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HourlyChip extends StatelessWidget {
+  const _HourlyChip({required this.entry});
+  final HourlyForecast entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final now = DateTime.now().toUtc();
+    final isNow = entry.time.difference(now).abs().inMinutes < 30;
+    final label = isNow
+        ? 'Now'
+        : '${entry.time.toLocal().hour.toString().padLeft(2, '0')}h';
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: tt.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontSize: 9,
+            ),
+          ),
+          Text(
+            '${entry.temperatureCelsius.round()}°',
+            style: tt.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: cs.onSurface,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DailyRow extends StatelessWidget {
+  const _DailyRow({required this.entry});
+  final DailyForecast entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final now = DateTime.now();
+    final entryLocal = entry.time.toLocal();
+    final isToday = entryLocal.year == now.year &&
+        entryLocal.month == now.month &&
+        entryLocal.day == now.day;
+    final dayLabel = isToday
+        ? 'Today'
+        : _weekdayShort(entryLocal.weekday);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 1),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 36,
+            child: Text(
+              dayLabel,
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontSize: 9,
+              ),
+            ),
+          ),
+          Text(
+            '${entry.highCelsius.round()}°/${entry.lowCelsius.round()}°',
+            style: tt.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: cs.onSurface,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _weekdayShort(int weekday) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return days[(weekday - 1) % 7];
   }
 }
 
