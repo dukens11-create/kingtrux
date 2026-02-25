@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../state/app_state.dart';
 import '../../services/night_mode_service.dart';
+import '../../services/tts_language_service.dart';
 import '../theme/app_theme.dart';
 import 'commercial_speed_settings_sheet.dart';
 
@@ -135,6 +136,53 @@ class VoiceSettingsSheet extends StatelessWidget {
                         ?.copyWith(color: cs.onSurfaceVariant),
                   ),
                 ],
+
+                const SizedBox(height: AppTheme.spaceSM),
+                const Divider(),
+
+                // Alert TTS language selection
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Alert Language', style: tt.bodyMedium),
+                          Text(
+                            'Language for spoken hazard and speed alerts',
+                            style: tt.bodySmall
+                                ?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                    DropdownButton<TtsLanguage>(
+                      value: state.ttsLanguage,
+                      underline: const SizedBox(),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMD),
+                      items: TtsLanguage.values
+                          .map(
+                            (lang) => DropdownMenuItem(
+                              value: lang,
+                              child: Text(
+                                lang.displayLabel,
+                                style: tt.bodyMedium,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: state.voiceGuidanceEnabled
+                          ? (lang) {
+                              if (lang != null) {
+                                HapticFeedback.selectionClick();
+                                state.setTtsLanguage(lang);
+                              }
+                            }
+                          : null,
+                    ),
+                  ],
+                ),
 
                 const SizedBox(height: AppTheme.spaceSM),
                 const Divider(),

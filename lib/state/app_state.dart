@@ -49,6 +49,8 @@ import '../services/roadside_assistance_service.dart';
 import '../services/theme_settings_service.dart';
 import '../services/trip_eta_service.dart';
 import '../services/timezone_service.dart';
+import '../services/tts_language_service.dart';
+import '../services/alert_phrase_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -82,6 +84,7 @@ class AppState extends ChangeNotifier {
   final RoadsideAssistanceService _roadsideAssistanceService =
       RoadsideAssistanceService();
   final ThemeSettingsService _themeSettingsService = ThemeSettingsService();
+  final TtsLanguageService _ttsLanguageService = TtsLanguageService();
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
@@ -348,6 +351,13 @@ class AppState extends ChangeNotifier {
     'zh-CN',
   ];
 
+  /// Language used for spoken alert phrases (TTS alert speech).
+  ///
+  /// Supports English, Spanish, and Haitian Creole.  Defaults to
+  /// [TtsLanguage.en]; the [init] method overrides this from the persisted
+  /// setting or the device locale on first launch.
+  TtsLanguage ttsLanguage = TtsLanguage.en;
+
   // ---------------------------------------------------------------------------
   // Alerts state
   // ---------------------------------------------------------------------------
@@ -397,6 +407,12 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading voice settings: $e');
+    }
+    try {
+      ttsLanguage = await _ttsLanguageService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading TTS language: $e');
     }
     try {
       favoritePois = await _favoritesService.load();
@@ -897,10 +913,19 @@ class AppState extends ChangeNotifier {
   /// Speaks [text] using the current [voiceLanguage], falling back to en-US
   /// when the TTS engine does not support the selected locale.
   ///
+  /// Optional [language] overrides [voiceLanguage] for the TTS engine locale
+  /// (used when speaking alert phrases in the alert-specific [ttsLanguage]).
+  /// When [englishText] is provided and the engine falls back to English, that
+  /// text is spoken instead of [text] so pronunciations remain intelligible.
+  ///
   /// On the first call after a language change, the engine's language list is
   /// queried and cached. If the locale is unsupported, a one-time in-app
   /// warning alert is added so the user knows their selection is not available.
-  Future<void> _speakWithLocale(String text) async {
+  Future<void> _speakWithLocale(
+    String text, {
+    String? language,
+    String? englishText,
+  }) async {
     if (_ttsSupportedLanguages == null) {
       try {
         final dynamic langs = await _tts.getLanguages;
@@ -913,10 +938,11 @@ class AppState extends ChangeNotifier {
       }
     }
 
+    final targetLang = language ?? voiceLanguage;
     final lang =
-        effectiveTtsLanguage(voiceLanguage, _ttsSupportedLanguages!);
+        effectiveTtsLanguage(targetLang, _ttsSupportedLanguages!);
 
-    if (lang != voiceLanguage && !_ttsUnsupportedNotified) {
+    if (lang != targetLang && !_ttsUnsupportedNotified) {
       _ttsUnsupportedNotified = true;
       addAlert(AlertEvent(
         id: 'tts_lang_unsupported_${DateTime.now().millisecondsSinceEpoch}',
@@ -931,9 +957,13 @@ class AppState extends ChangeNotifier {
       ));
     }
 
+    // When the engine fell back to English, use the English text if provided.
+    final textToSpeak =
+        (lang != targetLang && englishText != null) ? englishText : text;
+
     try {
       await _tts.setLanguage(lang);
-      await _tts.speak(text);
+      await _tts.speak(textToSpeak);
     } catch (e) {
       debugPrint('TTS speak error: $e');
     }
@@ -1129,6 +1159,21 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Set the spoken-alert language and persist it.
+  ///
+  /// Accepts any [TtsLanguage] value.  The new language takes effect on the
+  /// next spoken alert.  The unsupported-language notification flag is reset
+  /// so the user is informed if the new language is also unavailable on their
+  /// device.
+  void setTtsLanguage(TtsLanguage language) {
+    ttsLanguage = language;
+    _ttsUnsupportedNotified = false;
+    _ttsLanguageService.save(language).catchError(
+      (Object e) => debugPrint('Error saving TTS language: $e'),
+    );
+    notifyListeners();
+  }
+
   /// Update the night mode option and persist it.
   ///
   /// In [NightModeOption.auto] mode a minute-level timer keeps the theme in
@@ -1239,14 +1284,28 @@ class AppState extends ChangeNotifier {
   ///
   /// If [voiceGuidanceEnabled] is true and the alert is [AlertEvent.speakable]
   /// and has [AlertSeverity.warning] or [AlertSeverity.critical] severity,
-  /// the alert message is spoken immediately.
+  /// the alert message is spoken immediately using the localized phrase for
+  /// [ttsLanguage] when available, falling back to [AlertEvent.message].
   void addAlert(AlertEvent alert) {
     _alertQueue.add(alert);
     if (voiceGuidanceEnabled &&
         alert.speakable &&
         alert.severity != AlertSeverity.info &&
         alert.severity != AlertSeverity.success) {
-      _speakWithLocale(alert.message).catchError(
+      final lang = ttsLanguage;
+      final localizedText =
+          AlertPhraseService.phrase(alert.type, lang) ?? alert.message;
+      // When the TTS engine falls back to English, supply the English phrase
+      // so the engine reads intelligible text.
+      final englishText = lang != TtsLanguage.en
+          ? (AlertPhraseService.phrase(alert.type, TtsLanguage.en) ??
+              alert.message)
+          : null;
+      _speakWithLocale(
+        localizedText,
+        language: lang.bcp47Tag,
+        englishText: englishText,
+      ).catchError(
         (Object e) => debugPrint('TTS alert error: $e'),
       );
     }
