@@ -46,6 +46,7 @@ import '../services/truck_stop_filter_service.dart';
 import '../services/night_mode_service.dart';
 import '../services/trip_eta_service.dart';
 import '../services/timezone_service.dart';
+import '../services/roadside_assistance_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -76,6 +77,8 @@ class AppState extends ChangeNotifier {
       TruckStopBrandSettingsService();
   final NightModeSettingsService _nightModeSettingsService =
       NightModeSettingsService();
+  final RoadsideAssistanceService _roadsideAssistanceService =
+      RoadsideAssistanceService();
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
@@ -273,6 +276,16 @@ class AppState extends ChangeNotifier {
   // Loading states
   bool isLoadingRoute = false;
   bool isLoadingPois = false;
+
+  // ---------------------------------------------------------------------------
+  // Roadside assistance state
+  // ---------------------------------------------------------------------------
+
+  /// Nearby roadside assistance providers fetched on demand via [loadRoadsideProviders].
+  List<Poi> roadsideProviders = [];
+
+  /// `true` while [loadRoadsideProviders] is running.
+  bool isLoadingRoadside = false;
 
   // Subscription / entitlement state
   /// `true` when the user has an active KINGTRUX Pro entitlement.
@@ -690,6 +703,31 @@ class AppState extends ChangeNotifier {
       pois = merged;
     } finally {
       isLoadingPois = false;
+      notifyListeners();
+    }
+  }
+
+  /// Fetch roadside assistance providers near the current location.
+  ///
+  /// Populates [roadsideProviders] with towing, mechanic, and tyre shop POIs
+  /// within [radiusMeters].  Reuses the current location; call
+  /// [refreshMyLocation] first if a fresh fix is needed.
+  Future<void> loadRoadsideProviders({double radiusMeters = 50000}) async {
+    if (myLat == null || myLng == null) {
+      throw Exception('Current location not set');
+    }
+
+    isLoadingRoadside = true;
+    notifyListeners();
+
+    try {
+      roadsideProviders = await _roadsideAssistanceService.fetchProviders(
+        centerLat: myLat!,
+        centerLng: myLng!,
+        radiusMeters: radiusMeters,
+      );
+    } finally {
+      isLoadingRoadside = false;
       notifyListeners();
     }
   }
