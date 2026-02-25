@@ -14,6 +14,7 @@ import 'widgets/poi_detail_sheet.dart';
 import 'widgets/route_summary_card.dart';
 import 'widgets/voice_settings_sheet.dart';
 import 'widgets/alert_banner.dart';
+import 'widgets/road_sign_alert_settings_sheet.dart';
 import 'widgets/trip_planner_sheet.dart';
 import 'widgets/speed_display.dart';
 import 'widgets/compass_indicator.dart';
@@ -197,6 +198,11 @@ class _MapScreenState extends State<MapScreen> {
                 ],
               ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.warning_amber_rounded),
+            tooltip: 'Road Sign Alerts',
+            onPressed: _onRoadSignAlertsPressed,
+          ),
           IconButton(
             icon: const Icon(Icons.record_voice_over_rounded),
             tooltip: 'Voice Settings',
@@ -389,6 +395,15 @@ class _MapScreenState extends State<MapScreen> {
       context: context,
       isScrollControlled: true,
       builder: (context) => const TripPlannerSheet(),
+    );
+  }
+
+  void _onRoadSignAlertsPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const RoadSignAlertSettingsSheet(),
     );
   }
 
