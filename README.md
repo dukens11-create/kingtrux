@@ -230,7 +230,7 @@ KINGTRUX shows the posted road speed limit and the driver's GPS speed at all tim
 |-------|-----------|--------------|-------------|
 | **Overspeeding** | Driver speed > limit + 2 mph | 🔴 Red (critical) | ✅ Yes |
 | **Underspeeding** | Driver speed < limit − threshold | 🟡 Amber (warning) | ✅ Yes |
-| **Correct speed** | Driver speed within range | 🟢 Green (success) | ❌ No |
+| **Correct speed** | Driver speed within range | *(no banner – SpeedDisplay overlay turns green)* | ❌ No |
 
 ### Configuration
 

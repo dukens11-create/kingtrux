@@ -1268,15 +1268,8 @@ class AppState extends ChangeNotifier {
               speakable: true,
             ));
           case SpeedAlertState.correct:
-            addAlert(AlertEvent(
-              id: 'correct_speed_${DateTime.now().millisecondsSinceEpoch}',
-              type: AlertType.generic,
-              title: 'Speed OK',
-              message: 'Speed is within the acceptable range.',
-              severity: AlertSeverity.success,
-              timestamp: DateTime.now(),
-              speakable: false,
-            ));
+            // No banner – speed compliance is indicated by the green
+            // SpeedDisplay overlay, which is less obtrusive than a banner.
         }
       };
 
