@@ -23,6 +23,7 @@ class _CommercialSpeedSettingsSheetState
     extends State<CommercialSpeedSettingsSheet> {
   late bool _enabled;
   late SpeedUnit _unit;
+  late bool _enableStateLimits;
   late TextEditingController _speedController;
 
   @override
@@ -31,6 +32,7 @@ class _CommercialSpeedSettingsSheetState
     final settings = context.read<AppState>().commercialSpeedSettings;
     _enabled = settings.enabled;
     _unit = settings.unit;
+    _enableStateLimits = settings.enableStateLimits;
     _speedController = TextEditingController(
       text: settings.maxSpeedDisplay.toStringAsFixed(0),
     );
@@ -76,6 +78,7 @@ class _CommercialSpeedSettingsSheetState
         enabled: _enabled,
         maxSpeedMs: speedMs,
         unit: _unit,
+        enableStateLimits: _enableStateLimits,
       ),
     );
     HapticFeedback.selectionClick();
@@ -126,6 +129,23 @@ class _CommercialSpeedSettingsSheetState
               onChanged: (v) {
                 HapticFeedback.selectionClick();
                 setState(() => _enabled = v);
+              },
+              contentPadding: EdgeInsets.zero,
+            ),
+
+            // State-specific limits toggle
+            SwitchListTile(
+              secondary: Icon(
+                Icons.location_on_rounded,
+                color: _enableStateLimits ? cs.primary : cs.outline,
+              ),
+              title: const Text('Use state truck speed limits'),
+              subtitle: const Text(
+                  'Show and enforce legal truck speed limit for the current US state'),
+              value: _enableStateLimits,
+              onChanged: (v) {
+                HapticFeedback.selectionClick();
+                setState(() => _enableStateLimits = v);
               },
               contentPadding: EdgeInsets.zero,
             ),

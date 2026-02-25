@@ -7,6 +7,7 @@ class CommercialSpeedSettings {
     required this.enabled,
     required this.maxSpeedMs,
     required this.unit,
+    this.enableStateLimits = true,
   });
 
   /// Whether commercial overspeed alerts are active.
@@ -18,11 +19,21 @@ class CommercialSpeedSettings {
   /// Display unit chosen by the driver.
   final SpeedUnit unit;
 
-  /// Default settings: disabled, 65 mph limit, mph display.
-  factory CommercialSpeedSettings.defaults() => CommercialSpeedSettings(
+  /// Whether to use the state-specific commercial truck speed limit instead of
+  /// [maxSpeedMs] when the current US state is known.
+  ///
+  /// When `true` and a state limit is available, that limit overrides
+  /// [maxSpeedMs] for overspeed alerting and is displayed prominently in
+  /// navigation.  The driver's manually-configured [maxSpeedMs] is still used
+  /// as the effective ceiling whenever no state limit is available.
+  final bool enableStateLimits;
+
+  /// Default settings: disabled, 65 mph limit, mph display, state limits on.
+  factory CommercialSpeedSettings.defaults() => const CommercialSpeedSettings(
         enabled: false,
-        maxSpeedMs: mphToMs(65.0),
+        maxSpeedMs: 29.0576, // 65 mph in m/s
         unit: SpeedUnit.mph,
+        enableStateLimits: true,
       );
 
   // ---------------------------------------------------------------------------
@@ -52,10 +63,12 @@ class CommercialSpeedSettings {
     bool? enabled,
     double? maxSpeedMs,
     SpeedUnit? unit,
+    bool? enableStateLimits,
   }) =>
       CommercialSpeedSettings(
         enabled: enabled ?? this.enabled,
         maxSpeedMs: maxSpeedMs ?? this.maxSpeedMs,
         unit: unit ?? this.unit,
+        enableStateLimits: enableStateLimits ?? this.enableStateLimits,
       );
 }

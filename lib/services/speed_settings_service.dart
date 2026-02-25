@@ -9,6 +9,7 @@ class SpeedSettingsService {
   static const _keyCommercialEnabled = 'commercial_speed_enabled';
   static const _keyCommercialMaxSpeedMs = 'commercial_max_speed_ms';
   static const _keyCommercialUnit = 'commercial_speed_unit';
+  static const _keyCommercialStateLimits = 'commercial_state_limits_enabled';
 
   /// Default underspeed threshold in mph.
   static const double defaultUnderspeedThresholdMph = 10.0;
@@ -45,10 +46,13 @@ class SpeedSettingsService {
       final unitIndex = prefs.getInt(_keyCommercialUnit) ??
           SpeedUnit.values.indexOf(defaults.unit);
       final unit = SpeedUnit.values[unitIndex.clamp(0, SpeedUnit.values.length - 1)];
+      final enableStateLimits =
+          prefs.getBool(_keyCommercialStateLimits) ?? defaults.enableStateLimits;
       return CommercialSpeedSettings(
         enabled: enabled,
         maxSpeedMs: maxSpeedMs,
         unit: unit,
+        enableStateLimits: enableStateLimits,
       );
     } catch (_) {
       return CommercialSpeedSettings.defaults();
@@ -61,5 +65,6 @@ class SpeedSettingsService {
     await prefs.setBool(_keyCommercialEnabled, settings.enabled);
     await prefs.setDouble(_keyCommercialMaxSpeedMs, settings.maxSpeedMs);
     await prefs.setInt(_keyCommercialUnit, SpeedUnit.values.indexOf(settings.unit));
+    await prefs.setBool(_keyCommercialStateLimits, settings.enableStateLimits);
   }
 }

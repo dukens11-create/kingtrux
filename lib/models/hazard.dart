@@ -1,5 +1,5 @@
 /// Category of a route hazard.
-enum HazardType { lowBridge, sharpCurve, downgradeHill }
+enum HazardType { lowBridge, sharpCurve, downgradeHill, workZone }
 
 /// A hazard point along the active route that the driver should be warned about.
 ///

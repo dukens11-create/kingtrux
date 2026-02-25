@@ -39,6 +39,7 @@ import '../services/commercial_speed_monitor.dart';
 import '../models/hazard.dart';
 import '../services/hazard_monitor.dart';
 import '../services/hazard_settings_service.dart';
+import '../services/truck_speed_limit_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -64,6 +65,7 @@ class AppState extends ChangeNotifier {
   final HereGeocodingService _geocodingService = HereGeocodingService();
   final HazardMonitor _hazardMonitor = HazardMonitor();
   final HazardSettingsService _hazardSettingsService = HazardSettingsService();
+  final TruckSpeedLimitService _truckSpeedLimitService = TruckSpeedLimitService();
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
@@ -72,6 +74,10 @@ class AppState extends ChangeNotifier {
   // voice guidance is explicitly invoked.
   FlutterTts? _ttsInstance;
   FlutterTts get _tts => _ttsInstance ??= FlutterTts();
+
+  // State detection throttle
+  DateTime? _lastStateCheckTime;
+  static const _stateCheckMinIntervalSeconds = 300; // 5 minutes
 
   // Current location
   double? myLat;
@@ -154,6 +160,18 @@ class AppState extends ChangeNotifier {
   /// Commercial max-speed alert settings (units, threshold, enable/disable).
   CommercialSpeedSettings commercialSpeedSettings =
       CommercialSpeedSettings.defaults();
+
+  // ---------------------------------------------------------------------------
+  // State-specific truck speed limit
+  // ---------------------------------------------------------------------------
+
+  /// USPS 2-letter code for the US state the driver is currently in (e.g.,
+  /// `'TX'`), or `null` when the state has not yet been determined.
+  String? currentUsState;
+
+  /// Legal commercial truck speed limit for [currentUsState] in mph, or `null`
+  /// when the state is unknown or has no entry in the database.
+  double? stateTruckSpeedLimitMph;
 
   // ---------------------------------------------------------------------------
   // Hazard alert state
@@ -1047,6 +1065,17 @@ class AppState extends ChangeNotifier {
             timestamp: DateTime.now(),
             speakable: hazardSettings.enableHazardTts,
           ));
+        case HazardType.workZone:
+          addAlert(AlertEvent(
+            id: 'hazard_${hazard.id}_${DateTime.now().millisecondsSinceEpoch}',
+            type: AlertType.workZoneHazard,
+            title: 'Work Zone Ahead',
+            message:
+                'Road work zone $distMi mi ahead. Reduce speed and watch for workers.',
+            severity: AlertSeverity.warning,
+            timestamp: DateTime.now(),
+            speakable: hazardSettings.enableHazardTts,
+          ));
       }
     };
 
@@ -1102,6 +1131,7 @@ class AppState extends ChangeNotifier {
         enableLowBridge: hs.enableLowBridgeWarnings,
         enableSharpCurve: hs.enableSharpCurveWarnings,
         enableDowngradeHill: hs.enableDowngradeHillWarnings,
+        enableWorkZone: hs.enableWorkZoneWarnings,
       );
     }
   }
@@ -1246,12 +1276,21 @@ class AppState extends ChangeNotifier {
     // Check commercial max-speed (navigation-only).
     final commercial = commercialSpeedSettings;
     if (commercial.enabled) {
+      // Use state-specific limit when enabled and known; fall back to manual limit.
+      final stateLimit = stateTruckSpeedLimitMph;
+      final effectiveMaxMs =
+          commercial.enableStateLimits && stateLimit != null
+              ? CommercialSpeedSettings.mphToMs(stateLimit)
+              : commercial.maxSpeedMs;
       _commercialSpeedMonitor.check(
         pos.speed.clamp(0.0, double.infinity),
-        maxSpeedMs: commercial.maxSpeedMs,
+        maxSpeedMs: effectiveMaxMs,
         isNavigating: isNavigating,
       );
     }
+
+    // Throttled US state detection for state-specific truck speed limits.
+    _checkUsState(pos.latitude, pos.longitude);
 
     // Query road speed limit (throttled – SpeedLimitService caches by distance).
     _speedLimitService.queryLimit(pos.latitude, pos.longitude).then(
@@ -1270,6 +1309,59 @@ class AppState extends ChangeNotifier {
         }
       },
       onError: (Object e) => debugPrint('SpeedLimitService error: $e'),
+    );
+  }
+
+  /// Check the current US state (throttled to at most once every 5 minutes).
+  ///
+  /// On state change, updates [currentUsState] and [stateTruckSpeedLimitMph],
+  /// notifies listeners, and fires a speakable alert when navigating.
+  void _checkUsState(double lat, double lng) {
+    final now = DateTime.now();
+    final last = _lastStateCheckTime;
+    if (last != null &&
+        now.difference(last).inSeconds < _stateCheckMinIntervalSeconds) {
+      return;
+    }
+    _lastStateCheckTime = now;
+
+    _geocodingService.reverseGeocodeStateCode(lat, lng).then(
+      (stateCode) {
+        if (stateCode == null) return;
+        final newLimit = _truckSpeedLimitService.limitForState(stateCode);
+        if (stateCode == currentUsState) {
+          // Same state — only update limit if it changed (edge case).
+          if (newLimit != stateTruckSpeedLimitMph) {
+            stateTruckSpeedLimitMph = newLimit;
+            notifyListeners();
+          }
+          return;
+        }
+
+        final prevState = currentUsState;
+        currentUsState = stateCode;
+        stateTruckSpeedLimitMph = newLimit;
+        notifyListeners();
+
+        // Announce state crossing when actively navigating and settings permit.
+        if (prevState != null &&
+            isNavigating &&
+            commercialSpeedSettings.enableStateLimits) {
+          final limitStr = newLimit != null
+              ? '${newLimit.toStringAsFixed(0)} mph'
+              : 'unknown';
+          addAlert(AlertEvent(
+            id: 'state_limit_${stateCode}_${now.millisecondsSinceEpoch}',
+            type: AlertType.stateLimitChange,
+            title: 'Entering $stateCode',
+            message: 'Truck speed limit: $limitStr',
+            severity: AlertSeverity.warning,
+            timestamp: now,
+            speakable: true,
+          ));
+        }
+      },
+      onError: (Object e) => debugPrint('State detection error: $e'),
     );
   }
 
