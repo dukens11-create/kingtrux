@@ -112,17 +112,38 @@ flutter run \
 #### Google Maps Platform Configuration
 
 **Android** (`android/app/src/main/AndroidManifest.xml`):
+
+The source file contains a placeholder. **Do not replace it manually** — it is injected by the CI
+workflow from the `GOOGLE_MAPS_ANDROID_API_KEY` repository secret via `sed`. For local development,
+pass the key via `--dart-define`:
+```bash
+flutter run --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=your_android_key ...
+```
+
+The manifest entry (kept as placeholder in source control):
 ```xml
 <meta-data
     android:name="com.google.android.geo.API_KEY"
-    android:value="YOUR_GOOGLE_MAPS_ANDROID_API_KEY"/>
+    android:value="YOUR_GOOGLE_MAPS_API_KEY_HERE"/>
 ```
 
 **iOS** (`ios/Runner/Info.plist`):
+
+The source file contains a placeholder value for `GMSApiKey`. Replace it **only in your local
+working copy** (do not commit the real key):
 ```xml
 <key>GMSApiKey</key>
-<string>YOUR_GOOGLE_MAPS_IOS_API_KEY</string>
+<string>YOUR_GOOGLE_MAPS_API_KEY_HERE</string>
 ```
+
+Steps:
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services → Credentials**.
+2. Create a new API key, enable **Maps SDK for iOS**, and restrict it to your app's bundle ID.
+3. Open `ios/Runner/Info.plist` and replace `YOUR_GOOGLE_MAPS_API_KEY_HERE` with your key.
+4. The key is read by `AppDelegate.swift` and passed to `GMSServices.provideAPIKey`.
+
+> iOS and Android require **separate** API keys. Restrict each key to the respective platform in
+> the Google Cloud Console.
 
 ## Running the Application
 

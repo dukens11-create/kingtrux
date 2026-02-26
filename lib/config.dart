@@ -51,6 +51,32 @@ class Config {
       String.fromEnvironment('REVENUECAT_ANDROID_API_KEY', defaultValue: '');
 
   // ---------------------------------------------------------------------------
+  // Google Maps Android API key
+  // Injected at build time via --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=<key>
+  // (CI also replaces the AndroidManifest.xml placeholder via sed before the
+  //  build, so both injection paths are active in release builds.)
+  // ---------------------------------------------------------------------------
+
+  /// Google Maps Android API key.
+  ///
+  /// Empty string signals that the key was not provided at build time, which
+  /// means the map will render without tiles. A runtime warning is shown in
+  /// the app when this is unset or still the source-control placeholder.
+  static const String googleMapsAndroidApiKey =
+      String.fromEnvironment('GOOGLE_MAPS_ANDROID_API_KEY', defaultValue: '');
+
+  /// Placeholder value used in source control for the Google Maps Android key.
+  /// Compared at runtime to detect un-replaced placeholder builds.
+  static const String _googleMapsAndroidPlaceholder =
+      'YOUR_GOOGLE_MAPS_API_KEY_HERE';
+
+  /// Returns `true` when the Google Maps Android key appears to be valid
+  /// (non-empty and not the source-control placeholder).
+  static bool get googleMapsAndroidKeyConfigured =>
+      googleMapsAndroidApiKey.isNotEmpty &&
+      googleMapsAndroidApiKey != _googleMapsAndroidPlaceholder;
+
+  // ---------------------------------------------------------------------------
   // In-app product identifiers (must match RevenueCat / App Store / Google Play)
   // ---------------------------------------------------------------------------
 

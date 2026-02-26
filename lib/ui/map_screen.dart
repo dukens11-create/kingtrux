@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
+import '../config.dart';
 import '../models/poi.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
@@ -166,6 +167,15 @@ class _MapScreenState extends State<MapScreen> {
                 bottom: 200,
                 child: CompassIndicator(),
               ),
+
+              // ── Google Maps API key misconfiguration warning ──────────────
+              if (!Config.googleMapsAndroidKeyConfigured)
+                const Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: _MapsApiKeyWarningBanner(),
+                ),
             ],
           );
         },
@@ -637,6 +647,53 @@ class _GetHelpFab extends StatelessWidget {
       foregroundColor: cs.onError,
       onPressed: onPressed,
       child: const Icon(Icons.emergency_rounded),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Google Maps API key misconfiguration warning banner
+// ---------------------------------------------------------------------------
+
+/// Shown when the Google Maps Android API key is not provided at build time
+/// (i.e. [Config.googleMapsAndroidKeyConfigured] is false). Displays a
+/// non-crashing warning so developers and testers understand why tiles are
+/// missing, without affecting release builds that include the key.
+class _MapsApiKeyWarningBanner extends StatelessWidget {
+  const _MapsApiKeyWarningBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.errorContainer,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spaceMD,
+            vertical: AppTheme.spaceSM,
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.map_outlined, color: cs.onErrorContainer, size: 20),
+              const SizedBox(width: AppTheme.spaceSM),
+              Expanded(
+                child: Text(
+                  kDebugMode
+                      ? 'Google Maps API key not configured. '
+                        'Pass --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=<key> '
+                        'or set the GOOGLE_MAPS_ANDROID_API_KEY repo secret.'
+                      : 'Map tiles unavailable: Google Maps API key missing.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cs.onErrorContainer,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
