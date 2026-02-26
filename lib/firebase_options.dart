@@ -23,10 +23,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web. '
-        'Reconfigure your Firebase project using `flutterfire configure`.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -39,6 +36,20 @@ class DefaultFirebaseOptions {
         );
     }
   }
+
+  /// Web Firebase options.
+  ///
+  /// Replace these placeholder values with real credentials from your
+  /// Firebase Console (Project settings → Your apps → Web app → SDK setup).
+  /// See README.md → "Firebase Authentication Setup – Web".
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'YOUR_WEB_FIREBASE_API_KEY',
+    appId: '1:000000000000:web:0000000000000000000000',
+    messagingSenderId: '000000000000',
+    projectId: 'your-firebase-project-id',
+    storageBucket: 'your-firebase-project-id.appspot.com',
+    authDomain: 'your-firebase-project-id.firebaseapp.com',
+  );
 
   /// Android Firebase options.
   ///

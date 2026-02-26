@@ -303,7 +303,34 @@ The `build.gradle` files are already configured to apply the `google-services` p
    - Click **+ Capability** and add **Sign in with Apple**.
    - Ensure the **Bundle Identifier** matches your Firebase iOS app.
 
-### 4. Update `lib/firebase_options.dart`
+### 4. Web setup
+
+1. In the Firebase Console, click **Add app → Web** (`</>`).
+2. Register the app (no Firebase Hosting required for local dev).
+3. Copy the Firebase config values shown and update the `web` constant in
+   `lib/firebase_options.dart`:
+
+```dart
+static const FirebaseOptions web = FirebaseOptions(
+  apiKey: '<YOUR_WEB_API_KEY>',
+  appId: '<YOUR_WEB_APP_ID>',
+  messagingSenderId: '<YOUR_SENDER_ID>',
+  projectId: 'kingtrux-387ae',
+  storageBucket: 'kingtrux-387ae.appspot.com',
+  authDomain: 'kingtrux-387ae.firebaseapp.com',
+);
+```
+
+4. Run the app in Chrome:
+
+```bash
+flutter run -d chrome
+```
+
+> The `web` Firebase options are already wired into `DefaultFirebaseOptions.currentPlatform`
+> so no additional code changes are needed once the placeholder values are replaced.
+
+### 5. Update `lib/firebase_options.dart`
 
 Replace the placeholder constants in `lib/firebase_options.dart` with the real
 values from the Firebase Console (or simply run `flutterfire configure` after
@@ -314,9 +341,9 @@ dart pub global activate flutterfire_cli
 flutterfire configure
 ```
 
-This regenerates `lib/firebase_options.dart` automatically.
+This regenerates `lib/firebase_options.dart` automatically (including the `web` entry).
 
-### 5. Injecting secrets in CI
+### 6. Injecting secrets in CI
 
 Add the following GitHub repository secrets (Settings → Secrets → Actions):
 
