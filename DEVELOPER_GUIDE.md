@@ -189,7 +189,7 @@ final weather = await service.getCurrentWeather(
 
 ### MapScreen
 Main screen with Google Maps integration.
-- **Long press** on map to set destination and auto-route
+- **Set Destination button** (flag icon in FAB cluster) — activates destination-setting mode; tap the map to set destination and auto-route
 - **My Location button** - recenter and refresh location
 - **Tune button** - open truck profile configuration
 - **Layers button** - toggle POI layers
