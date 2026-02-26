@@ -204,10 +204,13 @@ The CI workflows read the keys from [GitHub repository secrets](https://docs.git
 
    | Secret name | Value |
    |---|---|
+   | `HERE_API_KEY` | Your HERE Routing API key (required for routing/search) |
+   | `GOOGLE_MAPS_ANDROID_API_KEY` | Your Google Maps Android API key (required for map tiles) |
+   | `OPENWEATHER_API_KEY` | Your OpenWeather API key (optional, for weather data) |
    | `REVENUECAT_IOS_API_KEY` | Your RevenueCat iOS public SDK key (starts with `appl_`) |
    | `REVENUECAT_ANDROID_API_KEY` | Your RevenueCat Android public SDK key (starts with `goog_`) |
 
-4. The CI workflows (`ci.yml` and `android-build.yml`) automatically pass these secrets to Flutter via `--dart-define` on every build run.
+4. The CI workflow (`android-build.yml`) automatically injects these secrets at build time on every run. `HERE_API_KEY`, `OPENWEATHER_API_KEY`, and `REVENUECAT_ANDROID_API_KEY` are passed to Flutter via `--dart-define`. `GOOGLE_MAPS_ANDROID_API_KEY` replaces the placeholder in `AndroidManifest.xml` before the build — the actual key is **never committed to the repository**.
 
 If no key is set, the app shows a descriptive error on the paywall instead of crashing.
 
