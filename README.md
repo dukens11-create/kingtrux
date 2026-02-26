@@ -400,6 +400,7 @@ Add the following GitHub repository secrets (Settings → Secrets → Actions):
 |---|---|
 | `GOOGLE_SERVICES_JSON` | Base64-encoded contents of `google-services.json` |
 | `GOOGLE_SERVICE_INFO_PLIST` | Base64-encoded contents of `GoogleService-Info.plist` |
+| `WEB_FIREBASE_API_KEY` | Firebase Web API key (from Firebase Console → Project settings → Your apps → Web app) |
 
 Then add injection steps to your CI workflows **before** the build step:
 
@@ -420,6 +421,17 @@ Then add injection steps to your CI workflows **before** the build step:
   run: |
     echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
 ```
+
+**Web** (`ci.yml`): The web-build job already injects `WEB_FIREBASE_API_KEY` into
+`lib/firebase_options.dart` via `sed` before building. No additional steps are needed
+beyond setting the secret.
+
+> **Where secrets/config live:** `lib/firebase_options.dart` holds non-secret
+> project identifiers (appId, projectId, authDomain, etc.) and a
+> `YOUR_WEB_FIREBASE_API_KEY` placeholder that is replaced at CI build time.
+> `android/app/google-services.json` and `ios/Runner/GoogleService-Info.plist`
+> contain placeholder values and are replaced by CI secrets at build time.
+> Real credentials are never committed to version control.
 
 
 

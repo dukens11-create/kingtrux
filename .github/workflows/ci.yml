@@ -187,5 +187,13 @@ jobs:
             sed -i "s|YOUR_GOOGLE_MAPS_WEB_API_KEY|${GOOGLE_MAPS_WEB_API_KEY}|g" web/index.html
           fi
 
+      - name: Inject Firebase Web API key
+        env:
+          WEB_FIREBASE_API_KEY: ${{ secrets.WEB_FIREBASE_API_KEY }}
+        run: |
+          if [ -n "$WEB_FIREBASE_API_KEY" ]; then
+            sed -i "s|YOUR_WEB_FIREBASE_API_KEY|${WEB_FIREBASE_API_KEY}|g" lib/firebase_options.dart
+          fi
+
       - name: Build Web (release)
         run: flutter build web --release
