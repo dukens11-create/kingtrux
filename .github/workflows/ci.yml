@@ -36,11 +36,22 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Check RevenueCat API key configuration
+        env:
+          REVENUECAT_IOS_API_KEY: ${{ secrets.REVENUECAT_IOS_API_KEY }}
+          REVENUECAT_ANDROID_API_KEY: ${{ secrets.REVENUECAT_ANDROID_API_KEY }}
+        run: |
+          echo "REVENUECAT_IOS_API_KEY: $( [ -n "$REVENUECAT_IOS_API_KEY" ] && echo 'set' || echo 'unset' )"
+          echo "REVENUECAT_ANDROID_API_KEY: $( [ -n "$REVENUECAT_ANDROID_API_KEY" ] && echo 'set' || echo 'unset' )"
+
       - name: Analyze
         run: flutter analyze
 
       - name: Run tests
-        run: flutter test
+        run: |
+          flutter test \
+            --dart-define=REVENUECAT_IOS_API_KEY=${{ secrets.REVENUECAT_IOS_API_KEY }} \
+            --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }}
 
   android-build:
     name: Android build (APK)
@@ -78,7 +89,9 @@ jobs:
         run: flutter pub get
 
       - name: Build Android APK (debug)
-        run: flutter build apk --debug
+        run: |
+          flutter build apk --debug \
+            --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }}
 
   ios-build:
     name: iOS build (debug, no-codesign)
@@ -119,7 +132,9 @@ jobs:
         run: flutter pub get
 
       - name: Generate iOS Flutter config files
-        run: flutter build ios --config-only --debug --no-codesign
+        run: |
+          flutter build ios --config-only --debug --no-codesign \
+            --dart-define=REVENUECAT_IOS_API_KEY=${{ secrets.REVENUECAT_IOS_API_KEY }}
 
       - name: Clean CocoaPods state
         run: |
@@ -131,4 +146,6 @@ jobs:
         run: cd ios && pod install --repo-update
 
       - name: Build iOS (debug, no-codesign)
-        run: flutter build ios --debug --no-codesign
+        run: |
+          flutter build ios --debug --no-codesign \
+            --dart-define=REVENUECAT_IOS_API_KEY=${{ secrets.REVENUECAT_IOS_API_KEY }}
