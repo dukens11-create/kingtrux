@@ -172,6 +172,53 @@ flutter run -d ios \
   --dart-define=REVENUECAT_IOS_API_KEY=appl_xxx
 ```
 
+### Running on Web (Chrome)
+
+The `web/` directory in this repository contains the Flutter web platform
+scaffolding required to run the app in Chrome — no `flutter create .` is
+needed.
+
+#### 1. Add your Google Maps Web API key
+
+`web/index.html` contains a placeholder (`YOUR_GOOGLE_MAPS_WEB_API_KEY`) for
+the Google Maps JavaScript API script tag.  **Do not commit a real key** —
+inject it locally via `sed` (same pattern used for the Android key):
+
+```bash
+# Replace the placeholder in your local working copy (do not commit this change)
+sed -i "s|YOUR_GOOGLE_MAPS_WEB_API_KEY|$GOOGLE_MAPS_WEB_API_KEY|g" web/index.html
+```
+
+Obtain a key at [Google Cloud Console](https://console.cloud.google.com/) →
+**APIs & Services → Credentials** with the **Maps JavaScript API** enabled.
+Restrict the key to your web origin (e.g. `http://localhost:*` for dev).
+
+#### 2. Run in Chrome
+
+```bash
+flutter run -d chrome \
+  --dart-define=HERE_API_KEY=xxx \
+  --dart-define=OPENWEATHER_API_KEY=www
+```
+
+#### 3. Build a release web bundle
+
+```bash
+# Inject the key first (CI step or local — never commit the real key)
+sed -i "s|YOUR_GOOGLE_MAPS_WEB_API_KEY|$GOOGLE_MAPS_WEB_API_KEY|g" web/index.html
+
+flutter build web --release \
+  --dart-define=HERE_API_KEY=xxx \
+  --dart-define=OPENWEATHER_API_KEY=www
+```
+
+The output is placed in `build/web/`.
+
+> **Platform limitations on web:** RevenueCat (`purchases_flutter`) and Apple
+> Sign-In (`sign_in_with_apple`) do not support the web platform; those
+> features will be unavailable when running in Chrome.  All other core
+> features (mapping, routing, weather, Firebase Auth) are web-compatible.
+
 ### Build Release
 ```bash
 # Android APK
@@ -233,11 +280,12 @@ The CI workflows read the keys from [GitHub repository secrets](https://docs.git
    |---|---|
    | `HERE_API_KEY` | Your HERE Routing API key (required for routing/search) |
    | `GOOGLE_MAPS_ANDROID_API_KEY` | Your Google Maps Android API key (required for map tiles) |
+   | `GOOGLE_MAPS_WEB_API_KEY` | Your Google Maps Web API key (required for map tiles on web) |
    | `OPENWEATHER_API_KEY` | Your OpenWeather API key (optional, for weather data) |
    | `REVENUECAT_IOS_API_KEY` | Your RevenueCat iOS public SDK key (starts with `appl_`) |
    | `REVENUECAT_ANDROID_API_KEY` | Your RevenueCat Android public SDK key (starts with `goog_`) |
 
-4. The CI workflow (`android-build.yml`) automatically injects these secrets at build time on every run. `HERE_API_KEY`, `OPENWEATHER_API_KEY`, and `REVENUECAT_ANDROID_API_KEY` are passed to Flutter via `--dart-define`. `GOOGLE_MAPS_ANDROID_API_KEY` replaces the placeholder in `AndroidManifest.xml` before the build — the actual key is **never committed to the repository**.
+4. The CI workflow (`android-build.yml`) automatically injects these secrets at build time on every run. `HERE_API_KEY`, `OPENWEATHER_API_KEY`, and `REVENUECAT_ANDROID_API_KEY` are passed to Flutter via `--dart-define`. `GOOGLE_MAPS_ANDROID_API_KEY` replaces the placeholder in `AndroidManifest.xml` before the build, and `GOOGLE_MAPS_WEB_API_KEY` replaces the placeholder in `web/index.html` — the actual keys are **never committed to the repository**.
 
 If no key is set, the app shows a descriptive error on the paywall instead of crashing.
 
@@ -516,6 +564,11 @@ corner of the app bar to switch between light and dark themes.
 kingtrux/
 ├── android/              # Android platform configuration
 ├── ios/                  # iOS platform configuration
+├── web/                  # Web platform configuration (Chrome / Flutter web)
+│   ├── index.html        # Entry HTML with Google Maps JS API script tag
+│   ├── manifest.json     # PWA manifest
+│   ├── favicon.png       # Browser tab icon
+│   └── icons/            # PWA / Apple touch icons (192 & 512 px)
 ├── lib/
 │   ├── main.dart         # App entry point
 │   ├── app.dart          # Root widget with Provider setup
