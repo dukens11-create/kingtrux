@@ -10,6 +10,49 @@ flutter run \
   --dart-define=OPENWEATHER_API_KEY=your_key
 ```
 
+## Google Maps Platform Setup
+
+### Android
+The Google Maps Android API key is injected at **two** points:
+
+1. **AndroidManifest.xml** (used by the native Google Maps SDK):  
+   The source file contains the placeholder `YOUR_GOOGLE_MAPS_API_KEY_HERE`.  
+   The CI workflow replaces it with the real key via `sed` before the build.
+
+2. **Dart `--dart-define`** (used for runtime diagnostics):  
+   The key is also passed as `--dart-define=GOOGLE_MAPS_ANDROID_API_KEY=<key>`.  
+   If omitted, the app shows a `_MapsApiKeyWarningBanner` overlay explaining the issue.
+
+**Local development:**
+```bash
+flutter run \
+  --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=your_android_key \
+  --dart-define=HERE_API_KEY=your_key \
+  --dart-define=OPENWEATHER_API_KEY=your_key
+```
+
+### iOS
+The iOS Google Maps SDK reads the key from `Info.plist` (via `GMSServices.provideAPIKey`).
+
+1. Open `ios/Runner/Info.plist`.
+2. Locate (or add) the `GMSApiKey` entry:
+   ```xml
+   <key>GMSApiKey</key>
+   <string>YOUR_GOOGLE_MAPS_API_KEY_HERE</string>
+   ```
+3. Replace `YOUR_GOOGLE_MAPS_API_KEY_HERE` with your real **iOS** Maps SDK key obtained from
+   [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials.
+   Make sure **Maps SDK for iOS** is enabled.
+
+> **Important:** iOS and Android use *separate* API keys. Restrict each key to its respective
+> platform (iOS apps / Android apps) in the Google Cloud Console to prevent unauthorized use.
+
+> **Do not commit your real key.** `ios/Runner/Info.plist` is in source control with the
+> placeholder value. Replace it only in your local working copy or in a CI environment variable
+> that patches the file before building.
+
+
+
 ## GitHub Actions CI Setup
 
 The `android-build.yml` workflow requires the following secrets to produce a
@@ -238,8 +281,11 @@ try {
 - Grant location permission in app settings
 
 ### Google Maps not showing
-- Add Google Maps API key to AndroidManifest.xml (Android)
-- Add Google Maps API key to AppDelegate.swift (iOS)
+- **Android**: Pass `--dart-define=GOOGLE_MAPS_ANDROID_API_KEY=<key>` when running locally.  
+  In CI, ensure the `GOOGLE_MAPS_ANDROID_API_KEY` repository secret is set.  
+  A warning banner appears in the app when the key is missing or still the placeholder value.
+- **iOS**: Replace `YOUR_GOOGLE_MAPS_API_KEY_HERE` in `ios/Runner/Info.plist` with your iOS key.  
+  See the *Google Maps Platform Setup → iOS* section above for step-by-step instructions.
 
 ## Performance Tips
 

@@ -66,14 +66,16 @@ jobs:
           flutter build apk --release \
             --dart-define=HERE_API_KEY=${{ secrets.HERE_API_KEY }} \
             --dart-define=OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }} \
-            --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }}
+            --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }} \
+            --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
 
       - name: Build App Bundle (release)
         run: |
           flutter build appbundle --release \
             --dart-define=HERE_API_KEY=${{ secrets.HERE_API_KEY }} \
             --dart-define=OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }} \
-            --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }}
+            --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }} \
+            --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
