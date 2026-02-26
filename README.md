@@ -3,6 +3,11 @@
 A Flutter-based mobile application for truck drivers with advanced routing, POI discovery, and weather integration.
 
 ## Features
+- **Multi-provider Authentication** via Firebase Auth:
+  - Email/Password (create account, sign in, password reset)
+  - Phone number with SMS OTP
+  - Google sign-in
+  - Apple sign-in (iOS)
 - **Real-time GPS tracking** using Google Maps Flutter SDK
 - **Truck Profile** — configure your vehicle dimensions and restrictions:
   - Height, width, length, weight, axle count, and hazmat flag
@@ -23,6 +28,7 @@ A Flutter-based mobile application for truck drivers with advanced routing, POI 
 ## Technical Stack
 - **Framework**: Flutter 3.4+ / Dart
 - **State Management**: Provider
+- **Authentication**: Firebase Auth (Email/Password, Phone, Google, Apple)
 - **Mapping**: Google Maps Flutter SDK
 - **APIs**:
   - Google Maps API (for mapping)
@@ -238,7 +244,87 @@ static const String privacyUrl = 'https://kingtrux.com/privacy';
 Replace these with your actual policy pages. Integrate `url_launcher` to open
 them in the browser (it is not included by default to minimise dependencies).
 
-## Speed Limit Display & Driver Speed Alerts
+## Firebase Authentication Setup
+
+KINGTRUX uses Firebase Authentication for multi-provider user sign-in (Email/Password, Phone SMS OTP, Google, and Apple). The app compiles and runs with the placeholder configuration files included in this repository, but authentication **will not work** until you replace the placeholders with real Firebase credentials.
+
+### 1. Create a Firebase project
+
+1. Go to the [Firebase Console](https://console.firebase.google.com/).
+2. Click **Add project** and follow the prompts.
+3. In your project dashboard, open **Authentication → Sign-in method** and enable:
+   - **Email/Password**
+   - **Phone**
+   - **Google**
+   - **Apple** (iOS only; requires Apple Developer Program membership)
+
+### 2. Android setup
+
+1. In the Firebase Console, click **Add app → Android**.
+2. Enter the package name: `com.example.kingtrux` (or your custom bundle ID).
+3. Download **google-services.json** and place it at `android/app/google-services.json`,
+   replacing the placeholder file already there.
+   > **Never commit a real google-services.json to version control.**
+   > Add it as a CI secret and inject it at build time (see below).
+
+The `build.gradle` files are already configured to apply the `google-services` plugin.
+
+### 3. iOS setup
+
+1. In the Firebase Console, click **Add app → iOS**.
+2. Enter the bundle ID: `com.example.kingtrux` (or your custom bundle ID).
+3. Download **GoogleService-Info.plist** and place it at
+   `ios/Runner/GoogleService-Info.plist`, replacing the placeholder file.
+   > **Never commit a real GoogleService-Info.plist to version control.**
+   > Add it as a CI secret and inject it at build time (see below).
+4. In Xcode, open `ios/Runner.xcworkspace`:
+   - Select the **Runner** target → **Signing & Capabilities**.
+   - Click **+ Capability** and add **Sign in with Apple**.
+   - Ensure the **Bundle Identifier** matches your Firebase iOS app.
+
+### 4. Update `lib/firebase_options.dart`
+
+Replace the placeholder constants in `lib/firebase_options.dart` with the real
+values from the Firebase Console (or simply run `flutterfire configure` after
+installing the FlutterFire CLI):
+
+```bash
+dart pub global activate flutterfire_cli
+flutterfire configure
+```
+
+This regenerates `lib/firebase_options.dart` automatically.
+
+### 5. Injecting secrets in CI
+
+Add the following GitHub repository secrets (Settings → Secrets → Actions):
+
+| Secret name | Value |
+|---|---|
+| `GOOGLE_SERVICES_JSON` | Base64-encoded contents of `google-services.json` |
+| `GOOGLE_SERVICE_INFO_PLIST` | Base64-encoded contents of `GoogleService-Info.plist` |
+
+Then add injection steps to your CI workflows **before** the build step:
+
+**Android** (`android-build.yml`):
+```yaml
+- name: Inject google-services.json
+  env:
+    GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+  run: |
+    echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+```
+
+**iOS** (`ci.yml`):
+```yaml
+- name: Inject GoogleService-Info.plist
+  env:
+    GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+  run: |
+    echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
+```
+
+
 
 KINGTRUX shows the posted road speed limit and the driver's GPS speed at all times as a compact on-screen overlay (bottom-left of the map).
 
@@ -429,6 +515,9 @@ Key packages used (see `pubspec.yaml` for complete list):
 - `flutter_tts` - Text-to-speech for voice navigation guidance
 - `purchases_flutter` - RevenueCat in-app subscription SDK
 - `url_launcher` - Open Terms/Privacy URLs in the browser
+- `firebase_core` / `firebase_auth` - Firebase Authentication
+- `google_sign_in` - Google sign-in integration
+- `sign_in_with_apple` - Apple sign-in integration (iOS)
 
 ## Troubleshooting
 

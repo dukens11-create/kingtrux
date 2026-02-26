@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +21,7 @@ import 'widgets/alert_banner.dart';
 import 'widgets/trip_planner_sheet.dart';
 import 'widgets/speed_display.dart';
 import 'widgets/compass_indicator.dart';
+import 'account_screen.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
 
@@ -201,6 +203,17 @@ class _MapScreenState extends State<MapScreen> {
                 ],
               ),
         actions: [
+          if (Firebase.apps.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.account_circle_outlined),
+              tooltip: 'Account',
+              onPressed: () => Navigator.push<void>(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const AccountScreen(),
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.warning_amber_rounded),
             tooltip: 'Road Sign Alerts',
