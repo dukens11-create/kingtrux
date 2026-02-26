@@ -355,16 +355,17 @@ The `build.gradle` files are already configured to apply the `google-services` p
 
 1. In the Firebase Console, click **Add app → Web** (`</>`).
 2. Register the app (no Firebase Hosting required for local dev).
-3. Copy the Firebase config values shown and update the `web` constant in
-   `lib/firebase_options.dart`:
+3. Copy the API key shown and replace the `YOUR_WEB_FIREBASE_API_KEY` placeholder
+   in `lib/firebase_options.dart` (the other values for this project are already
+   filled in):
 
 ```dart
 static const FirebaseOptions web = FirebaseOptions(
-  apiKey: '<YOUR_WEB_API_KEY>',
-  appId: '<YOUR_WEB_APP_ID>',
-  messagingSenderId: '<YOUR_SENDER_ID>',
+  apiKey: 'YOUR_WEB_FIREBASE_API_KEY',   // ← replace this one value
+  appId: '1:802226888759:web:4a64ff7011e28876c8dfb2',
+  messagingSenderId: '802226888759',
   projectId: 'kingtrux-387ae',
-  storageBucket: 'kingtrux-387ae.appspot.com',
+  storageBucket: 'kingtrux-387ae.firebasestorage.app',
   authDomain: 'kingtrux-387ae.firebaseapp.com',
 );
 ```
