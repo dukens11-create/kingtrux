@@ -37,6 +37,8 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   GoogleMapController? _mapController;
   bool _darkMapApplied = false;
+  /// When true the next tap on the map sets the destination and exits this mode.
+  bool _settingDestination = false;
 
   @override
   void initState() {
@@ -91,7 +93,7 @@ class _MapScreenState extends State<MapScreen> {
                   _mapController = controller;
                   await _syncMapStyle();
                 },
-                onLongPress: _onMapLongPress,
+                onTap: _onMapTap,
                 markers: _buildMarkers(state),
                 polylines: _buildPolylines(state),
                 myLocationEnabled: true,
@@ -136,7 +138,9 @@ class _MapScreenState extends State<MapScreen> {
                   onTripPlanner: _onTripPlannerPressed,
                   onGetHelp: _onGetHelpPressed,
                   onGoPro: _onGoProPressed,
+                  onSetDestination: _onSetDestinationPressed,
                   isPro: state.isPro,
+                  isSettingDestination: _settingDestination,
                 ),
               ),
 
@@ -169,6 +173,17 @@ class _MapScreenState extends State<MapScreen> {
                 bottom: 200,
                 child: CompassIndicator(),
               ),
+
+              // ── "Set Destination" mode overlay ───────────────────────────
+              // Shown only when the user has activated destination-setting mode.
+              // A single tap on the map will set the destination and exit the mode.
+              if (_settingDestination)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceMD,
+                  left: AppTheme.spaceMD,
+                  right: AppTheme.spaceMD,
+                  child: _SetDestinationBanner(onCancel: _cancelSetDestination),
+                ),
 
               // ── Google Maps API key misconfiguration warning ──────────────
               if (!Config.googleMapsAndroidKeyConfigured)
@@ -515,8 +530,33 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Future<void> _onMapLongPress(LatLng position) async {
+  /// Called when the user taps the map. Only acts when destination-setting
+  /// mode is active; all other taps are ignored so normal map interaction
+  /// (panning, zooming, marker taps) is unaffected.
+  void _onMapTap(LatLng position) {
+    if (!_settingDestination) return;
+    _setDestinationAt(position);
+  }
+
+  /// Activates / deactivates destination-setting mode.
+  void _onSetDestinationPressed() {
+    HapticFeedback.selectionClick();
+    setState(() => _settingDestination = !_settingDestination);
+  }
+
+  /// Cancels destination-setting mode without changing the destination.
+  void _cancelSetDestination() {
+    setState(() => _settingDestination = false);
+  }
+
+  /// Sets [position] as the destination, builds the truck route, and exits
+  /// destination-setting mode. On route error the mode is also exited so the
+  /// user must re-activate it intentionally before trying again.
+  Future<void> _setDestinationAt(LatLng position) async {
     HapticFeedback.mediumImpact();
+    // Exit the mode immediately so accidental double-taps are harmless.
+    setState(() => _settingDestination = false);
+
     final state = context.read<AppState>();
     state.setDestination(position.latitude, position.longitude);
 
@@ -560,7 +600,9 @@ class _MapActionCluster extends StatelessWidget {
     required this.onTripPlanner,
     required this.onGetHelp,
     required this.onGoPro,
+    required this.onSetDestination,
     required this.isPro,
+    required this.isSettingDestination,
   });
 
   final VoidCallback onRecenter;
@@ -570,7 +612,9 @@ class _MapActionCluster extends StatelessWidget {
   final VoidCallback onTripPlanner;
   final VoidCallback onGetHelp;
   final VoidCallback onGoPro;
+  final VoidCallback onSetDestination;
   final bool isPro;
+  final bool isSettingDestination;
 
   @override
   Widget build(BuildContext context) {
@@ -605,6 +649,11 @@ class _MapActionCluster extends StatelessWidget {
           icon: Icons.route_rounded,
           tooltip: 'Trip Planner',
           onPressed: onTripPlanner,
+        ),
+        const SizedBox(height: AppTheme.spaceSM),
+        _SetDestinationFab(
+          onPressed: onSetDestination,
+          isActive: isSettingDestination,
         ),
         const SizedBox(height: AppTheme.spaceSM),
         // "Get Help" emergency button — always visible, styled in error colour.
@@ -660,6 +709,82 @@ class _GetHelpFab extends StatelessWidget {
       foregroundColor: cs.onError,
       onPressed: onPressed,
       child: const Icon(Icons.emergency_rounded),
+    );
+  }
+}
+
+/// FAB that activates destination-setting mode. Highlights in primary colour
+/// while [isActive] to give clear visual feedback.
+class _SetDestinationFab extends StatelessWidget {
+  const _SetDestinationFab({
+    required this.onPressed,
+    required this.isActive,
+  });
+
+  final VoidCallback onPressed;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return FloatingActionButton.small(
+      heroTag: 'Set Destination',
+      tooltip: 'Set Destination',
+      backgroundColor: isActive ? cs.primary : null,
+      foregroundColor: isActive ? cs.onPrimary : null,
+      onPressed: onPressed,
+      child: const Icon(Icons.flag_rounded),
+    );
+  }
+}
+
+/// Banner displayed at the top of the map while destination-setting mode is
+/// active. Instructs the user to tap the map and provides a cancel button.
+class _SetDestinationBanner extends StatelessWidget {
+  const _SetDestinationBanner({required this.onCancel});
+
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      color: cs.primaryContainer,
+      elevation: AppTheme.elevationSheet,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spaceMD,
+          vertical: AppTheme.spaceXS + 2,
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.flag_rounded, size: 18, color: cs.onPrimaryContainer),
+            const SizedBox(width: AppTheme.spaceSM),
+            Expanded(
+              child: Text(
+                'Tap the map to set destination',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: cs.onPrimaryContainer,
+                    ),
+              ),
+            ),
+            TextButton(
+              onPressed: onCancel,
+              style: TextButton.styleFrom(
+                foregroundColor: cs.onPrimaryContainer,
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSM),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
