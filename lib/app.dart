@@ -57,6 +57,10 @@ class _AuthGate extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
+        if (snapshot.hasError) {
+          debugPrint('[AuthGate] Auth state error: ${snapshot.error}');
+          return const AuthScreen();
+        }
         if (snapshot.hasData) {
           return const MapScreen();
         }
