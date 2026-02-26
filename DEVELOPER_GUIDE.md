@@ -10,6 +10,26 @@ flutter run \
   --dart-define=OPENWEATHER_API_KEY=your_key
 ```
 
+## GitHub Actions CI Setup
+
+The `android-build.yml` workflow requires the following secrets to produce a
+fully-functional APK. Add them under **Settings → Secrets and variables →
+Actions → New repository secret** in the GitHub UI.
+
+| Secret | Required | Purpose |
+|--------|----------|---------|
+| `HERE_API_KEY` | ✅ Yes | HERE Routing API v8 – routing and search |
+| `GOOGLE_MAPS_ANDROID_API_KEY` | ✅ Yes | Google Maps Android SDK – map tiles |
+| `OPENWEATHER_API_KEY` | ⬜ Optional | OpenWeather API – weather overlay (weather data is hidden when unset) |
+| `REVENUECAT_ANDROID_API_KEY` | ⬜ Optional | RevenueCat – in-app subscriptions (paywall shows a descriptive error when unset) |
+
+The workflow injects these at build time:
+- `HERE_API_KEY`, `OPENWEATHER_API_KEY`, and `REVENUECAT_ANDROID_API_KEY` are
+  passed to Flutter via `--dart-define`.
+- `GOOGLE_MAPS_ANDROID_API_KEY` replaces the `YOUR_GOOGLE_MAPS_API_KEY_HERE`
+  placeholder in `android/app/src/main/AndroidManifest.xml` using `sed` before
+  the build step. The actual key is **never committed to the repository**.
+
 ## Key Components
 
 ### State Management
