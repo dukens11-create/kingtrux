@@ -42,41 +42,48 @@ class DefaultFirebaseOptions {
   /// The apiKey is the only value that needs to be supplied by the developer;
   /// obtain it from the Firebase Console → Project settings → Your apps →
   /// Web app → SDK setup and configuration.
-  /// See README.md → "Firebase Authentication Setup – Web".
+
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_WEB_FIREBASE_API_KEY',
+    apiKey: 'AIzaSyDtRUBPL4UBjBH3_TponBlF_J39ZJfslSc',
     appId: '1:802226888759:web:4a64ff7011e28876c8dfb2',
     messagingSenderId: '802226888759',
     projectId: 'kingtrux-387ae',
-    storageBucket: 'kingtrux-387ae.firebasestorage.app',
     authDomain: 'kingtrux-387ae.firebaseapp.com',
+    storageBucket: 'kingtrux-387ae.firebasestorage.app',
+    measurementId: 'G-Z6V2J4RCG4',
   );
+
+  /// See README.md → "Firebase Authentication Setup – Web".
 
   /// Android Firebase options.
   ///
   /// Replace these placeholder values with real credentials from your
   /// Firebase Console or from the generated google-services.json.
-  /// See README.md → "Firebase Authentication Setup – Android".
+
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'YOUR_ANDROID_FIREBASE_API_KEY',
-    appId: '1:000000000000:android:0000000000000000000000',
-    messagingSenderId: '000000000000',
-    projectId: 'your-firebase-project-id',
-    storageBucket: 'your-firebase-project-id.appspot.com',
+    apiKey: 'AIzaSyC0VX971vSfdwDX7r5m1wsrmIGnGKaaOCo',
+    appId: '1:802226888759:android:6b9b657fd0eca888c8dfb2',
+    messagingSenderId: '802226888759',
+    projectId: 'kingtrux-387ae',
+    storageBucket: 'kingtrux-387ae.firebasestorage.app',
   );
+
+  /// See README.md → "Firebase Authentication Setup – Android".
 
   /// iOS Firebase options.
   ///
   /// Replace these placeholder values with real credentials from your
   /// Firebase Console or from GoogleService-Info.plist.
-  /// See README.md → "Firebase Authentication Setup – iOS".
+
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'YOUR_IOS_FIREBASE_API_KEY',
-    appId: '1:000000000000:ios:0000000000000000000000',
-    messagingSenderId: '000000000000',
-    projectId: 'your-firebase-project-id',
-    storageBucket: 'your-firebase-project-id.appspot.com',
-    iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
+    apiKey: 'AIzaSyCF0sbDQMex6G_TVwSbOaP7Sf9sOhgT4KQ',
+    appId: '1:802226888759:ios:7c8b40fa64bd0bd8c8dfb2',
+    messagingSenderId: '802226888759',
+    projectId: 'kingtrux-387ae',
+    storageBucket: 'kingtrux-387ae.firebasestorage.app',
+    iosClientId: '802226888759-ahaij6711iq9gco8nqftcscfa59uhrt3.apps.googleusercontent.com',
     iosBundleId: 'com.example.kingtrux',
   );
+
+  /// See README.md → "Firebase Authentication Setup – iOS".
 }
