@@ -1,0 +1,9 @@
+{
+  "name": "kingtrux-web",
+  "version": "1.0.0",
+  "description": "Firebase web dependencies for KINGTRUX",
+  "dependencies": {
+    "firebase": "^11.3.1"
+  },
+  "private": true
+}
