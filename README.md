@@ -379,6 +379,15 @@ flutter run -d chrome
 > The `web` Firebase options are already wired into `DefaultFirebaseOptions.currentPlatform`
 > so no additional code changes are needed once the placeholder values are replaced.
 
+5. **Phone sign-in on web** uses a reCAPTCHA challenge (handled automatically by the
+   Firebase Auth SDK). For it to work:
+   - Go to **Firebase Console → Authentication → Settings → Authorized domains** and add
+     your deployment domain (e.g. `localhost` for local dev, your Hosting / custom domain
+     for production).
+   - `localhost` is added by default; add any additional domains before deploying.
+   - Phone authentication requires the **Blaze (pay-as-you-go)** Firebase plan for
+     production usage beyond the free-tier quota.
+
 ### 5. Update `lib/firebase_options.dart`
 
 Replace the placeholder constants in `lib/firebase_options.dart` with the real
