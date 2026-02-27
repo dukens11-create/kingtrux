@@ -442,6 +442,45 @@ beyond setting the secret.
 > contain placeholder values and are replaced by CI secrets at build time.
 > Real credentials are never committed to version control.
 
+### 7. Collecting auth logs
+
+Every Firebase Authentication failure is logged via `debugPrint` under the
+`[Auth]` tag.  No sensitive data (passwords, tokens) is ever included in the
+log output.
+
+**Android (Logcat)**
+
+```bash
+# Filter to auth log lines only
+adb logcat -s flutter | grep '\[Auth\]'
+
+# Or capture everything from Flutter and filter
+adb logcat flutter:D *:S | grep '\[Auth\]'
+```
+
+**iOS (Console)**
+
+Open **Xcode → Window → Devices and Simulators**, select your device, then
+use the log filter `[Auth]`.  Alternatively, run the app from a terminal and
+grep the output:
+
+```bash
+flutter run 2>&1 | grep '\[Auth\]'
+```
+
+**What is logged**
+
+| Log line | Content |
+|---|---|
+| `[Auth] FirebaseAuthException — code: …, message: …` | Firebase error code plus the raw error message returned by the Firebase SDK (useful for diagnosing API-key, SHA-mismatch, and provider-disabled failures on the emulator) |
+| `[Auth] Auth error (Type): …` | Non-Firebase exceptions (e.g. network timeout, cancelled flows) |
+| `[Auth] Stack trace: …` | Full stack trace — **debug builds only** |
+
+In addition, **debug builds** append the raw Firebase error message directly
+to the on-screen snackbar (e.g.
+`Authentication error (invalid-api-key). Contact support.\n[Debug] invalid-api-key: API key not valid…`),
+making it easy to diagnose misconfigurations without attaching a device.
+
 ---
 
 ## Firebase Web Modules
@@ -712,6 +751,18 @@ Key packages used (see `pubspec.yaml` for complete list):
 - `sign_in_with_apple` - Apple sign-in integration (iOS)
 
 ## Troubleshooting
+
+### Authentication Errors
+
+If login shows a generic "Authentication error" message:
+
+1. **Check the `[Auth]` log tag** (see [Collecting auth logs](#7-collecting-auth-logs) above) for the Firebase error code and message.
+2. **Common codes on the emulator:**
+   - `invalid-api-key` — `google-services.json` / `GoogleService-Info.plist` placeholder has not been replaced with real credentials.
+   - `app-not-authorized` — The SHA-1/SHA-256 certificate fingerprint of your debug keystore is not registered in the Firebase project.
+   - `operation-not-allowed` — The sign-in provider (Email, Phone, Google, etc.) is not enabled in **Firebase Console → Authentication → Sign-in method**.
+   - `network-request-failed` — The device/emulator has no internet access, or the Firebase Auth endpoint is blocked.
+3. **Debug build tip:** Run the app in debug mode (`flutter run`) — the raw Firebase error message is appended to the on-screen snackbar, so you can read the exact error without a Logcat setup.
 
 ### Location Permission Issues
 - **Android**: Ensure location permissions are granted in app settings

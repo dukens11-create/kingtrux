@@ -129,9 +129,11 @@ class _AuthScreenState extends State<AuthScreen>
       if (result == null && context.mounted) {
         _showSnack(context, 'Google sign-in was cancelled.');
       }
-    } on FirebaseAuthException catch (e) {
-      if (context.mounted) _showError(context, _authMessage(e.code));
-    } catch (e) {
+    } on FirebaseAuthException catch (e, stack) {
+      _logAuthError(e, stack);
+      if (context.mounted) _showError(context, _authMessage(e));
+    } catch (e, stack) {
+      _logAuthError(e, stack);
       if (context.mounted) _showError(context, e.toString());
     }
   }
@@ -143,9 +145,11 @@ class _AuthScreenState extends State<AuthScreen>
     } on SignInWithAppleAuthorizationException catch (e) {
       if (e.code == AuthorizationErrorCode.canceled) return;
       if (context.mounted) _showError(context, e.message);
-    } on FirebaseAuthException catch (e) {
-      if (context.mounted) _showError(context, _authMessage(e.code));
-    } catch (e) {
+    } on FirebaseAuthException catch (e, stack) {
+      _logAuthError(e, stack);
+      if (context.mounted) _showError(context, _authMessage(e));
+    } catch (e, stack) {
+      _logAuthError(e, stack);
       if (context.mounted) _showError(context, e.toString());
     }
   }
@@ -264,9 +268,11 @@ class _EmailTabState extends State<_EmailTab> {
       } else {
         await auth.signInWithEmail(_emailCtrl.text.trim(), _pwCtrl.text);
       }
-    } on FirebaseAuthException catch (e) {
-      if (mounted) _showError(context, _authMessage(e.code));
-    } catch (e) {
+    } on FirebaseAuthException catch (e, stack) {
+      _logAuthError(e, stack);
+      if (mounted) _showError(context, _authMessage(e));
+    } catch (e, stack) {
+      _logAuthError(e, stack);
       if (mounted) _showError(context, e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -285,9 +291,11 @@ class _EmailTabState extends State<_EmailTab> {
       if (mounted) {
         _showSnack(context, 'Password reset email sent to $email.');
       }
-    } on FirebaseAuthException catch (e) {
-      if (mounted) _showError(context, _authMessage(e.code));
-    } catch (e) {
+    } on FirebaseAuthException catch (e, stack) {
+      _logAuthError(e, stack);
+      if (mounted) _showError(context, _authMessage(e));
+    } catch (e, stack) {
+      _logAuthError(e, stack);
       if (mounted) _showError(context, e.toString());
     }
   }
@@ -415,8 +423,9 @@ class _PhoneTabState extends State<_PhoneTab> {
         },
         onVerificationFailed: (e) {
           if (mounted) {
+            _logAuthError(e);
             setState(() => _loading = false);
-            _showError(context, _authMessage(e.code));
+            _showError(context, _authMessage(e));
           }
         },
         onCodeAutoRetrievalTimeout: (_) {
@@ -444,12 +453,14 @@ class _PhoneTabState extends State<_PhoneTab> {
         verificationId: _verificationId!,
         smsCode: code,
       );
-    } on FirebaseAuthException catch (e) {
+    } on FirebaseAuthException catch (e, stack) {
+      _logAuthError(e, stack);
       if (mounted) {
         setState(() => _loading = false);
-        _showError(context, _authMessage(e.code));
+        _showError(context, _authMessage(e));
       }
-    } catch (e) {
+    } catch (e, stack) {
+      _logAuthError(e, stack);
       if (mounted) {
         setState(() => _loading = false);
         _showError(context, e.toString());
@@ -513,6 +524,28 @@ class _SocialButton extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Auth error logging
+// ---------------------------------------------------------------------------
+
+/// Logs a Firebase authentication error to the console without including any
+/// sensitive information (passwords, tokens, etc.).
+///
+/// In debug builds the full stack trace is also printed.
+void _logAuthError(Object error, [StackTrace? stack]) {
+  if (error is FirebaseAuthException) {
+    debugPrint(
+      '[Auth] FirebaseAuthException — code: ${error.code}, '
+      'message: ${error.message}',
+    );
+  } else {
+    debugPrint('[Auth] Auth error (${error.runtimeType}): $error');
+  }
+  if (kDebugMode && stack != null) {
+    debugPrint('[Auth] Stack trace:\n$stack');
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Error / snackbar helpers
 // ---------------------------------------------------------------------------
 
@@ -531,8 +564,25 @@ void _showSnack(BuildContext context, String message) {
   );
 }
 
-/// Maps a [FirebaseAuthException] error code to a human-readable message.
-String _authMessage(String code) {
+/// Maps a [FirebaseAuthException] to a human-readable message.
+///
+/// In release builds a friendly message with the error code is returned.
+/// In debug builds the raw Firebase error message is appended so that
+/// misconfiguration issues (invalid API key, provider disabled, SHA mismatch,
+/// etc.) are immediately visible.
+String _authMessage(FirebaseAuthException e) {
+  final friendlyMessage = _friendlyAuthMessage(e.code);
+  if (kDebugMode && e.message != null && e.message!.isNotEmpty) {
+    return '$friendlyMessage\n[Debug] ${e.code}: ${e.message}';
+  }
+  return friendlyMessage;
+}
+
+/// Returns a user-friendly string for a given [FirebaseAuthException] code.
+@visibleForTesting
+String friendlyAuthMessage(String code) => _friendlyAuthMessage(code);
+
+String _friendlyAuthMessage(String code) {
   switch (code) {
     case 'user-not-found':
       return 'No account found for this email. Please create one.';
@@ -556,6 +606,14 @@ String _authMessage(String code) {
       return 'Invalid verification code. Check the SMS and try again.';
     case 'session-expired':
       return 'Verification session expired. Please request a new code.';
+    case 'invalid-api-key':
+      return 'Authentication configuration error (invalid-api-key). Contact support.';
+    case 'app-not-authorized':
+      return 'This app is not authorized for Firebase Authentication. Check your SHA certificate and Firebase project settings.';
+    case 'operation-not-allowed':
+      return 'This sign-in method is not enabled (operation-not-allowed). Enable it in the Firebase console.';
+    case 'quota-exceeded':
+      return 'Authentication quota exceeded. Please try again later.';
     default:
       return 'Authentication error ($code). Please try again.';
   }
