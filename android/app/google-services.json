@@ -1,26 +1,43 @@
 {
   "project_info": {
-    "project_number": "000000000000",
-    "project_id": "your-firebase-project-id",
-    "storage_bucket": "your-firebase-project-id.appspot.com"
+    "project_number": "802226888759",
+    "project_id": "kingtrux-387ae",
+    "storage_bucket": "kingtrux-387ae.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "mobilesdk_app_id": "1:802226888759:android:b1b70f1fc3171a81c8dfb2",
         "android_client_info": {
-          "package_name": "com.example.kingtrux"
+          "package_name": "com.kingtrux.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "802226888759-2hiaklmmrgb4tkml7gflkn4a6io4s2es.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "YOUR_ANDROID_FIREBASE_API_KEY"
+          "current_key": "AIzaSyC0VX971vSfdwDX7r5m1wsrmIGnGKaaOCo"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "802226888759-2hiaklmmrgb4tkml7gflkn4a6io4s2es.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "802226888759-tr7626qqhqnlsv8pkgi9potan66ab6j4.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.gudApp"
+              }
+            }
+          ]
         }
       }
     }

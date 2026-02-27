@@ -1,4 +1,4 @@
-package com.example.kingtrux
+package com.kingtrux.app
 
 import io.flutter.embedding.android.FlutterActivity
 

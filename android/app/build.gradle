@@ -24,7 +24,7 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace "com.example.kingtrux"
+    namespace "com.kingtrux.app"
     compileSdk 36
     ndkVersion flutter.ndkVersion
 
@@ -42,7 +42,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.kingtrux"
+        applicationId "com.kingtrux.app"
         minSdk 21
         targetSdk 34
         versionCode flutterVersionCode.toInteger()
