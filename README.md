@@ -433,7 +433,76 @@ beyond setting the secret.
 > contain placeholder values and are replaced by CI secrets at build time.
 > Real credentials are never committed to version control.
 
+---
 
+## Firebase Web Modules
+
+`web/firebase-init.js` provides a ready-to-use **Firebase JS SDK v11 modular** initialization
+for web-only JavaScript code. It re-uses the same project configuration as the Flutter/Dart layer
+(`lib/firebase_options.dart`) but exposes native Firebase JS SDK handles for situations where you
+need to interact with Firebase directly from JavaScript (e.g., custom service workers, static web
+pages, or scripts that run outside the Flutter engine).
+
+> **Flutter app note:** The Flutter layer initialises Firebase through FlutterFire
+> (`lib/firebase_options.dart`). Do **not** load `firebase-init.js` from `web/index.html` as that
+> would conflict with FlutterFire's own initialization. Import this module only from standalone JS
+> scripts that run independently of the Flutter app.
+
+### Exports
+
+| Export | Type | Description |
+|--------|------|-------------|
+| `app` | `FirebaseApp` | Initialized Firebase app instance |
+| `analytics` | `Analytics \| null` | Analytics instance, or `null` when unsupported |
+| `auth` | `Auth` | Firebase Authentication service |
+| `db` | `Firestore` | Cloud Firestore database service |
+| `storage` | `FirebaseStorage` | Firebase Storage service |
+
+### Usage
+
+```js
+// Import only what you need (tree-shaking friendly)
+import { auth, db, storage } from './firebase-init.js';
+
+// Auth
+import { signInWithEmailAndPassword } from
+  'https://www.gstatic.com/firebasejs/11.3.1/firebase-auth.js';
+await signInWithEmailAndPassword(auth, email, password);
+
+// Firestore
+import { doc, getDoc } from
+  'https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js';
+const snap = await getDoc(doc(db, 'collection', 'docId'));
+
+// Storage
+import { ref, getDownloadURL } from
+  'https://www.gstatic.com/firebasejs/11.3.1/firebase-storage.js';
+const url = await getDownloadURL(ref(storage, 'path/to/file'));
+
+// Analytics (always check for null – it is null in unsupported environments)
+import { logEvent } from
+  'https://www.gstatic.com/firebasejs/11.3.1/firebase-analytics.js';
+import { analytics } from './firebase-init.js';
+if (analytics) logEvent(analytics, 'page_view');
+```
+
+### Configuration placeholders
+
+`web/firebase-init.js` contains two placeholders that must be replaced before
+Firebase services will authenticate requests:
+
+| Placeholder | How to replace |
+|---|---|
+| `YOUR_WEB_FIREBASE_API_KEY` | Firebase Console → Project settings → Your apps → Web app → `apiKey`. Already injected by the CI `WEB_FIREBASE_API_KEY` secret. |
+| `YOUR_WEB_FIREBASE_MEASUREMENT_ID` | Firebase Console → Project settings → Your apps → Web app → `measurementId`. Add a `WEB_FIREBASE_MEASUREMENT_ID` CI secret and a `sed` step mirroring the existing `WEB_FIREBASE_API_KEY` injection. |
+
+### npm dependency
+
+`web/package.json` declares `firebase ^11.3.1` as a dependency. If you set up a
+bundler (e.g., Vite, Webpack) for the web directory, run `npm install` inside
+`web/` to install the package locally instead of loading it from the CDN.
+
+---
 
 KINGTRUX shows the posted road speed limit and the driver's GPS speed at all times as a compact on-screen overlay (bottom-left of the map).
 
