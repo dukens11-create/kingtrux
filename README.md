@@ -330,7 +330,7 @@ KINGTRUX uses Firebase Authentication for multi-provider user sign-in (Email/Pas
 ### 2. Android setup
 
 1. In the Firebase Console, click **Add app → Android**.
-2. Enter the package name: `com.example.kingtrux` (or your custom bundle ID).
+2. Enter the package name: `com.kingtrux.app` (or your custom bundle ID).
 3. Download **google-services.json** and place it at `android/app/google-services.json`,
    replacing the placeholder file already there.
    > **Never commit a real google-services.json to version control.**
@@ -341,7 +341,7 @@ The `build.gradle` files are already configured to apply the `google-services` p
 ### 3. iOS setup
 
 1. In the Firebase Console, click **Add app → iOS**.
-2. Enter the bundle ID: `com.example.kingtrux` (or your custom bundle ID).
+2. Enter the bundle ID: `com.kingtrux.app` (or your custom bundle ID).
 3. Download **GoogleService-Info.plist** and place it at
    `ios/Runner/GoogleService-Info.plist`, replacing the placeholder file.
    > **Never commit a real GoogleService-Info.plist to version control.**
