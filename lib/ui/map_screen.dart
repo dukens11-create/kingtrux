@@ -74,6 +74,20 @@ class _MapScreenState extends State<MapScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: _buildAppBar(cs),
+      bottomNavigationBar: Consumer<AppState>(
+        builder: (context, state, _) => _MapToolbar(
+          onRecenter: _onMyLocationPressed,
+          onLayers: _onLayersPressed,
+          onPoiBrowser: _onPoiBrowserPressed,
+          onTruckProfile: _onTruckProfilePressed,
+          onTripPlanner: _onTripPlannerPressed,
+          onGetHelp: _onGetHelpPressed,
+          onSetDestination: _onSetDestinationPressed,
+          onGoPro: _onGoProPressed,
+          isPro: state.isPro,
+          isSettingDestination: _settingDestination,
+        ),
+      ),
       body: Consumer<AppState>(
         builder: (context, state, _) {
           // Show full-screen loader while acquiring first location fix.
@@ -126,24 +140,6 @@ class _MapScreenState extends State<MapScreen> {
                   child: _buildWeatherPill(state, cs),
                 ),
 
-              // ── FAB cluster (bottom-right) ──────────────────────────────
-              Positioned(
-                right: AppTheme.spaceMD,
-                bottom: 200,
-                child: _MapActionCluster(
-                  onRecenter: _onMyLocationPressed,
-                  onLayers: _onLayersPressed,
-                  onPoiBrowser: _onPoiBrowserPressed,
-                  onTruckProfile: _onTruckProfilePressed,
-                  onTripPlanner: _onTripPlannerPressed,
-                  onGetHelp: _onGetHelpPressed,
-                  onGoPro: _onGoProPressed,
-                  onSetDestination: _onSetDestinationPressed,
-                  isPro: state.isPro,
-                  isSettingDestination: _settingDestination,
-                ),
-              ),
-
               // ── Route summary card (bottom overlay) ─────────────────────
               const Positioned(
                 bottom: 0,
@@ -154,7 +150,7 @@ class _MapScreenState extends State<MapScreen> {
 
               // ── Speed display (bottom-left, above route card) ────────────
               const Positioned(
-                bottom: 264,
+                bottom: 180,
                 left: AppTheme.spaceMD,
                 child: SpeedDisplay(),
               ),
@@ -167,10 +163,10 @@ class _MapScreenState extends State<MapScreen> {
                 child: const AlertBanner(),
               ),
 
-              // ── Compass indicator (bottom-left) ──────────────────────────
+              // ── Compass indicator (bottom-left, above route card) ────────
               const Positioned(
                 left: AppTheme.spaceMD,
-                bottom: 200,
+                bottom: 180,
                 child: CompassIndicator(),
               ),
 
@@ -587,20 +583,21 @@ class _MapScreenState extends State<MapScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Map action FAB cluster
+// Persistent map toolbar (BottomAppBar)
 // ---------------------------------------------------------------------------
 
-/// A vertical cluster of small FABs for map actions.
-class _MapActionCluster extends StatelessWidget {
-  const _MapActionCluster({
+/// A persistent bottom toolbar that exposes all core map actions as clearly
+/// labelled icon buttons, keeping features always visible and discoverable.
+class _MapToolbar extends StatelessWidget {
+  const _MapToolbar({
     required this.onRecenter,
     required this.onLayers,
     required this.onPoiBrowser,
     required this.onTruckProfile,
     required this.onTripPlanner,
     required this.onGetHelp,
-    required this.onGoPro,
     required this.onSetDestination,
+    required this.onGoPro,
     required this.isPro,
     required this.isSettingDestination,
   });
@@ -611,129 +608,120 @@ class _MapActionCluster extends StatelessWidget {
   final VoidCallback onTruckProfile;
   final VoidCallback onTripPlanner;
   final VoidCallback onGetHelp;
-  final VoidCallback onGoPro;
   final VoidCallback onSetDestination;
+  final VoidCallback onGoPro;
   final bool isPro;
   final bool isSettingDestination;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _ClusterFab(
-          icon: Icons.my_location_rounded,
-          tooltip: 'Recenter',
-          onPressed: onRecenter,
-        ),
-        const SizedBox(height: AppTheme.spaceSM),
-        _ClusterFab(
-          icon: Icons.layers_rounded,
-          tooltip: 'POI Layers',
-          onPressed: onLayers,
-        ),
-        const SizedBox(height: AppTheme.spaceSM),
-        _ClusterFab(
-          icon: Icons.place_rounded,
-          tooltip: 'POI Browser',
-          onPressed: onPoiBrowser,
-        ),
-        const SizedBox(height: AppTheme.spaceSM),
-        _ClusterFab(
-          icon: Icons.local_shipping_rounded,
-          tooltip: 'Truck Profile',
-          onPressed: onTruckProfile,
-        ),
-        const SizedBox(height: AppTheme.spaceSM),
-        _ClusterFab(
-          icon: Icons.route_rounded,
-          tooltip: 'Trip Planner',
-          onPressed: onTripPlanner,
-        ),
-        const SizedBox(height: AppTheme.spaceSM),
-        _SetDestinationFab(
-          onPressed: onSetDestination,
-          isActive: isSettingDestination,
-        ),
-        const SizedBox(height: AppTheme.spaceSM),
-        // "Get Help" emergency button — always visible, styled in error colour.
-        _GetHelpFab(onPressed: onGetHelp),
-        if (!isPro) ...[
-          const SizedBox(height: AppTheme.spaceSM),
-          _ClusterFab(
-            icon: Icons.workspace_premium_rounded,
-            tooltip: 'Go Pro',
-            onPressed: onGoPro,
+    final cs = Theme.of(context).colorScheme;
+    return BottomAppBar(
+      padding: EdgeInsets.zero,
+      child: Row(
+        children: [
+          _ToolbarButton(
+            icon: Icons.my_location_rounded,
+            label: 'Recenter',
+            onPressed: onRecenter,
           ),
+          _ToolbarButton(
+            icon: Icons.layers_rounded,
+            label: 'Layers',
+            onPressed: onLayers,
+          ),
+          _ToolbarButton(
+            icon: Icons.place_rounded,
+            label: 'POIs',
+            onPressed: onPoiBrowser,
+          ),
+          _ToolbarButton(
+            icon: Icons.local_shipping_rounded,
+            label: 'Truck',
+            onPressed: onTruckProfile,
+          ),
+          _ToolbarButton(
+            icon: Icons.route_rounded,
+            label: 'Trip',
+            onPressed: onTripPlanner,
+          ),
+          _ToolbarButton(
+            icon: Icons.flag_rounded,
+            label: 'Destination',
+            onPressed: onSetDestination,
+            iconColor: isSettingDestination ? cs.primary : null,
+            labelColor: isSettingDestination ? cs.primary : null,
+          ),
+          _ToolbarButton(
+            icon: Icons.emergency_rounded,
+            label: 'Help',
+            onPressed: onGetHelp,
+            iconColor: cs.error,
+            labelColor: cs.error,
+          ),
+          if (!isPro)
+            _ToolbarButton(
+              icon: Icons.workspace_premium_rounded,
+              label: 'Go Pro',
+              onPressed: onGoPro,
+            ),
         ],
-      ],
+      ),
     );
   }
 }
 
-class _ClusterFab extends StatelessWidget {
-  const _ClusterFab({
+/// A compact icon + label button used inside [_MapToolbar].
+class _ToolbarButton extends StatelessWidget {
+  const _ToolbarButton({
     required this.icon,
-    required this.tooltip,
+    required this.label,
     required this.onPressed,
+    this.iconColor,
+    this.labelColor,
   });
 
   final IconData icon;
-  final String tooltip;
+  final String label;
   final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return FloatingActionButton.small(
-      heroTag: tooltip,
-      tooltip: tooltip,
-      onPressed: onPressed,
-      child: Icon(icon),
-    );
-  }
-}
-
-/// A prominent emergency "Get Help" FAB styled with the error colour scheme.
-class _GetHelpFab extends StatelessWidget {
-  const _GetHelpFab({required this.onPressed});
-
-  final VoidCallback onPressed;
+  final Color? iconColor;
+  final Color? labelColor;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return FloatingActionButton.small(
-      heroTag: 'Get Help',
-      tooltip: 'Get Help',
-      backgroundColor: cs.error,
-      foregroundColor: cs.onError,
-      onPressed: onPressed,
-      child: const Icon(Icons.emergency_rounded),
-    );
-  }
-}
-
-/// FAB that activates destination-setting mode. Highlights in primary colour
-/// while [isActive] to give clear visual feedback.
-class _SetDestinationFab extends StatelessWidget {
-  const _SetDestinationFab({
-    required this.onPressed,
-    required this.isActive,
-  });
-
-  final VoidCallback onPressed;
-  final bool isActive;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return FloatingActionButton.small(
-      heroTag: 'Set Destination',
-      tooltip: 'Set Destination',
-      backgroundColor: isActive ? cs.primary : null,
-      foregroundColor: isActive ? cs.onPrimary : null,
-      onPressed: onPressed,
-      child: const Icon(Icons.flag_rounded),
+    final effectiveIconColor = iconColor ?? cs.onSurface;
+    final effectiveLabelColor = labelColor ?? cs.onSurface;
+    return Expanded(
+      child: Tooltip(
+        message: label,
+        child: Semantics(
+          label: label,
+          button: true,
+          child: InkWell(
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceXS),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 22, color: effectiveIconColor),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: effectiveLabelColor,
+                        ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
