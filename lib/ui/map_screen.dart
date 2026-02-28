@@ -225,11 +225,11 @@ class _MapScreenState extends State<MapScreen> {
                 ),
 
               // ── Route summary card (bottom overlay) ─────────────────────
-              const Positioned(
+              Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
-                child: RouteSummaryCard(),
+                child: RouteSummaryCard(settingDestination: _settingDestination),
               ),
 
               // ── Speed display (bottom-left, above route card) ────────────

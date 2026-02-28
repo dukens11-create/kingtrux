@@ -134,6 +134,18 @@ The manifest entry (kept as placeholder in source control):
     android:value="YOUR_GOOGLE_MAPS_API_KEY_HERE"/>
 ```
 
+**First-time Android key setup:**
+
+1. In [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services → Library**,
+   search for **Maps SDK for Android** and click **Enable**.
+2. Go to **Credentials → Create Credentials → API key**.
+3. Restrict the key for security:
+   - *Application restrictions* → **Android apps** → add package `com.kingtrux.app` with your
+     **debug SHA-1** (`keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey
+     -storepass android -keypass android | grep SHA1`) and your **release keystore SHA-1**.
+   - *API restrictions* → **Restrict key** → select **Maps SDK for Android**.
+4. Store the key as the `GOOGLE_MAPS_ANDROID_API_KEY` repository secret for CI builds.
+
 **iOS** (`ios/Runner/Info.plist`):
 
 The source file contains a placeholder value for `GMSApiKey`. Replace it **only in your local

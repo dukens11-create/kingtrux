@@ -12,8 +12,24 @@ import 'truck_profile_sheet.dart';
 /// Card displaying route summary and POI loading controls.
 ///
 /// Slides in from the bottom when a route is available.
-class RouteSummaryCard extends StatelessWidget {
-  const RouteSummaryCard({super.key});
+///
+/// When [settingDestination] is `true` (destination-setting mode is active),
+/// the "Long-press..." hint row is shown so the driver knows what to do.
+/// The hint can be dismissed with the X button; dismissal is remembered for
+/// the lifetime of this widget (i.e. the current app session).
+class RouteSummaryCard extends StatefulWidget {
+  const RouteSummaryCard({super.key, this.settingDestination = false});
+
+  /// Whether the map is currently in destination-setting mode.
+  final bool settingDestination;
+
+  @override
+  State<RouteSummaryCard> createState() => _RouteSummaryCardState();
+}
+
+class _RouteSummaryCardState extends State<RouteSummaryCard> {
+  /// Set to `true` once the user dismisses the hint; survives widget rebuilds.
+  bool _hintDismissed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -72,10 +88,17 @@ class RouteSummaryCard extends StatelessWidget {
     if (state.isLoadingRoute) {
       return const _RouteSectionLoader();
     }
-    if (state.routeResult == null) {
-      return const _EmptyRouteState();
+    if (state.routeResult != null) {
+      return _RouteDetails(state: state);
     }
-    return _RouteDetails(state: state);
+    // Only show the destination hint when destination-setting mode is active
+    // and the driver has not dismissed it for this session.
+    if (widget.settingDestination && !_hintDismissed) {
+      return _EmptyRouteState(
+        onDismiss: () => setState(() => _hintDismissed = true),
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   // ---------------------------------------------------------------------------
@@ -223,7 +246,10 @@ class RouteSummaryCard extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _EmptyRouteState extends StatelessWidget {
-  const _EmptyRouteState();
+  const _EmptyRouteState({this.onDismiss});
+
+  /// Called when the driver taps the X button to dismiss the hint.
+  final VoidCallback? onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -241,6 +267,16 @@ class _EmptyRouteState extends StatelessWidget {
                 ),
           ),
         ),
+        if (onDismiss != null)
+          IconButton(
+            icon: const Icon(Icons.close_rounded),
+            onPressed: onDismiss,
+            iconSize: 18,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Dismiss',
+          ),
       ],
     );
   }
