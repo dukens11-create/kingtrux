@@ -6,9 +6,11 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/poi.dart';
+import '../services/map_preferences_service.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
 import 'theme/dark_map_style.dart';
+import 'widgets/onboarding_overlay.dart';
 import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/poi_browser_sheet.dart';
@@ -24,6 +26,7 @@ import 'widgets/steps_list_sheet.dart';
 import 'widgets/trip_planner_sheet.dart';
 import 'widgets/speed_display.dart';
 import 'widgets/compass_indicator.dart';
+import 'widgets/where_to_sheet.dart';
 import 'account_screen.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
@@ -42,12 +45,41 @@ class _MapScreenState extends State<MapScreen> {
   /// When true the next tap on the map sets the destination and exits this mode.
   bool _settingDestination = false;
 
+  // ── Follow mode ────────────────────────────────────────────────────────────
+  /// When true, the camera automatically tracks the user's location.
+  bool _followMode = true;
+  /// Prevents [_onCameraMove] from disabling follow mode during programmatic
+  /// camera animations triggered by follow mode or recenter.
+  bool _programmaticMove = false;
+  double? _lastFollowLat;
+  double? _lastFollowLng;
+
+  // ── Map type ───────────────────────────────────────────────────────────────
+  MapType _mapType = MapType.normal;
+  final _mapPrefs = MapPreferencesService();
+
+  // ── Onboarding ─────────────────────────────────────────────────────────────
+  bool _showOnboarding = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AppState>().init();
+      _loadMapPrefs();
     });
+  }
+
+  /// Load persisted map preferences (map type, onboarding status).
+  Future<void> _loadMapPrefs() async {
+    final mapType = await _mapPrefs.loadMapType();
+    final dismissed = await _mapPrefs.loadOnboardingDismissed();
+    if (mounted) {
+      setState(() {
+        _mapType = mapType;
+        _showOnboarding = !dismissed;
+      });
+    }
   }
 
   @override
@@ -98,6 +130,9 @@ class _MapScreenState extends State<MapScreen> {
       ),
       body: Consumer<AppState>(
         builder: (context, state, _) {
+          // Track location changes for follow mode.
+          _maybeMoveCamera(state);
+
           // Show full-screen loader while acquiring first location fix.
           if (state.myLat == null || state.myLng == null) {
             return _buildInitialLoader(cs);
@@ -109,13 +144,18 @@ class _MapScreenState extends State<MapScreen> {
               GoogleMap(
                 initialCameraPosition: CameraPosition(
                   target: LatLng(state.myLat!, state.myLng!),
-                  zoom: 12,
+                  // Zoom 14 gives a city-block level view useful for truck
+                  // navigation planning (was 12, which showed too wide an area).
+                  zoom: 14,
                 ),
+                mapType: _mapType,
                 onMapCreated: (controller) async {
                   _mapController = controller;
                   await _syncMapStyle();
                 },
                 onTap: _onMapTap,
+                onLongPress: _onMapLongPress,
+                onCameraMove: _onCameraMove,
                 markers: _buildMarkers(state),
                 polylines: _buildPolylines(state),
                 myLocationEnabled: true,
@@ -126,10 +166,50 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
+              // ── "Where to?" CTA bar ─────────────────────────────────────
+              // Hidden when tap-to-set destination mode is active.
+              if (!_settingDestination)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceXS,
+                  left: AppTheme.spaceMD,
+                  right: AppTheme.spaceMD,
+                  child: _WhereToCta(onTap: _onWhereToCTAPressed),
+                ),
+
+              // ── Map overlay buttons (right side) ─────────────────────────
+              Positioned(
+                top: MediaQuery.of(context).padding.top + kToolbarHeight + 56 + AppTheme.spaceSM,
+                right: AppTheme.spaceSM,
+                child: Column(
+                  children: [
+                    _MapFab(
+                      key: const Key('map_type_toggle'),
+                      icon: _mapType == MapType.satellite
+                          ? Icons.map_rounded
+                          : Icons.satellite_alt_rounded,
+                      tooltip: _mapType == MapType.satellite
+                          ? 'Normal map'
+                          : 'Satellite view',
+                      onPressed: _onMapTypeToggle,
+                    ),
+                    const SizedBox(height: AppTheme.spaceXS),
+                    _MapFab(
+                      key: const Key('follow_mode_toggle'),
+                      icon: _followMode
+                          ? Icons.navigation_rounded
+                          : Icons.navigation_outlined,
+                      tooltip: _followMode ? 'Following location' : 'Follow location',
+                      onPressed: _onFollowModeToggle,
+                      active: _followMode,
+                    ),
+                  ],
+                ),
+              ),
+
               // ── Route / POI loading indicator (non-blocking) ────────────
               if (state.isLoadingRoute || state.isLoadingPois)
                 Positioned(
-                  top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceMD,
+                  top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceMD + 48,
                   left: 0,
                   right: 0,
                   child: Center(
@@ -137,15 +217,6 @@ class _MapScreenState extends State<MapScreen> {
                       label: state.isLoadingRoute ? 'Calculating route…' : 'Loading POIs…',
                     ),
                   ),
-                ),
-
-              // ── Weather pill ────────────────────────────────────────────
-              if (state.weatherAtCurrentLocation != null)
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceSM,
-                  left: AppTheme.spaceMD,
-                  right: AppTheme.spaceMD,
-                  child: _buildWeatherPill(state, cs),
                 ),
 
               // ── Route summary card (bottom overlay) ─────────────────────
@@ -187,8 +258,6 @@ class _MapScreenState extends State<MapScreen> {
               ),
 
               // ── "Set Destination" mode overlay ───────────────────────────
-              // Shown only when the user has activated destination-setting mode.
-              // A single tap on the map will set the destination and exit the mode.
               if (_settingDestination)
                 Positioned(
                   top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceMD,
@@ -204,6 +273,12 @@ class _MapScreenState extends State<MapScreen> {
                   left: 0,
                   right: 0,
                   child: _MapsApiKeyWarningBanner(),
+                ),
+
+              // ── First-launch onboarding overlay ──────────────────────────
+              if (_showOnboarding)
+                Positioned.fill(
+                  child: OnboardingOverlay(onDismiss: _onOnboardingDismissed),
                 ),
             ],
           );
@@ -287,42 +362,6 @@ class _MapScreenState extends State<MapScreen> {
           ],
         ),
       );
-
-  // ---------------------------------------------------------------------------
-  // Weather pill
-  // ---------------------------------------------------------------------------
-  Widget _buildWeatherPill(AppState state, ColorScheme cs) {
-    final weather = state.weatherAtCurrentLocation!;
-    return Card(
-      elevation: AppTheme.elevationCard,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.spaceMD,
-          vertical: AppTheme.spaceXS + 2,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.cloud_outlined, size: 18, color: cs.primary),
-            const SizedBox(width: AppTheme.spaceSM),
-            Flexible(
-              child: Text(
-                '${weather.summary} · '
-                '${weather.temperatureCelsius.toStringAsFixed(1)}°C · '
-                '${weather.windSpeedMs.toStringAsFixed(1)} m/s',
-                style: Theme.of(context).textTheme.bodySmall,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   // ---------------------------------------------------------------------------
   // Markers
@@ -431,13 +470,17 @@ class _MapScreenState extends State<MapScreen> {
   // ---------------------------------------------------------------------------
   Future<void> _onMyLocationPressed() async {
     HapticFeedback.lightImpact();
+    // Re-enable follow mode when the driver explicitly recenters.
+    setState(() => _followMode = true);
     try {
       final state = context.read<AppState>();
       await state.refreshMyLocation();
       if (state.myLat != null && state.myLng != null && _mapController != null) {
+        _programmaticMove = true;
         await _mapController!.animateCamera(
           CameraUpdate.newLatLng(LatLng(state.myLat!, state.myLng!)),
         );
+        if (mounted) setState(() => _programmaticMove = false);
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -568,6 +611,92 @@ class _MapScreenState extends State<MapScreen> {
   /// Cancels destination-setting mode without changing the destination.
   void _cancelSetDestination() {
     setState(() => _settingDestination = false);
+  }
+
+  // ---------------------------------------------------------------------------
+  // "Where to?" CTA
+  // ---------------------------------------------------------------------------
+  Future<void> _onWhereToCTAPressed() async {
+    HapticFeedback.selectionClick();
+    final result = await showWhereToSheet(context);
+    // If the user chose "Use Map", activate tap-to-set mode.
+    if (result == 'long_press' && mounted) {
+      setState(() => _settingDestination = true);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Map long-press: set destination directly without requiring toolbar mode
+  // ---------------------------------------------------------------------------
+  void _onMapLongPress(LatLng position) {
+    _setDestinationAt(position);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Map type toggle (Normal ↔ Satellite)
+  // ---------------------------------------------------------------------------
+  void _onMapTypeToggle() {
+    HapticFeedback.selectionClick();
+    final next = _mapType == MapType.normal ? MapType.satellite : MapType.normal;
+    setState(() => _mapType = next);
+    _mapPrefs.saveMapType(next);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Follow mode
+  // ---------------------------------------------------------------------------
+
+  /// Toggle follow mode on / off. When turned on, also recenter immediately.
+  void _onFollowModeToggle() {
+    HapticFeedback.selectionClick();
+    if (_followMode) {
+      setState(() => _followMode = false);
+    } else {
+      setState(() {
+        _followMode = true;
+        // Reset cached position so camera moves immediately on next rebuild.
+        _lastFollowLat = null;
+        _lastFollowLng = null;
+      });
+    }
+  }
+
+  /// Called by [GoogleMap.onCameraMove]. Disables follow mode when the camera
+  /// is moved by the user (i.e., not by a programmatic animation).
+  void _onCameraMove(CameraPosition _) {
+    if (_programmaticMove) return;
+    if (_followMode) {
+      setState(() => _followMode = false);
+    }
+  }
+
+  /// Moves the camera to track the user's location when [_followMode] is true.
+  /// Called from the Consumer builder on every AppState rebuild.
+  void _maybeMoveCamera(AppState state) {
+    if (!_followMode) return;
+    if (state.myLat == null || state.myLng == null) return;
+    if (state.myLat == _lastFollowLat && state.myLng == _lastFollowLng) return;
+    _lastFollowLat = state.myLat;
+    _lastFollowLng = state.myLng;
+    final controller = _mapController;
+    if (controller == null) return;
+    _programmaticMove = true;
+    controller
+        .animateCamera(
+          CameraUpdate.newLatLng(LatLng(state.myLat!, state.myLng!)),
+        )
+        .then((_) {
+      if (mounted) setState(() => _programmaticMove = false);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Onboarding
+  // ---------------------------------------------------------------------------
+
+  Future<void> _onOnboardingDismissed() async {
+    await _mapPrefs.saveOnboardingDismissed();
+    if (mounted) setState(() => _showOnboarding = false);
   }
 
   /// Sets [position] as the destination, builds the truck route, and exits
@@ -897,6 +1026,99 @@ class _LoadingBadge extends StatelessWidget {
             const SizedBox(width: AppTheme.spaceSM),
             Text(label, style: Theme.of(context).textTheme.bodySmall),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// "Where to?" CTA bar
+// ---------------------------------------------------------------------------
+
+/// A tappable search-bar–style CTA that opens the [WhereToSheet].
+class _WhereToCta extends StatelessWidget {
+  const _WhereToCta({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      key: const Key('where_to_cta'),
+      elevation: AppTheme.elevationSheet,
+      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+      color: cs.surface,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spaceMD,
+            vertical: AppTheme.spaceSM + 2,
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.search_rounded, color: cs.primary, size: 22),
+              const SizedBox(width: AppTheme.spaceSM),
+              Expanded(
+                child: Text(
+                  'Where to?',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios_rounded,
+                  size: 14, color: cs.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Small floating action button for map overlay controls
+// ---------------------------------------------------------------------------
+
+class _MapFab extends StatelessWidget {
+  const _MapFab({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.active = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  /// When true the button is highlighted with the primary color.
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        elevation: AppTheme.elevationSheet,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+        color: active ? cs.primaryContainer : cs.surface,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.spaceSM),
+            child: Icon(
+              icon,
+              size: 22,
+              color: active ? cs.onPrimaryContainer : cs.onSurface,
+            ),
+          ),
         ),
       ),
     );
