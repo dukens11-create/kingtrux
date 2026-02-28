@@ -30,6 +30,7 @@ import '../services/route_monitor.dart';
 import '../services/scale_monitor.dart';
 import '../services/scale_report_service.dart';
 import '../services/toll_preference_service.dart';
+import '../services/route_options_service.dart';
 import '../models/scale_report.dart';
 import '../services/speed_monitor.dart';
 import '../services/speed_limit_service.dart';
@@ -71,6 +72,7 @@ class AppState extends ChangeNotifier {
   final ScaleMonitor _scaleMonitor = ScaleMonitor();
   final ScaleReportService _scaleReportService = ScaleReportService();
   final TollPreferenceService _tollPreferenceService = TollPreferenceService();
+  final RouteOptionsService _routeOptionsService = RouteOptionsService();
   final SpeedMonitor _speedMonitor = SpeedMonitor();
   final SpeedLimitService _speedLimitService = SpeedLimitService();
   final SpeedSettingsService _speedSettingsService = SpeedSettingsService();
@@ -203,6 +205,20 @@ class AppState extends ChangeNotifier {
   /// Defaults to [TollPreference.any] (tolls allowed).  Persisted between
   /// sessions via [TollPreferenceService].
   TollPreference tollPreference = TollPreference.any;
+
+  // ---------------------------------------------------------------------------
+  // Extra route avoidance options
+  // ---------------------------------------------------------------------------
+
+  /// When `true`, ferries are excluded from route calculations.
+  ///
+  /// Persisted between sessions via [RouteOptionsService].
+  bool avoidFerries = false;
+
+  /// When `true`, unpaved / dirt roads are excluded from route calculations.
+  ///
+  /// Persisted between sessions via [RouteOptionsService].
+  bool avoidUnpaved = false;
 
   // ---------------------------------------------------------------------------
   // Speed monitoring state
@@ -482,6 +498,13 @@ class AppState extends ChangeNotifier {
       debugPrint('Error loading toll preference: $e');
     }
     try {
+      avoidFerries = await _routeOptionsService.loadAvoidFerries();
+      avoidUnpaved = await _routeOptionsService.loadAvoidUnpaved();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading route options: $e');
+    }
+    try {
       underspeedThresholdMph =
           await _speedSettingsService.loadUnderspeedThreshold();
       notifyListeners();
@@ -735,6 +758,8 @@ class AppState extends ChangeNotifier {
         destLng: destLng!,
         truckProfile: truckProfile,
         avoidTolls: tollPreference == TollPreference.tollFree,
+        avoidFerries: avoidFerries,
+        avoidUnpaved: avoidUnpaved,
       );
       if (routeResult != null) {
         _startRouteMonitoring();
@@ -962,6 +987,8 @@ class AppState extends ChangeNotifier {
         stops: trip.stops,
         truckProfile: truckProfile,
         avoidTolls: tollPreference == TollPreference.tollFree,
+        avoidFerries: avoidFerries,
+        avoidUnpaved: avoidUnpaved,
       );
       routeError = null;
       if (routeResult != null) {
@@ -1333,12 +1360,41 @@ class AppState extends ChangeNotifier {
     _tollPreferenceService.save(preference).catchError(
       (Object e) => debugPrint('Error saving toll preference: $e'),
     );
-    // Recalculate active route so the new preference takes effect immediately.
+    await _recalculateActiveRoute();
+  }
+
+  /// Recalculate the active route (single destination or multi-stop trip)
+  /// when a route option changes.  No-op when no route destination is set.
+  Future<void> _recalculateActiveRoute() async {
     if (activeTrip != null && (activeTrip!.stops.length) >= 2) {
       await buildTripRoute();
     } else if (destLat != null && destLng != null) {
       await buildTruckRoute();
     }
+  }
+
+  /// Update the avoid-ferries route option and persist it.
+  ///
+  /// Immediately recalculates any active route so the change takes effect.
+  Future<void> setAvoidFerries(bool value) async {
+    avoidFerries = value;
+    notifyListeners();
+    _routeOptionsService.saveAvoidFerries(value).catchError(
+      (Object e) => debugPrint('Error saving avoidFerries: $e'),
+    );
+    await _recalculateActiveRoute();
+  }
+
+  /// Update the avoid-unpaved-roads route option and persist it.
+  ///
+  /// Immediately recalculates any active route so the change takes effect.
+  Future<void> setAvoidUnpaved(bool value) async {
+    avoidUnpaved = value;
+    notifyListeners();
+    _routeOptionsService.saveAvoidUnpaved(value).catchError(
+      (Object e) => debugPrint('Error saving avoidUnpaved: $e'),
+    );
+    await _recalculateActiveRoute();
   }
 
   /// Recalculate the route from the current position and restart navigation.

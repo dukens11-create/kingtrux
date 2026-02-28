@@ -22,6 +22,10 @@ class RouteResult {
   /// no cost data was returned by the routing API.
   final double? estimatedTollCostUsd;
 
+  /// Warnings returned by the routing provider (e.g. clearance, weight,
+  /// hazmat notices).  Empty when the provider returns no notices.
+  final List<String> warnings;
+
   const RouteResult({
     required this.polylinePoints,
     required this.lengthMeters,
@@ -29,5 +33,6 @@ class RouteResult {
     this.maneuvers = const [],
     this.avoidedTolls = false,
     this.estimatedTollCostUsd,
+    this.warnings = const [],
   });
 }

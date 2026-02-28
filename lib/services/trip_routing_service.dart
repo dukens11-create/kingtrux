@@ -20,11 +20,15 @@ class TripRoutingService {
   /// Calculate a combined route for [stops] using [truckProfile].
   ///
   /// Set [avoidTolls] to `true` to request toll-free routing for every leg.
+  /// Set [avoidFerries] to `true` to exclude ferries from every leg.
+  /// Set [avoidUnpaved] to `true` to exclude unpaved roads from every leg.
   /// Throws if there are fewer than 2 stops, or if any leg fails.
   Future<RouteResult> buildTripRoute({
     required List<TripStop> stops,
     required TruckProfile truckProfile,
     bool avoidTolls = false,
+    bool avoidFerries = false,
+    bool avoidUnpaved = false,
   }) async {
     if (stops.length < 2) {
       throw Exception('A trip requires at least 2 stops (origin + destination).');
@@ -35,6 +39,7 @@ class TripRoutingService {
     int totalDuration = 0;
     final List<NavigationManeuver> allManeuvers = [];
     double? totalTollCost;
+    final Set<String> warningSet = {};
 
     for (int i = 0; i < stops.length - 1; i++) {
       final from = stops[i];
@@ -47,6 +52,8 @@ class TripRoutingService {
         destLng: to.lng,
         truckProfile: truckProfile,
         avoidTolls: avoidTolls,
+        avoidFerries: avoidFerries,
+        avoidUnpaved: avoidUnpaved,
       );
 
       // Concatenate polyline — skip the first point of every leg after the
@@ -65,6 +72,9 @@ class TripRoutingService {
       if (leg.estimatedTollCostUsd != null) {
         totalTollCost = (totalTollCost ?? 0) + leg.estimatedTollCostUsd!;
       }
+
+      // Collect route warnings from all legs (de-duplicate via Set).
+      warningSet.addAll(leg.warnings);
     }
 
     return RouteResult(
@@ -74,6 +84,7 @@ class TripRoutingService {
       maneuvers: allManeuvers,
       avoidedTolls: avoidTolls,
       estimatedTollCostUsd: totalTollCost,
+      warnings: warningSet.toList(),
     );
   }
 }

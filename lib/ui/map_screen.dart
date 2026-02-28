@@ -10,6 +10,7 @@ import '../services/map_preferences_service.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
 import 'theme/dark_map_style.dart';
+import 'widgets/route_options_sheet.dart';
 import 'widgets/onboarding_overlay.dart';
 import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
@@ -126,6 +127,7 @@ class _MapScreenState extends State<MapScreen> {
           onSetDestination: _onSetDestinationPressed,
           onGoPro: _onGoProPressed,
           onSteps: _onStepsPressed,
+          onRouteOptions: _onRouteOptionsPressed,
           isPro: state.isPro,
           isSettingDestination: _settingDestination,
           isNavigating: state.isNavigating,
@@ -542,6 +544,15 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onRouteOptionsPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const RouteOptionsSheet(),
+    );
+  }
+
   void _onTripPlannerPressed() {
     HapticFeedback.selectionClick();
     showModalBottomSheet<void>(
@@ -795,6 +806,7 @@ class _MapToolbar extends StatelessWidget {
     required this.onSetDestination,
     required this.onGoPro,
     required this.onSteps,
+    required this.onRouteOptions,
     required this.isPro,
     required this.isSettingDestination,
     required this.isNavigating,
@@ -809,6 +821,7 @@ class _MapToolbar extends StatelessWidget {
   final VoidCallback onSetDestination;
   final VoidCallback onGoPro;
   final VoidCallback onSteps;
+  final VoidCallback onRouteOptions;
   final bool isPro;
   final bool isSettingDestination;
   final bool isNavigating;
@@ -839,6 +852,11 @@ class _MapToolbar extends StatelessWidget {
             icon: Icons.local_shipping_rounded,
             label: 'Truck',
             onPressed: onTruckProfile,
+          ),
+          _ToolbarButton(
+            icon: Icons.tune_rounded,
+            label: 'Options',
+            onPressed: onRouteOptions,
           ),
           _ToolbarButton(
             icon: Icons.route_rounded,

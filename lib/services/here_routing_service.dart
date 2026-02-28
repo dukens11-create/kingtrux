@@ -42,6 +42,10 @@ class HereRoutingService {
   /// Set [avoidTolls] to `true` to request a toll-free route.  When `false`
   /// (the default) the HERE API may return toll cost information that is
   /// stored in [RouteResult.estimatedTollCostUsd].
+  ///
+  /// Set [avoidFerries] to `true` to exclude ferry connections from the route.
+  ///
+  /// Set [avoidUnpaved] to `true` to exclude unpaved roads from the route.
   Future<RouteResult> getTruckRoute({
     required double originLat,
     required double originLng,
@@ -49,6 +53,8 @@ class HereRoutingService {
     required double destLng,
     required TruckProfile truckProfile,
     bool avoidTolls = false,
+    bool avoidFerries = false,
+    bool avoidUnpaved = false,
   }) async {
     if (Config.hereApiKey.isEmpty) {
       throw Exception('HERE API key not configured. Please set HERE_API_KEY environment variable.');
@@ -59,6 +65,13 @@ class HereRoutingService {
       throw Exception(validationError);
     }
 
+    // Build avoid[features] list combining all active avoidance options.
+    final avoidFeatures = <String>[
+      if (avoidTolls) 'tollRoad',
+      if (avoidFerries) 'ferry',
+      if (avoidUnpaved) 'dirt',
+    ];
+
     // Build URL with truck parameters
     final url = Uri.parse('${Config.hereRoutingBaseUrl}/routes').replace(
       queryParameters: {
@@ -66,8 +79,8 @@ class HereRoutingService {
         'origin': '$originLat,$originLng',
         'destination': '$destLat,$destLng',
         'transportMode': 'truck',
-        'return': avoidTolls ? 'polyline,summary,actions,instructions' : 'polyline,summary,actions,instructions,tolls',
-        if (avoidTolls) 'avoid[features]': 'tollRoad',
+        'return': avoidTolls ? 'polyline,summary,actions,instructions,notices' : 'polyline,summary,actions,instructions,tolls,notices',
+        if (avoidFeatures.isNotEmpty) 'avoid[features]': avoidFeatures.join(','),
         ...buildHereTruckQueryParams(truckProfile),
       },
     );
@@ -139,6 +152,9 @@ class HereRoutingService {
       }
     }
 
+    // Extract route notices / warnings from the HERE API response.
+    final warnings = _extractRouteWarnings(route);
+
     return RouteResult(
       polylinePoints: polylinePoints,
       lengthMeters: (summary['length'] as num).toDouble(),
@@ -146,7 +162,47 @@ class HereRoutingService {
       maneuvers: maneuvers,
       avoidedTolls: avoidTolls,
       estimatedTollCostUsd: estimatedTollCostUsd,
+      warnings: warnings,
     );
+  }
+
+  /// Extracts human-readable route warnings from a HERE Routing API v8 route
+  /// object.  HERE returns `notices` on the route (or per-section) for
+  /// truck-specific advisories such as height/weight/hazmat violations.
+  ///
+  /// Returns an empty list when no warnings are present.
+  static List<String> _extractRouteWarnings(Map<String, dynamic> route) {
+    final warnings = <String>[];
+
+    void addNotices(List? notices) {
+      if (notices == null) return;
+      for (final notice in notices) {
+        final n = notice as Map<String, dynamic>?;
+        if (n == null) continue;
+        final title = n['title'] as String?;
+        final code = n['code'] as String?;
+        if (title != null && title.isNotEmpty) {
+          warnings.add(title);
+        } else if (code != null && code.isNotEmpty) {
+          warnings.add(code);
+        }
+      }
+    }
+
+    // Top-level route notices
+    addNotices(route['notices'] as List?);
+
+    // Per-section notices
+    final sections = route['sections'] as List?;
+    if (sections != null) {
+      for (final section in sections) {
+        addNotices(
+          (section as Map<String, dynamic>)['notices'] as List?,
+        );
+      }
+    }
+
+    return warnings;
   }
 
   /// Decode HERE Flexible Polyline format
