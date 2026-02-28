@@ -164,6 +164,50 @@ Steps:
 > iOS and Android require **separate** API keys. Restrict each key to the respective platform in
 > the Google Cloud Console.
 
+## Login Page
+
+### Overview
+The login / account page (`lib/ui/kingtrux_login_page.dart`) shows:
+- A soft **map-style background** loaded from `assets/bg_map.png`.
+- A **top badge row**: "Driver account" (left) and "GPS Ready" (right).
+- A **central card** that switches between:
+  - **Signed-out state** – email/password form with sign-in / create-account toggle.
+  - **Signed-in state** – user avatar ("K" shield), verified email, secondary status row.
+- A full-width **Sign out** button (visible when authenticated).
+- Footer tagline **"KINGTRUX • Built for truckers"**.
+
+The page is plugged into navigation via `lib/ui/login_page.dart` (a re-export):
+```dart
+import 'package:kingtrux/ui/login_page.dart';
+// …
+Navigator.of(context).push(MaterialPageRoute(builder: (_) => const KingtruxLoginPage()));
+```
+
+### Replacing the map background
+Swap `assets/bg_map.png` with any PNG of your choice (e.g. a Mapbox or Google Maps
+static-map export).  Make sure it is listed under `flutter → assets` in `pubspec.yaml`.
+
+### Injecting real email / auth logic
+All authentication is delegated to `AuthService` (`lib/services/auth_service.dart`).
+To swap in a custom back-end:
+
+1. Create a class that exposes:
+   - `Future<void> signInWithEmail(String email, String password)`
+   - `Future<void> createAccountWithEmail(String email, String password)`
+   - `Future<void> signOut()`
+   - `Future<void> sendPasswordReset(String email)`
+   - `Stream<User?> authStateChanges`
+2. Register it in `lib/app.dart`:
+   ```dart
+   Provider<AuthService>(create: (_) => MyCustomAuthService()),
+   ```
+3. No changes to `KingtruxLoginPage` are needed.
+
+### API keys
+No API keys are hard-coded in the login page or anywhere in `lib/`.  All
+external-service keys are injected at build time via `--dart-define` (see the
+**Configure API Keys** section above and `lib/config.dart`).
+
 ## Running the Application
 
 ### Development Mode

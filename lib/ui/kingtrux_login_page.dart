@@ -6,12 +6,32 @@ import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
 
-/// Full-screen login / account page matching the KINGTRUX image5 design.
+/// Full-screen login / account page matching the KINGTRUX map-style design.
 ///
 /// Displays a top action-button row, a central card that switches between a
 /// signed-in info view and the email/password login form depending on the
 /// current Firebase auth state, a sign-out (or sign-in) call-to-action, and
-/// a branded footer. All auth logic is delegated to [AuthService].
+/// a branded footer.  All auth logic is delegated to [AuthService].
+///
+/// ## Background image
+/// The map-style background is loaded from `assets/bg_map.png`.  Replace that
+/// file with a real map tile export (e.g. a Mapbox or Stamen static-map
+/// screenshot) to use a production graphic.  The asset must be listed under
+/// `flutter → assets` in `pubspec.yaml`.
+///
+/// ## Injecting real email / auth logic
+/// Authentication is handled entirely by [AuthService] (lib/services/auth_service.dart).
+/// To swap in a different auth back-end:
+///   1. Implement `signInWithEmail`, `createAccountWithEmail`, `signOut`,
+///      `sendPasswordReset`, and expose an `authStateChanges` stream.
+///   2. Register the service in `KingTruxApp` (`lib/app.dart`) via
+///      `Provider<AuthService>(create: (_) => MyCustomAuthService())`.
+///   3. No changes to this widget are required.
+///
+/// ## API keys
+/// No API keys are hard-coded in this file.  All external-service keys are
+/// injected at build time using `--dart-define` (see `lib/config.dart` and the
+/// project README for the full list of `--dart-define` variables).
 class KingtruxLoginPage extends StatefulWidget {
   const KingtruxLoginPage({super.key});
 
@@ -56,11 +76,12 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ── Full-screen background image ───────────────────────────────────
+          // ── Map-style background (assets/bg_map.png) ──────────────────────
+          // Replace assets/bg_map.png with a real map export for production use.
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/logo_bg.png'),
+                image: AssetImage('assets/bg_map.png'),
                 fit: BoxFit.cover,
               ),
             ),
