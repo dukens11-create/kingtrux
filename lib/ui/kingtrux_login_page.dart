@@ -54,9 +54,14 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ── Custom painted blue background ────────────────────────────────
-          const SizedBox.expand(
-            child: CustomPaint(painter: _MapBackgroundPainter()),
+          // ── Full-screen background image ───────────────────────────────────
+          Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage('assets/logo_bg.png'),
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
           // ── Scrollable content ─────────────────────────────────────────────
           SafeArea(
@@ -300,23 +305,12 @@ class _BrandHeader extends StatelessWidget {
     return Column(
       children: [
         Semantics(
-          label: 'KINGTRUX shield logo',
-          child: Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.1),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.3),
-                width: 2,
-              ),
-            ),
-            child: const Icon(
-              Icons.local_police_rounded,
-              size: 40,
-              color: Colors.white,
-            ),
+          label: 'KINGTRUX logo',
+          child: Image.asset(
+            'assets/logo_bg.png',
+            height: 180,
+            fit: BoxFit.contain,
+            semanticLabel: 'KINGTRUX logo',
           ),
         ),
         const SizedBox(height: 12),
@@ -441,86 +435,6 @@ class _VisibilityToggle extends StatelessWidget {
       onPressed: onToggle,
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Custom painter – dark map-lines + route curves background
-// ---------------------------------------------------------------------------
-
-class _MapBackgroundPainter extends CustomPainter {
-  const _MapBackgroundPainter();
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Blue gradient base fill
-    final rect = Offset.zero & size;
-    final gradient = const LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
-    );
-    canvas.drawRect(rect, Paint()..shader = gradient.createShader(rect));
-
-    // Subtle grid lines
-    final gridPaint = Paint()
-      ..color = const Color(0xFF1565C0).withValues(alpha: 0.6)
-      ..strokeWidth = 1;
-    for (double y = 0; y < size.height; y += 40) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-    for (double x = 0; x < size.width; x += 40) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-
-    // Route curves
-    final routePaint = Paint()
-      ..color = const Color(0xFF42A5F5).withValues(alpha: 0.35)
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke;
-
-    final highlight = Paint()
-      ..color = const Color(0xFF90CAF9).withValues(alpha: 0.4)
-      ..strokeWidth = 3.5
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawPath(
-      Path()
-        ..moveTo(0, size.height * 0.30)
-        ..quadraticBezierTo(
-            size.width * 0.30, size.height * 0.10,
-            size.width * 0.60, size.height * 0.40)
-        ..quadraticBezierTo(
-            size.width * 0.80, size.height * 0.60,
-            size.width, size.height * 0.50),
-      routePaint,
-    );
-
-    canvas.drawPath(
-      Path()
-        ..moveTo(0, size.height * 0.70)
-        ..quadraticBezierTo(
-            size.width * 0.40, size.height * 0.90,
-            size.width * 0.70, size.height * 0.60)
-        ..quadraticBezierTo(
-            size.width * 0.90, size.height * 0.40,
-            size.width, size.height * 0.30),
-      routePaint,
-    );
-
-    canvas.drawPath(
-      Path()
-        ..moveTo(size.width * 0.10, 0)
-        ..quadraticBezierTo(
-            size.width * 0.50, size.height * 0.25,
-            size.width * 0.40, size.height * 0.65)
-        ..quadraticBezierTo(
-            size.width * 0.35, size.height * 0.85,
-            size.width * 0.60, size.height),
-      highlight,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_MapBackgroundPainter oldDelegate) => false;
 }
 
 // ---------------------------------------------------------------------------
