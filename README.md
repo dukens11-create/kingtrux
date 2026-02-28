@@ -316,7 +316,28 @@ them in the browser (it is not included by default to minimise dependencies).
 
 ## Firebase Authentication Setup
 
-KINGTRUX uses Firebase Authentication for multi-provider user sign-in (Email/Password, Phone SMS OTP, Google, and Apple). The app compiles and runs with the placeholder configuration files included in this repository, but authentication **will not work** until you replace the placeholders with real Firebase credentials.
+KINGTRUX uses Firebase Authentication for multi-provider user sign-in (Email/Password, Phone SMS OTP, Google, and Apple). The app compiles and runs with the configuration files included in this repository; iOS authentication requires replacing the placeholder `GoogleService-Info.plist` with a real one (see [iOS setup](#3-ios-setup)).
+
+### 0. Email/Password quick-start
+
+The app entry point (`lib/main.dart`) initialises Firebase and launches
+`SimpleEmailAuthPage` — a minimal auth gate that handles the full
+Email/Password flow in one screen:
+
+| State | What the user sees |
+|-------|-------------------|
+| Signed out | Email + password fields with **Sign in** and **Sign up** buttons |
+| Signed in | `"Signed in as: <email>"` and a **Sign out** button |
+
+To run the app with Email/Password auth working end-to-end:
+
+1. Complete the Android and/or iOS setup below to get real Firebase config files.
+2. Enable **Email/Password** in [Firebase Console → Authentication → Sign-in method](https://console.firebase.google.com/) (already enabled for the `kingtrux-387ae` project).
+3. Run:
+   ```bash
+   flutter pub get
+   flutter run
+   ```
 
 ### 1. Create a Firebase project
 
