@@ -79,7 +79,7 @@ class HereRoutingService {
         'origin': '$originLat,$originLng',
         'destination': '$destLat,$destLng',
         'transportMode': 'truck',
-        'return': avoidTolls ? 'polyline,summary,actions,notices' : 'polyline,summary,actions,tolls,notices',
+        'return': avoidTolls ? 'polyline,summary,actions,instructions,notices' : 'polyline,summary,actions,instructions,tolls,notices',
         if (avoidFeatures.isNotEmpty) 'avoid[features]': avoidFeatures.join(','),
         ...buildHereTruckQueryParams(truckProfile),
       },
@@ -153,8 +153,6 @@ class HereRoutingService {
     }
 
     // Extract route notices / warnings from the HERE API response.
-    // HERE returns a top-level `notices` array on the route object when
-    // truck-specific restrictions or violations are detected.
     final warnings = _extractRouteWarnings(route);
 
     return RouteResult(

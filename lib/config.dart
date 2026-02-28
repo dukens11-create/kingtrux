@@ -94,11 +94,16 @@ class Config {
   // TODO: Replace placeholder URLs with your real policy pages.
   // ---------------------------------------------------------------------------
 
-  /// Terms of Service URL shown on the paywall.
+  /// Terms of Service URL shown on the paywall and Settings screen.
   static const String termsUrl = 'https://kingtrux.com/terms';
 
-  /// Privacy Policy URL shown on the paywall.
+  /// Privacy Policy URL shown on the paywall and Settings screen.
   static const String privacyUrl = 'https://kingtrux.com/privacy';
+
+  /// Feedback URL opened from the Settings screen.
+  ///
+  /// TODO: Replace with your real support / feedback page URL.
+  static const String feedbackUrl = 'https://kingtrux.com/feedback';
 
   // ---------------------------------------------------------------------------
   // Admin access

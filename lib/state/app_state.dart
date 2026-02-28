@@ -52,6 +52,8 @@ import '../services/trip_eta_service.dart';
 import '../services/timezone_service.dart';
 import '../services/tts_language_service.dart';
 import '../services/alert_phrase_service.dart';
+import '../services/destination_persistence_service.dart';
+import '../services/units_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -87,6 +89,9 @@ class AppState extends ChangeNotifier {
       RoadsideAssistanceService();
   final ThemeSettingsService _themeSettingsService = ThemeSettingsService();
   final TtsLanguageService _ttsLanguageService = TtsLanguageService();
+  final DestinationPersistenceService _destinationPersistenceService =
+      DestinationPersistenceService();
+  final UnitsService _unitsService = UnitsService();
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
@@ -149,6 +154,34 @@ class AppState extends ChangeNotifier {
   // POI layers
   Set<PoiType> enabledPoiLayers = {};
   List<Poi> pois = [];
+
+  // ---------------------------------------------------------------------------
+  // POI cache
+  // ---------------------------------------------------------------------------
+
+  /// When the last successful POI fetch completed.
+  DateTime? _poisLastFetchedAt;
+
+  /// Location used for the last successful POI fetch.
+  double? _poisCacheLat;
+  double? _poisCacheLng;
+
+  /// TTL for the POI cache (5 minutes).
+  static const _poiCacheTtl = Duration(minutes: 5);
+
+  /// Returns `true` when cached POIs are still fresh and close enough to
+  /// [lat] / [lng] to avoid a redundant network request (within ~1 km).
+  bool _isPoisCacheValid(double lat, double lng) {
+    final fetchedAt = _poisLastFetchedAt;
+    final cacheLat = _poisCacheLat;
+    final cacheLng = _poisCacheLng;
+    if (fetchedAt == null || cacheLat == null || cacheLng == null) return false;
+    if (DateTime.now().difference(fetchedAt) > _poiCacheTtl) return false;
+    // ~1 degree latitude ≈ 111 km; 0.009 ≈ 1 km threshold
+    const threshold = 0.009;
+    return (lat - cacheLat).abs() < threshold &&
+        (lng - cacheLng).abs() < threshold;
+  }
 
   /// Which truck stop brands are currently visible.
   ///
@@ -270,6 +303,16 @@ class AppState extends ChangeNotifier {
     return ThemeSettingsService.presetSeedColors[themeOption] ??
         ThemeSettingsService.defaultSeedColor;
   }
+
+  // ---------------------------------------------------------------------------
+  // Distance units preference
+  // ---------------------------------------------------------------------------
+
+  /// When `true` distances are displayed in kilometres; `false` = miles.
+  ///
+  /// Defaults to `false` (imperial / miles) since the primary market is North
+  /// America.  Persisted via [SharedPreferences] key `use_metric_units`.
+  bool useMetricUnits = false;
 
   // Trip ETA and time zone state
   // ---------------------------------------------------------------------------
@@ -502,6 +545,22 @@ class AppState extends ChangeNotifier {
       debugPrint('Error loading theme settings: $e');
     }
     try {
+      final dest = await _destinationPersistenceService.load();
+      if (dest != null) {
+        destLat = dest.lat;
+        destLng = dest.lng;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error loading destination: $e');
+    }
+    try {
+      useMetricUnits = await _unitsService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading metric units preference: $e');
+    }
+    try {
       await refreshMyLocation();
     } catch (e) {
       debugPrint('Error initializing location: $e');
@@ -561,6 +620,9 @@ class AppState extends ChangeNotifier {
     destLat = lat;
     destLng = lng;
     notifyListeners();
+    _destinationPersistenceService.save(lat, lng).catchError(
+      (Object e) => debugPrint('Error saving destination: $e'),
+    );
   }
 
   /// Update truck profile and persist to device storage.
@@ -572,13 +634,17 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  /// Toggle POI layer visibility
+  /// Toggle POI layer visibility.
+  ///
+  /// Invalidates the POI cache so the next [loadPois] call fetches fresh
+  /// results that include (or exclude) the newly toggled layer.
   void toggleLayer(PoiType type, bool enabled) {
     if (enabled) {
       enabledPoiLayers.add(type);
     } else {
       enabledPoiLayers.remove(type);
     }
+    _poisLastFetchedAt = null; // Invalidate cache
     notifyListeners();
   }
 
@@ -707,10 +773,18 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Load POIs around current location
+  /// Load POIs around current location.
+  ///
+  /// Results are cached for [_poiCacheTtl] at the same location to avoid
+  /// redundant Overpass requests when the user reopens the POI browser.
   Future<void> loadPois({double radiusMeters = 15000}) async {
     if (myLat == null || myLng == null) {
       throw Exception('Current location not set');
+    }
+
+    // Return cached results when still fresh and at the same location.
+    if (_isPoisCacheValid(myLat!, myLng!) && pois.isNotEmpty) {
+      return;
     }
 
     isLoadingPois = true;
@@ -723,6 +797,9 @@ class AppState extends ChangeNotifier {
         enabledTypes: enabledPoiLayers,
         radiusMeters: radiusMeters,
       );
+      _poisLastFetchedAt = DateTime.now();
+      _poisCacheLat = myLat;
+      _poisCacheLng = myLng;
     } finally {
       isLoadingPois = false;
       notifyListeners();
@@ -815,6 +892,18 @@ class AppState extends ChangeNotifier {
     destLat = null;
     destLng = null;
     notifyListeners();
+    _destinationPersistenceService.clear().catchError(
+      (Object e) => debugPrint('Error clearing destination: $e'),
+    );
+  }
+
+  /// Toggle the distance / speed units preference between metric and imperial.
+  void toggleMetricUnits() {
+    useMetricUnits = !useMetricUnits;
+    notifyListeners();
+    _unitsService.save(useMetricUnits).catchError(
+      (Object e) => debugPrint('Error saving metric units preference: $e'),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -1261,16 +1350,6 @@ class AppState extends ChangeNotifier {
     });
   }
 
-  /// Recalculate the active route (single destination or multi-stop trip)
-  /// when a route option changes.  No-op when no route destination is set.
-  Future<void> _recalculateActiveRoute() async {
-    if (activeTrip != null && (activeTrip!.stops.length) >= 2) {
-      await buildTripRoute();
-    } else if (destLat != null && destLng != null) {
-      await buildTruckRoute();
-    }
-  }
-
   /// Update the global toll avoidance preference and persist it.
   ///
   /// If a destination is already set, the route is automatically recalculated
@@ -1282,6 +1361,16 @@ class AppState extends ChangeNotifier {
       (Object e) => debugPrint('Error saving toll preference: $e'),
     );
     await _recalculateActiveRoute();
+  }
+
+  /// Recalculate the active route (single destination or multi-stop trip)
+  /// when a route option changes.  No-op when no route destination is set.
+  Future<void> _recalculateActiveRoute() async {
+    if (activeTrip != null && (activeTrip!.stops.length) >= 2) {
+      await buildTripRoute();
+    } else if (destLat != null && destLng != null) {
+      await buildTruckRoute();
+    }
   }
 
   /// Update the avoid-ferries route option and persist it.
