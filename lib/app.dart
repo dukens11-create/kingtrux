@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'services/admin_service.dart';
 import 'services/auth_service.dart';
 import 'state/app_state.dart';
-import 'ui/auth_screen.dart';
+import 'ui/kingtrux_login_page.dart';
 import 'ui/map_screen.dart';
 
 class KingTruxApp extends StatelessWidget {
@@ -52,7 +52,7 @@ class _AuthGate extends StatelessWidget {
         if (snapshot.hasData) {
           return const MapScreen();
         }
-        return const AuthScreen();
+        return const KingtruxLoginPage();
       },
     );
   }
