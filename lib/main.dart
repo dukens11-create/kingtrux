@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'simple_email_auth_page.dart';
+import 'auth/login_screen.dart';
 
 /// Entry point for KINGTRUX application
 void main() async {
@@ -11,7 +11,7 @@ void main() async {
   );
   runApp(const MaterialApp(
     title: 'KINGTRUX',
-    home: SimpleEmailAuthPage(),
+    home: AuthScreen(),
     debugShowCheckedModeBanner: false,
   ));
 }
