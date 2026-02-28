@@ -24,6 +24,18 @@ class NavigationManeuver {
   /// Longitude of the maneuver waypoint.
   final double lng;
 
+  /// Road name at the maneuver point (e.g., "Main Street").
+  ///
+  /// Parsed from [nextRoad.name] in the HERE Routing API v8 action object
+  /// when available; falls back to [currentRoad.name].
+  final String? roadName;
+
+  /// Route number at the maneuver point (e.g., "I-95", "US-1").
+  ///
+  /// Parsed from [nextRoad.number] in the HERE Routing API v8 action object
+  /// when available; falls back to [currentRoad.number].
+  final String? roadNumber;
+
   const NavigationManeuver({
     required this.instruction,
     required this.distanceMeters,
@@ -32,6 +44,8 @@ class NavigationManeuver {
     required this.lat,
     required this.lng,
     this.direction,
+    this.roadName,
+    this.roadNumber,
   });
 
   /// Build from a single entry in the HERE Routing API v8 `actions` array.
@@ -48,6 +62,15 @@ class NavigationManeuver {
         ? null
         : polylinePoints[offset.clamp(0, polylinePoints.length - 1)];
 
+    // Road name/number: prefer nextRoad (road being turned onto) over
+    // currentRoad (road being left).
+    final nextRoadObj = json['nextRoad'] as Map<String, dynamic>?;
+    final currRoadObj = json['currentRoad'] as Map<String, dynamic>?;
+    final roadName = _firstRoadString(nextRoadObj, 'name') ??
+        _firstRoadString(currRoadObj, 'name');
+    final roadNumber = _firstRoadString(nextRoadObj, 'number') ??
+        _firstRoadString(currRoadObj, 'number');
+
     return NavigationManeuver(
       instruction: json['instruction'] as String? ?? '',
       distanceMeters: (json['length'] as num?)?.toDouble() ?? 0.0,
@@ -56,6 +79,21 @@ class NavigationManeuver {
       direction: json['direction'] as String?,
       lat: clamped?.latitude ?? 0.0,
       lng: clamped?.longitude ?? 0.0,
+      roadName: roadName,
+      roadNumber: roadNumber,
     );
+  }
+
+  /// Extracts the first value string from a HERE road object's named list.
+  ///
+  /// HERE road objects look like: `{"name": [{"value": "...", "language": "en"}]}`
+  static String? _firstRoadString(
+    Map<String, dynamic>? road,
+    String key,
+  ) {
+    if (road == null) return null;
+    final list = road[key] as List?;
+    if (list == null || list.isEmpty) return null;
+    return (list.first as Map<String, dynamic>?)?.['value'] as String?;
   }
 }

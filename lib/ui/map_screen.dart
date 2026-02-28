@@ -22,7 +22,9 @@ import 'widgets/alert_banner.dart';
 import 'widgets/trip_planner_sheet.dart';
 import 'widgets/speed_display.dart';
 import 'widgets/compass_indicator.dart';
+import 'widgets/route_guidance_banner.dart';
 import 'account_screen.dart';
+import 'navigation_screen.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
 
@@ -169,6 +171,31 @@ class _MapScreenState extends State<MapScreen> {
                 bottom: 180,
                 child: CompassIndicator(),
               ),
+
+              // ── Route guidance banner (below app bar, when route active) ─
+              if (state.routeResult != null &&
+                  state.routeResult!.maneuvers.isNotEmpty &&
+                  !_settingDestination)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top +
+                      kToolbarHeight +
+                      AppTheme.spaceXS,
+                  left: AppTheme.spaceMD,
+                  right: AppTheme.spaceMD,
+                  child: RouteGuidanceBanner(
+                    maneuver: state.routeResult!.maneuvers.first,
+                    onTap: () async {
+                      await state.startNavigation();
+                      if (context.mounted) {
+                        await Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const NavigationScreen(),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
 
               // ── "Set Destination" mode overlay ───────────────────────────
               // Shown only when the user has activated destination-setting mode.

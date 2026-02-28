@@ -51,6 +51,7 @@ import '../services/trip_eta_service.dart';
 import '../services/timezone_service.dart';
 import '../services/tts_language_service.dart';
 import '../services/alert_phrase_service.dart';
+import '../services/destination_persistence_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -84,6 +85,8 @@ class AppState extends ChangeNotifier {
   final RoadsideAssistanceService _roadsideAssistanceService =
       RoadsideAssistanceService();
   final ThemeSettingsService _themeSettingsService = ThemeSettingsService();
+  final DestinationPersistenceService _destinationService =
+      DestinationPersistenceService();
   final TtsLanguageService _ttsLanguageService = TtsLanguageService();
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
@@ -483,6 +486,18 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error initializing location: $e');
     }
+    // Restore last destination and auto-rebuild route when location is ready.
+    try {
+      final saved = await _destinationService.load();
+      if (saved != null && myLat != null && myLng != null) {
+        destLat = saved.lat;
+        destLng = saved.lng;
+        notifyListeners();
+        await buildTruckRoute();
+      }
+    } catch (e) {
+      debugPrint('Error restoring destination: $e');
+    }
     _startSpeedMonitoring();
     // Initialize RevenueCat and check current entitlement status.
     try {
@@ -538,6 +553,9 @@ class AppState extends ChangeNotifier {
     destLat = lat;
     destLng = lng;
     notifyListeners();
+    _destinationService.save(lat, lng).catchError(
+      (Object e) => debugPrint('Error saving destination: $e'),
+    );
   }
 
   /// Update truck profile and persist to device storage.
@@ -790,6 +808,9 @@ class AppState extends ChangeNotifier {
     destLat = null;
     destLng = null;
     notifyListeners();
+    _destinationService.clear().catchError(
+      (Object e) => debugPrint('Error clearing destination: $e'),
+    );
   }
 
   // ---------------------------------------------------------------------------
