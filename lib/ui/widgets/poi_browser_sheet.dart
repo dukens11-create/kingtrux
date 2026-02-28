@@ -57,11 +57,15 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
     final openM = int.parse(match.group(2)!);
     final closeH = int.parse(match.group(3)!);
     final closeM = int.parse(match.group(4)!);
-    final nowMins = now.hour * 60 + now.minute;
+    var nowMins = now.hour * 60 + now.minute;
     final openMins = openH * 60 + openM;
     var closeMins = closeH * 60 + closeM;
-    // Handle overnight ranges (e.g., 22:00-06:00)
-    if (closeMins < openMins) closeMins += 24 * 60;
+    // Handle overnight ranges (e.g., 22:00-06:00): normalise by shifting
+    // times that fall in the early-morning portion into the next-day window.
+    if (closeMins < openMins) {
+      closeMins += 24 * 60;
+      if (nowMins < openMins) nowMins += 24 * 60;
+    }
     return nowMins >= openMins && nowMins < closeMins;
   }
 

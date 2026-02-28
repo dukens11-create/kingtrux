@@ -37,10 +37,13 @@ bool _isOpenNow(Poi poi) {
   final openM = int.parse(match.group(2)!);
   final closeH = int.parse(match.group(3)!);
   final closeM = int.parse(match.group(4)!);
-  final nowMins = now.hour * 60 + now.minute;
+  var nowMins = now.hour * 60 + now.minute;
   final openMins = openH * 60 + openM;
   var closeMins = closeH * 60 + closeM;
-  if (closeMins < openMins) closeMins += 24 * 60;
+  if (closeMins < openMins) {
+    closeMins += 24 * 60;
+    if (nowMins < openMins) nowMins += 24 * 60;
+  }
   return nowMins >= openMins && nowMins < closeMins;
 }
 
