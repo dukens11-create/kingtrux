@@ -136,6 +136,8 @@ class _MapScreenState extends State<MapScreen> {
               GoogleMap(
                 initialCameraPosition: CameraPosition(
                   target: LatLng(state.myLat!, state.myLng!),
+                  // Zoom 14 gives a city-block level view useful for truck
+                  // navigation planning (was 12, which showed too wide an area).
                   zoom: 14,
                 ),
                 mapType: _mapType,

@@ -7,6 +7,9 @@ import 'package:kingtrux/ui/widgets/where_to_sheet.dart';
 import 'package:kingtrux/ui/widgets/onboarding_overlay.dart';
 import 'package:kingtrux/ui/theme/app_theme.dart';
 
+/// Duration used for animation settle waits in widget tests.
+const _animationDuration = Duration(milliseconds: 400);
+
 void main() {
   // ---------------------------------------------------------------------------
   // MapPreferencesService
@@ -120,7 +123,7 @@ void main() {
           ),
         ),
       );
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(_animationDuration);
 
       expect(find.text('"Where to?"'), findsOneWidget);
       expect(find.text('POI Layers'), findsOneWidget);
@@ -137,10 +140,10 @@ void main() {
           ),
         ),
       );
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(_animationDuration);
 
       await tester.tap(find.byKey(const Key('onboarding_got_it')));
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(_animationDuration);
 
       expect(dismissed, isTrue);
     });
