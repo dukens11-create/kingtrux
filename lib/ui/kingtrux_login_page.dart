@@ -435,7 +435,7 @@ class _BrandHeader extends StatelessWidget {
         Semantics(
           label: 'KINGTRUX logo',
           child: Image.asset(
-            'assets/logo_bg.png',
+            'assets/logo.png',
             height: 120,
             fit: BoxFit.contain,
             semanticLabel: 'KINGTRUX logo',
