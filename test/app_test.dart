@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kingtrux/app.dart';
 import 'package:kingtrux/services/auth_service.dart';
-import 'package:kingtrux/ui/auth_screen.dart';
+import 'package:kingtrux/ui/kingtrux_login_page.dart';
 
 // ---------------------------------------------------------------------------
 // Minimal AuthService stub that returns a controlled stream of User? events.
@@ -35,7 +35,7 @@ void main() {
     await ctrl.close();
   });
 
-  testWidgets('AuthGate routes to AuthScreen when user is unauthenticated',
+  testWidgets('AuthGate routes to KingtruxLoginPage when user is unauthenticated',
       (WidgetTester tester) async {
     // Emit null immediately → unauthenticated.
     final ctrl = StreamController<User?>.broadcast();
@@ -46,7 +46,7 @@ void main() {
     ctrl.add(null);
     await tester.pump();
 
-    expect(find.byType(AuthScreen), findsOneWidget);
+    expect(find.byType(KingtruxLoginPage), findsOneWidget);
 
     await ctrl.close();
   });
@@ -67,7 +67,7 @@ void main() {
     // HomeScreen is the placeholder shown to authenticated users.
     // It renders inside a Scaffold; verify the Scaffold is present and no
     // AuthScreen is displayed.
-    expect(find.byType(AuthScreen), findsNothing);
+    expect(find.byType(KingtruxLoginPage), findsNothing);
     // The HomeScreen renders a welcome page – confirm the full tree was built.
     expect(find.byType(MaterialApp), findsOneWidget);
 
