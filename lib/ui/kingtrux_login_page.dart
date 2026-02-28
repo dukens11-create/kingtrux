@@ -6,11 +6,12 @@ import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
 
-/// Full-screen login / sign-up page with a custom map-lines background,
-/// vignette overlay, and a glassmorphism card containing the auth form.
+/// Full-screen login / account page matching the KINGTRUX image5 design.
 ///
-/// Supports email/password sign-in, account creation, and password reset
-/// using the app's [AuthService].
+/// Displays a top action-button row, a central card that switches between a
+/// signed-in info view and the email/password login form depending on the
+/// current Firebase auth state, a sign-out (or sign-in) call-to-action, and
+/// a branded footer. All auth logic is delegated to [AuthService].
 class KingtruxLoginPage extends StatefulWidget {
   const KingtruxLoginPage({super.key});
 
@@ -50,6 +51,7 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final authService = context.read<AuthService>();
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
@@ -63,20 +65,37 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
               ),
             ),
           ),
+          // ── Dark overlay for readability ───────────────────────────────────
+          Container(color: Colors.black.withAlpha(115)),
           // ── Scrollable content ─────────────────────────────────────────────
           SafeArea(
-            child: SingleChildScrollView(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 24),
-                  const _BrandHeader(),
-                  const SizedBox(height: 40),
-                  _buildLoginCard(),
-                ],
-              ),
+            child: StreamBuilder<User?>(
+              stream: authService.authStateChanges,
+              builder: (context, snapshot) {
+                final user = snapshot.data;
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const _TopActionButtons(),
+                      const SizedBox(height: 24),
+                      if (user != null) ...[
+                        _SignedInCard(user: user),
+                        const SizedBox(height: 16),
+                        _SignOutButton(authService: authService),
+                      ] else ...[
+                        const _BrandHeader(),
+                        const SizedBox(height: 24),
+                        _buildLoginCard(),
+                      ],
+                      const SizedBox(height: 32),
+                      const _Footer(),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -85,7 +104,7 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
   }
 
   // ---------------------------------------------------------------------------
-  // Glassmorphism card
+  // Login card (signed-out state)
   // ---------------------------------------------------------------------------
 
   Widget _buildLoginCard() {
@@ -295,11 +314,99 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
 }
 
 // ---------------------------------------------------------------------------
-// Brand header
+// Top action buttons row ("Driver account" | "GPS Ready")
+// ---------------------------------------------------------------------------
+
+class _TopActionButtons extends StatelessWidget {
+  const _TopActionButtons();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _TopButton(
+            icon: Icons.directions_bus_filled,
+            label: 'Driver account',
+            iconColor: const Color(0xFF1565C0),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _TopButton(
+            icon: Icons.gps_fixed,
+            label: 'GPS Ready',
+            iconColor: Colors.green,
+            trailing: const Icon(Icons.check_circle,
+                color: Colors.green, size: 16),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TopButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color iconColor;
+  final Widget? trailing;
+
+  const _TopButton({
+    required this.icon,
+    required this.label,
+    required this.iconColor,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(30),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: iconColor, size: 18),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1A237E),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: 4),
+            trailing!,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Brand header (shown in signed-out state)
 // ---------------------------------------------------------------------------
 
 class _BrandHeader extends StatelessWidget {
   const _BrandHeader();
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -308,7 +415,7 @@ class _BrandHeader extends StatelessWidget {
           label: 'KINGTRUX logo',
           child: Image.asset(
             'assets/logo_bg.png',
-            height: 180,
+            height: 120,
             fit: BoxFit.contain,
             semanticLabel: 'KINGTRUX logo',
           ),
@@ -326,7 +433,7 @@ class _BrandHeader extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Smart Truck Navigation',
+          'Professional Truck GPS',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,
@@ -335,6 +442,228 @@ class _BrandHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Signed-in info card
+// ---------------------------------------------------------------------------
+
+class _SignedInCard extends StatelessWidget {
+  final User user;
+  const _SignedInCard({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final email = user.email ?? '';
+    return Card(
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Top row: K shield + signed-in info ──────────────────────────
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const _KShield(),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Text(
+                            'Signed in',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1A237E),
+                            ),
+                          ),
+                          SizedBox(width: 6),
+                          Icon(Icons.verified,
+                              color: Colors.green, size: 18),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        email,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black54,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // ── Sub-card ────────────────────────────────────────────────────
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F4FF),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.message_outlined,
+                      color: Colors.blueGrey, size: 18),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Signed',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: Color(0xFF1A237E),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.check_circle,
+                      color: Colors.green, size: 15),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      email,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black54,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// "K" shield logo widget
+// ---------------------------------------------------------------------------
+
+class _KShield extends StatelessWidget {
+  const _KShield();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 56,
+      height: 64,
+      decoration: const BoxDecoration(
+        color: Color(0xFF1565C0),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(10),
+          topRight: Radius.circular(10),
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+      ),
+      alignment: Alignment.center,
+      child: const Text(
+        'K',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 30,
+          fontWeight: FontWeight.bold,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sign-out button (shown in signed-in state)
+// ---------------------------------------------------------------------------
+
+class _SignOutButton extends StatefulWidget {
+  final AuthService authService;
+  const _SignOutButton({required this.authService});
+
+  @override
+  State<_SignOutButton> createState() => _SignOutButtonState();
+}
+
+class _SignOutButtonState extends State<_SignOutButton> {
+  bool _loading = false;
+
+  Future<void> _signOut() async {
+    setState(() => _loading = true);
+    try {
+      await widget.authService.signOut();
+    } catch (e, stack) {
+      _logAuthError(e, stack);
+      if (mounted) _showError(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: FilledButton.icon(
+        onPressed: _loading ? null : _signOut,
+        icon: _loading
+            ? const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Icon(Icons.logout),
+        label: const Text(
+          'Sign out',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFF1565C0),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Footer
+// ---------------------------------------------------------------------------
+
+class _Footer extends StatelessWidget {
+  const _Footer();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text(
+        'KINGTRUX • Built for truckers',
+        style: TextStyle(
+          color: Colors.white70,
+          fontSize: 12,
+          letterSpacing: 1.2,
+        ),
+      ),
     );
   }
 }
