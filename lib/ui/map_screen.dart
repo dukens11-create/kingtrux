@@ -19,6 +19,8 @@ import 'widgets/voice_settings_sheet.dart';
 import 'widgets/theme_settings_sheet.dart';
 import 'widgets/road_sign_alert_settings_sheet.dart';
 import 'widgets/alert_banner.dart';
+import 'widgets/maneuver_banner.dart';
+import 'widgets/steps_list_sheet.dart';
 import 'widgets/trip_planner_sheet.dart';
 import 'widgets/speed_display.dart';
 import 'widgets/compass_indicator.dart';
@@ -54,11 +56,15 @@ class _MapScreenState extends State<MapScreen> {
     _syncMapStyle();
   }
 
-  /// Apply dark/light map style to match night mode state.
+  /// Apply dark/light map style to match the current theme brightness.
+  ///
+  /// Uses the active [ThemeData] brightness so the map follows both the
+  /// time-based / manual night-mode setting (from [AppState.isNightMode])
+  /// and the system dark-mode override wired in [KingTruxApp].
   Future<void> _syncMapStyle() async {
     final controller = _mapController;
     if (controller == null) return;
-    final isDark = context.read<AppState>().isNightMode;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (isDark && !_darkMapApplied) {
       await controller.setMapStyle(kDarkMapStyle);
       _darkMapApplied = true;
@@ -84,8 +90,10 @@ class _MapScreenState extends State<MapScreen> {
           onGetHelp: _onGetHelpPressed,
           onSetDestination: _onSetDestinationPressed,
           onGoPro: _onGoProPressed,
+          onSteps: _onStepsPressed,
           isPro: state.isPro,
           isSettingDestination: _settingDestination,
+          isNavigating: state.isNavigating,
         ),
       ),
       body: Consumer<AppState>(
@@ -161,6 +169,14 @@ class _MapScreenState extends State<MapScreen> {
                 left: 0,
                 right: 0,
                 child: const AlertBanner(),
+              ),
+
+              // ── Maneuver guidance banner (active navigation only) ────────
+              Positioned(
+                top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceMD,
+                left: AppTheme.spaceMD,
+                right: AppTheme.spaceMD,
+                child: const ManeuverBanner(),
               ),
 
               // ── Compass indicator (bottom-left, above route card) ────────
@@ -510,6 +526,15 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onStepsPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const StepsListSheet(),
+    );
+  }
+
   void _onPoiMarkerTap(Poi poi) {
     HapticFeedback.selectionClick();
     showModalBottomSheet<void>(
@@ -598,8 +623,10 @@ class _MapToolbar extends StatelessWidget {
     required this.onGetHelp,
     required this.onSetDestination,
     required this.onGoPro,
+    required this.onSteps,
     required this.isPro,
     required this.isSettingDestination,
+    required this.isNavigating,
   });
 
   final VoidCallback onRecenter;
@@ -610,8 +637,10 @@ class _MapToolbar extends StatelessWidget {
   final VoidCallback onGetHelp;
   final VoidCallback onSetDestination;
   final VoidCallback onGoPro;
+  final VoidCallback onSteps;
   final bool isPro;
   final bool isSettingDestination;
+  final bool isNavigating;
 
   @override
   Widget build(BuildContext context) {
@@ -645,6 +674,14 @@ class _MapToolbar extends StatelessWidget {
             label: 'Trip',
             onPressed: onTripPlanner,
           ),
+          if (isNavigating)
+            _ToolbarButton(
+              icon: Icons.list_alt_rounded,
+              label: 'Steps',
+              onPressed: onSteps,
+              iconColor: cs.primary,
+              labelColor: cs.primary,
+            ),
           _ToolbarButton(
             icon: Icons.flag_rounded,
             label: 'Destination',
