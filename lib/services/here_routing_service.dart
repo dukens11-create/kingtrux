@@ -66,7 +66,7 @@ class HereRoutingService {
         'origin': '$originLat,$originLng',
         'destination': '$destLat,$destLng',
         'transportMode': 'truck',
-        'return': avoidTolls ? 'polyline,summary,actions' : 'polyline,summary,actions,tolls',
+        'return': avoidTolls ? 'polyline,summary,actions,instructions' : 'polyline,summary,actions,instructions,tolls',
         if (avoidTolls) 'avoid[features]': 'tollRoad',
         ...buildHereTruckQueryParams(truckProfile),
       },

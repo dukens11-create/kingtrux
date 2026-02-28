@@ -35,7 +35,7 @@ void main() {
         lat: 0,
         lng: 0,
         roadName: 'Interstate 95 North',
-        roadNumber: 'I-95',
+        routeNumber: 'I-95',
       );
 
       await tester.pumpWidget(
@@ -65,7 +65,7 @@ void main() {
       expect(find.text('Main Street'), findsOneWidget);
     });
 
-    testWidgets('shows no road label when neither roadName nor roadNumber set',
+    testWidgets('shows no road label when neither roadName nor routeNumber set',
         (WidgetTester tester) async {
       const maneuver = NavigationManeuver(
         instruction: 'Head north',

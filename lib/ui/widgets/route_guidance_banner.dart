@@ -27,7 +27,7 @@ class RouteGuidanceBanner extends StatelessWidget {
 
     // Build road label: "I-95 / Main Street" or just whichever is available.
     final roadParts = <String>[
-      if (maneuver.roadNumber != null) maneuver.roadNumber!,
+      if (maneuver.routeNumber != null) maneuver.routeNumber!,
       if (maneuver.roadName != null) maneuver.roadName!,
     ];
     final roadLabel = roadParts.join(' / ');

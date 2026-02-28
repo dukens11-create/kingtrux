@@ -7,6 +7,7 @@ import 'services/auth_service.dart';
 import 'state/app_state.dart';
 import 'ui/kingtrux_login_page.dart';
 import 'ui/map_screen.dart';
+import 'ui/theme/app_theme.dart';
 
 class KingTruxApp extends StatelessWidget {
   final AuthService? authService;
@@ -27,9 +28,18 @@ class KingTruxApp extends StatelessWidget {
           create: (_) => AppState(),
         ),
       ],
-      child: const MaterialApp(
-        title: 'KINGTRUX',
-        home: _AuthGate(),
+      child: Consumer<AppState>(
+        builder: (context, appState, _) {
+          final seedColor = appState.effectiveSeedColor;
+          return MaterialApp(
+            title: 'KINGTRUX',
+            theme: AppTheme.lightFromSeed(seedColor),
+            darkTheme: AppTheme.darkFromSeed(seedColor),
+            themeMode:
+                appState.isNightMode ? ThemeMode.dark : ThemeMode.light,
+            home: const _AuthGate(),
+          );
+        },
       ),
     );
   }

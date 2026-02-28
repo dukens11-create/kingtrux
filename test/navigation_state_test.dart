@@ -35,126 +35,57 @@ void main() {
       expect(m.durationSeconds, 38);
       expect(m.lat, 43.1);
       expect(m.lng, -79.1);
-      expect(m.roadName, isNull);
-      expect(m.roadNumber, isNull);
     });
 
-    test('fromHereAction parses roadName and roadNumber from nextRoad', () {
+    test('fromHereAction parses nextRoad name and route number', () {
       final json = {
         'action': 'turn',
         'direction': 'right',
-        'instruction': 'Turn right',
-        'length': 1000.0,
+        'instruction': 'Take I-95 N',
+        'length': 1200.0,
         'duration': 60,
-        'offset': 0,
         'nextRoad': {
           'name': [
-            {'value': 'Interstate 95 North', 'language': 'en'},
+            {'value': 'Interstate 95', 'language': 'en'},
           ],
           'number': [
-            {'value': 'I-95'},
+            {'value': 'I-95 N'},
           ],
         },
       };
-
-      final m = NavigationManeuver.fromHereAction(json, [const LatLng(0, 0)]);
-
-      expect(m.roadName, 'Interstate 95 North');
-      expect(m.roadNumber, 'I-95');
+      final m = NavigationManeuver.fromHereAction(json, []);
+      expect(m.roadName, 'Interstate 95');
+      expect(m.routeNumber, 'I-95 N');
     });
 
-    test('fromHereAction falls back to currentRoad when nextRoad absent', () {
+    test('fromHereAction returns null roadName and routeNumber when nextRoad absent', () {
+      final json = {'action': 'turn', 'direction': 'left', 'instruction': 'Turn left'};
+      final m = NavigationManeuver.fromHereAction(json, []);
+      expect(m.roadName, isNull);
+      expect(m.routeNumber, isNull);
+    });
+
+    test('fromHereAction ignores empty nextRoad name/number arrays', () {
       final json = {
         'action': 'keep',
-        'instruction': 'Keep right',
-        'length': 500.0,
-        'duration': 30,
-        'offset': 0,
-        'currentRoad': {
-          'name': [
-            {'value': 'US Route 1', 'language': 'en'},
-          ],
-          'number': [
-            {'value': 'US-1'},
-          ],
-        },
+        'nextRoad': {'name': <dynamic>[], 'number': <dynamic>[]},
       };
-
-      final m = NavigationManeuver.fromHereAction(json, [const LatLng(0, 0)]);
-
-      expect(m.roadName, 'US Route 1');
-      expect(m.roadNumber, 'US-1');
+      final m = NavigationManeuver.fromHereAction(json, []);
+      expect(m.roadName, isNull);
+      expect(m.routeNumber, isNull);
     });
 
-    test('fromHereAction nextRoad takes precedence over currentRoad', () {
+    test('fromHereAction handles nextRoad with only road name', () {
       final json = {
         'action': 'turn',
         'direction': 'left',
-        'instruction': 'Turn left',
-        'length': 200.0,
-        'duration': 20,
-        'offset': 0,
-        'currentRoad': {
-          'name': [
-            {'value': 'Old Road', 'language': 'en'},
-          ],
-          'number': [
-            {'value': 'OLD-1'},
-          ],
-        },
         'nextRoad': {
-          'name': [
-            {'value': 'New Road', 'language': 'en'},
-          ],
-          'number': [
-            {'value': 'NEW-2'},
-          ],
+          'name': [{'value': 'Main Street', 'language': 'en'}],
         },
       };
-
-      final m = NavigationManeuver.fromHereAction(json, [const LatLng(0, 0)]);
-
-      expect(m.roadName, 'New Road');
-      expect(m.roadNumber, 'NEW-2');
-    });
-
-    test('fromHereAction handles road with name but no number', () {
-      final json = {
-        'action': 'turn',
-        'instruction': 'Turn right',
-        'length': 300.0,
-        'duration': 25,
-        'offset': 0,
-        'nextRoad': {
-          'name': [
-            {'value': 'Main Street', 'language': 'en'},
-          ],
-        },
-      };
-
-      final m = NavigationManeuver.fromHereAction(json, [const LatLng(0, 0)]);
-
+      final m = NavigationManeuver.fromHereAction(json, []);
       expect(m.roadName, 'Main Street');
-      expect(m.roadNumber, isNull);
-    });
-
-    test('fromHereAction handles empty road lists gracefully', () {
-      final json = {
-        'action': 'turn',
-        'instruction': 'Turn right',
-        'length': 300.0,
-        'duration': 25,
-        'offset': 0,
-        'nextRoad': {
-          'name': <dynamic>[],
-          'number': <dynamic>[],
-        },
-      };
-
-      final m = NavigationManeuver.fromHereAction(json, [const LatLng(0, 0)]);
-
-      expect(m.roadName, isNull);
-      expect(m.roadNumber, isNull);
+      expect(m.routeNumber, isNull);
     });
 
     test('fromHereAction clamps offset beyond polyline length', () {

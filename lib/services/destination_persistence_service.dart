@@ -1,38 +1,34 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Persists the last used destination (lat/lng) to device storage so that the
-/// app can auto-rebuild the route on the next launch.
+/// Persists the last-set route destination across app sessions.
+///
+/// SharedPreferences keys:
+/// - `dest_lat` – destination latitude as a double string.
+/// - `dest_lng` – destination longitude as a double string.
 class DestinationPersistenceService {
-  static const _latKey = 'dest_lat';
-  static const _lngKey = 'dest_lng';
+  static const _keyLat = 'dest_lat';
+  static const _keyLng = 'dest_lng';
 
-  /// Load the persisted destination.
-  ///
-  /// Returns a record `(lat, lng)` when a destination has previously been
-  /// saved, or `null` when no destination is stored or on error.
-  Future<({double lat, double lng})?> load() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final lat = prefs.getDouble(_latKey);
-      final lng = prefs.getDouble(_lngKey);
-      if (lat != null && lng != null) return (lat: lat, lng: lng);
-      return null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Persist [lat] / [lng] as the current destination.
+  /// Persist [lat] / [lng] to device storage.
   Future<void> save(double lat, double lng) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(_latKey, lat);
-    await prefs.setDouble(_lngKey, lng);
+    await prefs.setDouble(_keyLat, lat);
+    await prefs.setDouble(_keyLng, lng);
   }
 
-  /// Remove any previously stored destination.
+  /// Load the last-saved destination, or `null` if none is persisted.
+  Future<({double lat, double lng})?> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lat = prefs.getDouble(_keyLat);
+    final lng = prefs.getDouble(_keyLng);
+    if (lat == null || lng == null) return null;
+    return (lat: lat, lng: lng);
+  }
+
+  /// Remove any persisted destination (e.g. after the user clears the route).
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_latKey);
-    await prefs.remove(_lngKey);
+    await prefs.remove(_keyLat);
+    await prefs.remove(_keyLng);
   }
 }
