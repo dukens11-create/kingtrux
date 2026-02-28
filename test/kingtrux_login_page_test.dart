@@ -224,6 +224,49 @@ void main() {
 
       expect(auth.lastCreateEmail, 'new@example.com');
     });
+
+    testWidgets('password field is obscured by default',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(_buildPage(_MockAuthService()));
+
+      expect(_findPasswordField(tester).obscureText, isTrue);
+    });
+
+    testWidgets('tapping eye icon toggles password visibility',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(_buildPage(_MockAuthService()));
+
+      // Initially obscured – eye-off icon is shown.
+      expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.visibility_outlined), findsNothing);
+
+      // Tap the visibility toggle.
+      await tester.tap(find.byIcon(Icons.visibility_off_outlined));
+      await tester.pump();
+
+      // Now the password is visible – eye icon is shown.
+      expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.visibility_off_outlined), findsNothing);
+
+      // The password field should no longer be obscured.
+      expect(_findPasswordField(tester).obscureText, isFalse);
+    });
+
+    testWidgets('tapping eye icon again re-hides password',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(_buildPage(_MockAuthService()));
+
+      // Show the password.
+      await tester.tap(find.byIcon(Icons.visibility_off_outlined));
+      await tester.pump();
+
+      // Hide it again.
+      await tester.tap(find.byIcon(Icons.visibility_outlined));
+      await tester.pump();
+
+      expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+      expect(_findPasswordField(tester).obscureText, isTrue);
+    });
   });
 }
 
@@ -232,3 +275,18 @@ void main() {
 // ---------------------------------------------------------------------------
 
 class _FakeCredential extends Fake implements UserCredential {}
+
+// ---------------------------------------------------------------------------
+// Helper: finds the EditableText inside the Password TextFormField.
+// ---------------------------------------------------------------------------
+
+EditableText _findPasswordField(WidgetTester tester) {
+  return tester.widget<EditableText>(
+    find
+        .descendant(
+          of: find.widgetWithText(TextFormField, 'Password'),
+          matching: find.byType(EditableText),
+        )
+        .first,
+  );
+}
