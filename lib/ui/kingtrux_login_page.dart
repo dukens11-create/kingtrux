@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -6,12 +8,21 @@ import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
 
-/// Full-screen login / account page matching the KINGTRUX image5 design.
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const _kPrimaryBlue = Color(0xFF1565C0);
+const _kDarkNavy = Color(0xFF0D1B3E);
+const _kMidNavy = Color(0xFF1A237E);
+const _kFallbackEmail = 'kingtrux00@gmail.com';
+
+/// Full-screen login / account page for KINGTRUX.
 ///
-/// Displays a top action-button row, a central card that switches between a
-/// signed-in info view and the email/password login form depending on the
-/// current Firebase auth state, a sign-out (or sign-in) call-to-action, and
-/// a branded footer. All auth logic is delegated to [AuthService].
+/// **Signed-out state**: email/password login form with brand header.
+/// **Signed-in state**: profile card with K avatar, "Signed in" status, email,
+/// "Driver account" and "GPS Ready" badges, a large Sign-out button, and a
+/// branded footer. Background uses a custom stylised map painter.
 class KingtruxLoginPage extends StatefulWidget {
   const KingtruxLoginPage({super.key});
 
@@ -56,17 +67,10 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ── Full-screen background image ───────────────────────────────────
-          Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage('assets/logo_bg.png'),
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          // ── Dark overlay for readability ───────────────────────────────────
-          Container(color: Colors.black.withAlpha(115)),
+          // ── Stylised map background ────────────────────────────────────────
+          CustomPaint(painter: _MapBackgroundPainter()),
+          // ── Semi-transparent overlay for card readability ──────────────────
+          Container(color: _kDarkNavy.withAlpha(160)),
           // ── Scrollable content ─────────────────────────────────────────────
           SafeArea(
             child: StreamBuilder<User?>(
@@ -79,19 +83,16 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const _TopActionButtons(),
-                      const SizedBox(height: 24),
                       if (user != null) ...[
-                        _SignedInCard(user: user),
-                        const SizedBox(height: 16),
-                        _SignOutButton(authService: authService),
+                        _SignedInView(
+                            user: user, authService: authService),
                       ] else ...[
                         const _BrandHeader(),
                         const SizedBox(height: 24),
                         _buildLoginCard(),
+                        const SizedBox(height: 32),
+                        const _Footer(),
                       ],
-                      const SizedBox(height: 32),
-                      const _Footer(),
                     ],
                   ),
                 );
@@ -204,7 +205,7 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
               FilledButton(
                 onPressed: _loading ? null : _submit,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1565C0),
+                  backgroundColor: _kPrimaryBlue,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -241,8 +242,8 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
                         }),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: const BorderSide(color: Color(0xFF1565C0), width: 1.5),
-                  foregroundColor: const Color(0xFF1565C0),
+                  side: const BorderSide(color: _kPrimaryBlue, width: 1.5),
+                  foregroundColor: _kPrimaryBlue,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -314,85 +315,240 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
 }
 
 // ---------------------------------------------------------------------------
-// Top action buttons row ("Driver account" | "GPS Ready")
+// Signed-in full view (avatar card + badges + sign-out button + footer)
 // ---------------------------------------------------------------------------
 
-class _TopActionButtons extends StatelessWidget {
-  const _TopActionButtons();
+class _SignedInView extends StatelessWidget {
+  final User user;
+  final AuthService authService;
+
+  const _SignedInView({required this.user, required this.authService});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final email =
+        (user.email?.isNotEmpty == true) ? user.email! : _kFallbackEmail;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: _TopButton(
-            icon: Icons.directions_bus_filled,
-            label: 'Driver account',
-            iconColor: const Color(0xFF1565C0),
+        const SizedBox(height: 16),
+        // ── Profile card ─────────────────────────────────────────────────────
+        _ProfileCard(email: email),
+        const SizedBox(height: 20),
+        // ── Large Sign out button ─────────────────────────────────────────────
+        _SignOutButton(authService: authService),
+        const SizedBox(height: 40),
+        // ── Footer ───────────────────────────────────────────────────────────
+        const _Footer(),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Profile card – avatar, "Signed in" status, email, badges
+// ---------------------------------------------------------------------------
+
+class _ProfileCard extends StatelessWidget {
+  final String email;
+
+  const _ProfileCard({required this.email});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.topCenter,
+      children: [
+        // ── White card body ─────────────────────────────────────────────────
+        Container(
+          margin: const EdgeInsets.only(top: 44),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(60),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 56, 24, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // "Signed in ✓"
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Signed in',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: _kMidNavy,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.verified_rounded,
+                      color: Colors.green, size: 22),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // Email row with envelope icon
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.email_outlined,
+                      color: Colors.blueGrey, size: 15),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      email,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              // ── Badges row ─────────────────────────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const _Badge(
+                    icon: Icons.local_shipping_rounded,
+                    label: 'Driver account',
+                    foreground: Colors.white,
+                    background: _kPrimaryBlue,
+                  ),
+                  const SizedBox(width: 12),
+                  const _Badge(
+                    icon: Icons.gps_fixed,
+                    label: 'GPS Ready',
+                    foreground: Colors.white,
+                    background: Color(0xFF2E7D32),
+                    trailingIcon: Icons.check_circle_rounded,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _TopButton(
-            icon: Icons.gps_fixed,
-            label: 'GPS Ready',
-            iconColor: Colors.green,
-            trailing: const Icon(Icons.check_circle,
-                color: Colors.green, size: 16),
-          ),
+        // ── Circular K avatar (overlaps card top) ───────────────────────────
+        const Positioned(
+          top: 0,
+          child: _KAvatar(),
         ),
       ],
     );
   }
 }
 
-class _TopButton extends StatelessWidget {
+// ---------------------------------------------------------------------------
+// Circular K avatar
+// ---------------------------------------------------------------------------
+
+class _KAvatar extends StatelessWidget {
+  const _KAvatar();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'KINGTRUX logo',
+      child: Container(
+        width: 88,
+        height: 88,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1E88E5), Color(0xFF0D47A1)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: _kPrimaryBlue.withAlpha(120),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+          border: Border.all(color: Colors.white, width: 3),
+        ),
+        alignment: Alignment.center,
+        child: const Text(
+          'K',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 42,
+            fontWeight: FontWeight.w900,
+            height: 1,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Badge pill widget
+// ---------------------------------------------------------------------------
+
+class _Badge extends StatelessWidget {
   final IconData icon;
   final String label;
-  final Color iconColor;
-  final Widget? trailing;
+  final Color foreground;
+  final Color background;
+  final IconData? trailingIcon;
 
-  const _TopButton({
+  const _Badge({
     required this.icon,
     required this.label,
-    required this.iconColor,
-    this.trailing,
+    required this.foreground,
+    required this.background,
+    this.trailingIcon,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: background,
+        borderRadius: BorderRadius.circular(50),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(30),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            color: background.withAlpha(90),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: iconColor, size: 18),
+          Icon(icon, color: foreground, size: 15),
           const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1A237E),
-              ),
-              overflow: TextOverflow.ellipsis,
+          Text(
+            label,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          if (trailing != null) ...[
-            const SizedBox(width: 4),
-            trailing!,
+          if (trailingIcon != null) ...[
+            const SizedBox(width: 5),
+            Icon(trailingIcon, color: foreground, size: 14),
           ],
         ],
       ),
@@ -411,16 +567,9 @@ class _BrandHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Semantics(
-          label: 'KINGTRUX logo',
-          child: Image.asset(
-            'assets/logo_bg.png',
-            height: 120,
-            fit: BoxFit.contain,
-            semanticLabel: 'KINGTRUX logo',
-          ),
-        ),
-        const SizedBox(height: 12),
+        // Logo avatar (reuse _KAvatar)
+        const Center(child: _KAvatar()),
+        const SizedBox(height: 16),
         const Text(
           'KINGTRUX',
           textAlign: TextAlign.center,
@@ -442,147 +591,6 @@ class _BrandHeader extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Signed-in info card
-// ---------------------------------------------------------------------------
-
-class _SignedInCard extends StatelessWidget {
-  final User user;
-  const _SignedInCard({required this.user});
-
-  @override
-  Widget build(BuildContext context) {
-    final email = user.email ?? '';
-    return Card(
-      elevation: 8,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Top row: K shield + signed-in info ──────────────────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const _KShield(),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Text(
-                            'Signed in',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1A237E),
-                            ),
-                          ),
-                          SizedBox(width: 6),
-                          Icon(Icons.verified,
-                              color: Colors.green, size: 18),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        email,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.black54,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // ── Sub-card ────────────────────────────────────────────────────
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F4FF),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Row(
-                children: [
-                  const Icon(Icons.message_outlined,
-                      color: Colors.blueGrey, size: 18),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Signed',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      color: Color(0xFF1A237E),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.check_circle,
-                      color: Colors.green, size: 15),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      email,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.black54,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// "K" shield logo widget
-// ---------------------------------------------------------------------------
-
-class _KShield extends StatelessWidget {
-  const _KShield();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 56,
-      height: 64,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1565C0),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(10),
-          topRight: Radius.circular(10),
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
-      ),
-      alignment: Alignment.center,
-      child: const Text(
-        'K',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 30,
-          fontWeight: FontWeight.bold,
-          height: 1,
-        ),
-      ),
     );
   }
 }
@@ -617,29 +625,30 @@ class _SignOutButtonState extends State<_SignOutButton> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 56,
+      height: 60,
       child: FilledButton.icon(
         onPressed: _loading ? null : _signOut,
         icon: _loading
             ? const SizedBox(
-                height: 18,
-                width: 18,
+                height: 20,
+                width: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   color: Colors.white,
                 ),
               )
-            : const Icon(Icons.logout),
+            : const Icon(Icons.logout_rounded, size: 22),
         label: const Text(
           'Sign out',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
         style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF1565C0),
+          backgroundColor: _kPrimaryBlue,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
           ),
+          elevation: 4,
         ),
       ),
     );
@@ -659,13 +668,89 @@ class _Footer extends StatelessWidget {
       child: Text(
         'KINGTRUX • Built for truckers',
         style: TextStyle(
-          color: Colors.white70,
+          color: Colors.white60,
           fontSize: 12,
-          letterSpacing: 1.2,
+          letterSpacing: 1.4,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Stylised map background painter
+// ---------------------------------------------------------------------------
+
+class _MapBackgroundPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Deep navy base
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..color = const Color(0xFF0A1628),
+    );
+
+    final roadPaint = Paint()
+      ..color = const Color(0xFF1C2E52)
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final majorRoadPaint = Paint()
+      ..color = const Color(0xFF1E3A66)
+      ..strokeWidth = 5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final w = size.width;
+    final h = size.height;
+
+    // Horizontal roads
+    for (var i = 0; i < 6; i++) {
+      final y = h * (0.1 + i * 0.15);
+      final path = Path()
+        ..moveTo(0, y)
+        ..cubicTo(w * 0.25, y - 20, w * 0.5, y + 15, w, y + 5);
+      canvas.drawPath(path, i.isEven ? majorRoadPaint : roadPaint);
+    }
+
+    // Vertical roads
+    for (var i = 0; i < 5; i++) {
+      final x = w * (0.15 + i * 0.18);
+      final path = Path()
+        ..moveTo(x, 0)
+        ..cubicTo(x + 10, h * 0.3, x - 15, h * 0.6, x + 5, h);
+      canvas.drawPath(path, i.isEven ? majorRoadPaint : roadPaint);
+    }
+
+    // Diagonal connector roads
+    final diagPaint = Paint()
+      ..color = const Color(0xFF162340)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawLine(Offset(0, h * 0.2), Offset(w * 0.6, h * 0.8), diagPaint);
+    canvas.drawLine(Offset(w * 0.3, 0), Offset(w, h * 0.7), diagPaint);
+    canvas.drawLine(Offset(0, h * 0.6), Offset(w * 0.4, h), diagPaint);
+
+    // Subtle intersection dots
+    final dotPaint = Paint()
+      ..color = const Color(0xFF243B6E)
+      ..style = PaintingStyle.fill;
+
+    final rng = math.Random(42);
+    for (var i = 0; i < 12; i++) {
+      canvas.drawCircle(
+        Offset(rng.nextDouble() * w, rng.nextDouble() * h),
+        3,
+        dotPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ---------------------------------------------------------------------------
@@ -709,7 +794,7 @@ class _KtxField extends StatelessWidget {
         textInputAction: textInputAction,
         onFieldSubmitted: onFieldSubmitted,
         validator: validator,
-        style: const TextStyle(color: Color(0xFF1A237E)),
+        style: const TextStyle(color: _kMidNavy),
         decoration: InputDecoration(
           labelText: label,
           hintText: hintText,
@@ -723,8 +808,7 @@ class _KtxField extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide:
-                const BorderSide(color: Color(0xFF1565C0), width: 1.5),
+            borderSide: const BorderSide(color: _kPrimaryBlue, width: 1.5),
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
