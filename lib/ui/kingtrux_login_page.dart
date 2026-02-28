@@ -1,8 +1,7 @@
-import 'dart:ui';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
@@ -31,6 +30,17 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
   bool _obscureConfirmPassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+    );
+  }
+
+  @override
   void dispose() {
     _emailCtrl.dispose();
     _pwCtrl.dispose();
@@ -44,22 +54,9 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ── Custom painted map-lines background ────────────────────────────
+          // ── Custom painted blue background ────────────────────────────────
           const SizedBox.expand(
             child: CustomPaint(painter: _MapBackgroundPainter()),
-          ),
-          // ── Vignette overlay ───────────────────────────────────────────────
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.center,
-                radius: 1.2,
-                colors: [
-                  Colors.transparent,
-                  Colors.black.withValues(alpha: 0.65),
-                ],
-              ),
-            ),
           ),
           // ── Scrollable content ─────────────────────────────────────────────
           SafeArea(
@@ -87,156 +84,157 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
   // ---------------------------------------------------------------------------
 
   Widget _buildLoginCard() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.22),
-              width: 1,
-            ),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Email
-                _KtxField(
-                  controller: _emailCtrl,
-                  label: 'Email',
-                  prefixIcon: Icons.email_outlined,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Enter your email';
-                    if (!v.contains('@')) return 'Enter a valid email';
-                    return null;
-                  },
+    return Card(
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Email
+              _KtxField(
+                controller: _emailCtrl,
+                label: 'Email',
+                hintText: 'Enter your email',
+                prefixIcon: Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Enter your email';
+                  if (!v.contains('@')) return 'Enter a valid email';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              // Password
+              _KtxField(
+                controller: _pwCtrl,
+                label: 'Password',
+                hintText: 'Enter your password',
+                prefixIcon: Icons.lock_outline,
+                obscureText: _obscurePassword,
+                suffixIcon: _VisibilityToggle(
+                  obscure: _obscurePassword,
+                  onToggle: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
                 ),
+                textInputAction: _isSignUp
+                    ? TextInputAction.next
+                    : TextInputAction.done,
+                onFieldSubmitted: _isSignUp ? null : (_) => _submit(),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Enter your password';
+                  if (_isSignUp && v.length < 6) {
+                    return 'Password must be at least 6 characters';
+                  }
+                  return null;
+                },
+              ),
+              // Confirm password (sign-up only)
+              if (_isSignUp) ...[
                 const SizedBox(height: 16),
-                // Password
                 _KtxField(
-                  controller: _pwCtrl,
-                  label: 'Password',
+                  controller: _confirmPwCtrl,
+                  label: 'Confirm Password',
+                  hintText: 'Re-enter your password',
                   prefixIcon: Icons.lock_outline,
-                  obscureText: _obscurePassword,
+                  obscureText: _obscureConfirmPassword,
                   suffixIcon: _VisibilityToggle(
-                    obscure: _obscurePassword,
-                    onToggle: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
+                    obscure: _obscureConfirmPassword,
+                    onToggle: () => setState(() =>
+                        _obscureConfirmPassword = !_obscureConfirmPassword),
                   ),
-                  textInputAction: _isSignUp
-                      ? TextInputAction.next
-                      : TextInputAction.done,
-                  onFieldSubmitted: _isSignUp ? null : (_) => _submit(),
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _submit(),
                   validator: (v) {
-                    if (v == null || v.isEmpty) return 'Enter your password';
-                    if (_isSignUp && v.length < 6) {
-                      return 'Password must be at least 6 characters';
+                    if (v == null || v.isEmpty) {
+                      return 'Confirm your password';
                     }
+                    if (v != _pwCtrl.text) return 'Passwords do not match';
                     return null;
                   },
                 ),
-                // Confirm password (sign-up only)
-                if (_isSignUp) ...[
-                  const SizedBox(height: 16),
-                  _KtxField(
-                    controller: _confirmPwCtrl,
-                    label: 'Confirm Password',
-                    prefixIcon: Icons.lock_outline,
-                    obscureText: _obscureConfirmPassword,
-                    suffixIcon: _VisibilityToggle(
-                      obscure: _obscureConfirmPassword,
-                      onToggle: () => setState(() =>
-                          _obscureConfirmPassword = !_obscureConfirmPassword),
-                    ),
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _submit(),
-                    validator: (v) {
-                      if (v == null || v.isEmpty) {
-                        return 'Confirm your password';
-                      }
-                      if (v != _pwCtrl.text) return 'Passwords do not match';
-                      return null;
-                    },
-                  ),
-                ],
-                // Forgot password (sign-in only)
-                if (!_isSignUp) ...[
-                  const SizedBox(height: 4),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Semantics(
-                      label: 'Forgot password',
-                      child: TextButton(
-                        onPressed: _loading ? null : _resetPassword,
-                        child: const Text(
-                          'Forgot password?',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                // Primary action button
-                FilledButton(
-                  onPressed: _loading ? null : _submit,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: _loading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Semantics(
-                          button: true,
-                          label: _isSignUp ? 'Create Account' : 'Sign in',
-                          child: Text(
-                            _isSignUp ? 'Create Account' : 'Sign in',
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                ),
-                const SizedBox(height: 12),
-                // Toggle sign-in / create-account
-                OutlinedButton(
-                  onPressed: _loading
-                      ? null
-                      : () => setState(() {
-                            _isSignUp = !_isSignUp;
-                            _formKey.currentState?.reset();
-                          }),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: Colors.white54),
-                    foregroundColor: Colors.white,
-                  ),
+              ],
+              // Forgot password (sign-in only)
+              if (!_isSignUp) ...[
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerRight,
                   child: Semantics(
-                    button: true,
-                    label: _isSignUp
-                        ? 'Sign in to existing account'
-                        : 'Create account',
-                    child: Text(
-                      _isSignUp ? 'Sign in' : 'Create account',
-                      style: const TextStyle(fontSize: 15),
+                    label: 'Forgot password',
+                    child: TextButton(
+                      onPressed: _loading ? null : _resetPassword,
+                      child: const Text('Forgot password?'),
                     ),
                   ),
                 ),
               ],
-            ),
+              const SizedBox(height: 16),
+              // Primary action button – filled blue
+              FilledButton(
+                onPressed: _loading ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF1565C0),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: _loading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Semantics(
+                        button: true,
+                        label: _isSignUp ? 'Create Account' : 'Sign in',
+                        child: Text(
+                          _isSignUp ? 'Create Account' : 'Sign in',
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 12),
+              // Toggle sign-in / create-account – outlined blue
+              OutlinedButton(
+                onPressed: _loading
+                    ? null
+                    : () => setState(() {
+                          _isSignUp = !_isSignUp;
+                          _formKey.currentState?.reset();
+                        }),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: const BorderSide(color: Color(0xFF1565C0), width: 1.5),
+                  foregroundColor: const Color(0xFF1565C0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Semantics(
+                  button: true,
+                  label: _isSignUp
+                      ? 'Sign in to existing account'
+                      : 'Create account',
+                  child: Text(
+                    _isSignUp ? 'Sign in' : 'Create account',
+                    style: const TextStyle(fontSize: 15),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -333,12 +331,12 @@ class _BrandHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          'Professional Truck GPS',
+        const Text(
+          'Smart Truck Navigation',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,
-            color: Colors.white.withValues(alpha: 0.75),
+            color: Colors.white70,
             letterSpacing: 1,
           ),
         ),
@@ -354,6 +352,7 @@ class _BrandHeader extends StatelessWidget {
 class _KtxField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
+  final String? hintText;
   final IconData prefixIcon;
   final TextInputType? keyboardType;
   final bool obscureText;
@@ -365,6 +364,7 @@ class _KtxField extends StatelessWidget {
   const _KtxField({
     required this.controller,
     required this.label,
+    this.hintText,
     required this.prefixIcon,
     this.keyboardType,
     this.obscureText = false,
@@ -386,31 +386,34 @@ class _KtxField extends StatelessWidget {
         textInputAction: textInputAction,
         onFieldSubmitted: onFieldSubmitted,
         validator: validator,
-        style: const TextStyle(color: Colors.white),
+        style: const TextStyle(color: Color(0xFF1A237E)),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: const TextStyle(color: Colors.white70),
-          prefixIcon: Icon(prefixIcon, color: Colors.white70),
+          hintText: hintText,
+          labelStyle: const TextStyle(color: Colors.black54),
+          hintStyle: const TextStyle(color: Colors.black38),
+          prefixIcon: Icon(prefixIcon, color: Colors.blueGrey),
           suffixIcon: suffixIcon,
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.white38),
+            borderSide: const BorderSide(color: Colors.black26),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.white, width: 1.5),
+            borderSide:
+                const BorderSide(color: Color(0xFF1565C0), width: 1.5),
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.red.shade300),
+            borderSide: BorderSide(color: Colors.red.shade400),
           ),
           focusedErrorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.red.shade300, width: 1.5),
+            borderSide: BorderSide(color: Colors.red.shade400, width: 1.5),
           ),
-          errorStyle: TextStyle(color: Colors.orange.shade200),
+          errorStyle: TextStyle(color: Colors.red.shade600),
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.08),
+          fillColor: const Color(0xFFF5F7FF),
         ),
       ),
     );
@@ -432,7 +435,7 @@ class _VisibilityToggle extends StatelessWidget {
     return IconButton(
       icon: Icon(
         obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-        color: Colors.white70,
+        color: Colors.blueGrey,
       ),
       tooltip: obscure ? 'Show password' : 'Hide password',
       onPressed: onToggle,
@@ -448,32 +451,35 @@ class _MapBackgroundPainter extends CustomPainter {
   const _MapBackgroundPainter();
   @override
   void paint(Canvas canvas, Size size) {
-    // Base fill
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()..color = const Color(0xFF111d35),
+    // Blue gradient base fill
+    final rect = Offset.zero & size;
+    final gradient = const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
     );
+    canvas.drawRect(rect, Paint()..shader = gradient.createShader(rect));
 
-    // Grid lines
+    // Subtle grid lines
     final gridPaint = Paint()
-      ..color = const Color(0xFF1e2f50)
+      ..color = const Color(0xFF1565C0).withValues(alpha: 0.6)
       ..strokeWidth = 1;
-    for (double y = 0; y < size.height; y += 36) {
+    for (double y = 0; y < size.height; y += 40) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
-    for (double x = 0; x < size.width; x += 36) {
+    for (double x = 0; x < size.width; x += 40) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
     }
 
     // Route curves
     final routePaint = Paint()
-      ..color = const Color(0xFF3a5fa0).withValues(alpha: 0.5)
-      ..strokeWidth = 2
+      ..color = const Color(0xFF42A5F5).withValues(alpha: 0.35)
+      ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke;
 
     final highlight = Paint()
-      ..color = const Color(0xFF4a8aff).withValues(alpha: 0.45)
-      ..strokeWidth = 3
+      ..color = const Color(0xFF90CAF9).withValues(alpha: 0.4)
+      ..strokeWidth = 3.5
       ..style = PaintingStyle.stroke;
 
     canvas.drawPath(
