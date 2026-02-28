@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'services/admin_service.dart';
 import 'services/auth_service.dart';
 import 'state/app_state.dart';
 import 'ui/auth_screen.dart';
@@ -9,10 +10,15 @@ import 'ui/theme/app_theme.dart';
 
 /// Main KINGTRUX application
 class KingTruxApp extends StatelessWidget {
-  const KingTruxApp({super.key, AuthService? authService})
-      : _authService = authService;
+  const KingTruxApp({
+    super.key,
+    AuthService? authService,
+    AdminService? adminService,
+  })  : _authService = authService,
+        _adminService = adminService;
 
   final AuthService? _authService;
+  final AdminService? _adminService;
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +26,7 @@ class KingTruxApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AppState()),
         Provider<AuthService>(create: (_) => _authService ?? AuthService()),
+        Provider<AdminService>(create: (_) => _adminService ?? AdminService()),
       ],
       child: Consumer<AppState>(
         builder: (context, state, _) => MaterialApp(
