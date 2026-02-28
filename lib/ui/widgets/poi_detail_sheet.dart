@@ -6,7 +6,8 @@ import '../../models/scale_report.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
 
-/// Bottom sheet displaying details for a single [Poi] with a favorite toggle.
+/// Bottom sheet displaying details for a single [Poi] with a favorite toggle
+/// and a one-tap **Navigate** button.
 class PoiDetailSheet extends StatelessWidget {
   const PoiDetailSheet({super.key, required this.poi});
 
@@ -85,6 +86,28 @@ class PoiDetailSheet extends StatelessWidget {
                   const SizedBox(height: AppTheme.spaceSM),
                   _ScaleStatusSection(poi: poi),
                 ],
+
+                const SizedBox(height: AppTheme.spaceMD),
+
+                // One-tap Navigate button
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.navigation_rounded, size: 18),
+                    label: const Text('Navigate'),
+                    onPressed: () async {
+                      HapticFeedback.mediumImpact();
+                      Navigator.of(context).pop();
+                      state.setDestination(poi.lat, poi.lng);
+                      try {
+                        await state.buildTruckRoute();
+                      } catch (_) {
+                        // Route errors are surfaced via state.routeError;
+                        // the MapScreen already listens and shows a snackbar.
+                      }
+                    },
+                  ),
+                ),
               ],
             ),
           ),

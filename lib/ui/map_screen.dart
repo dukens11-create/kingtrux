@@ -25,6 +25,7 @@ import 'widgets/compass_indicator.dart';
 import 'account_screen.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
+import 'settings_screen.dart';
 
 /// Main map screen with Google Maps integration
 class MapScreen extends StatefulWidget {
@@ -249,6 +250,11 @@ class _MapScreenState extends State<MapScreen> {
             icon: const Icon(Icons.record_voice_over_rounded),
             tooltip: 'Voice Settings',
             onPressed: _onVoiceSettingsPressed,
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: _onSettingsPressed,
           ),
         ],
       );
@@ -481,6 +487,14 @@ class _MapScreenState extends State<MapScreen> {
     showModalBottomSheet(
       context: context,
       builder: (context) => const VoiceSettingsSheet(),
+    );
+  }
+
+  void _onSettingsPressed() {
+    HapticFeedback.selectionClick();
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
     );
   }
 
