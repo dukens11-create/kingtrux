@@ -1261,6 +1261,16 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  /// Recalculate the active route (single destination or multi-stop trip)
+  /// when a route option changes.  No-op when no route destination is set.
+  Future<void> _recalculateActiveRoute() async {
+    if (activeTrip != null && (activeTrip!.stops.length) >= 2) {
+      await buildTripRoute();
+    } else if (destLat != null && destLng != null) {
+      await buildTruckRoute();
+    }
+  }
+
   /// Update the global toll avoidance preference and persist it.
   ///
   /// If a destination is already set, the route is automatically recalculated
@@ -1271,12 +1281,7 @@ class AppState extends ChangeNotifier {
     _tollPreferenceService.save(preference).catchError(
       (Object e) => debugPrint('Error saving toll preference: $e'),
     );
-    // Recalculate active route so the new preference takes effect immediately.
-    if (activeTrip != null && (activeTrip!.stops.length) >= 2) {
-      await buildTripRoute();
-    } else if (destLat != null && destLng != null) {
-      await buildTruckRoute();
-    }
+    await _recalculateActiveRoute();
   }
 
   /// Update the avoid-ferries route option and persist it.
@@ -1288,9 +1293,7 @@ class AppState extends ChangeNotifier {
     _routeOptionsService.saveAvoidFerries(value).catchError(
       (Object e) => debugPrint('Error saving avoidFerries: $e'),
     );
-    if (destLat != null && destLng != null) {
-      await buildTruckRoute();
-    }
+    await _recalculateActiveRoute();
   }
 
   /// Update the avoid-unpaved-roads route option and persist it.
@@ -1302,9 +1305,7 @@ class AppState extends ChangeNotifier {
     _routeOptionsService.saveAvoidUnpaved(value).catchError(
       (Object e) => debugPrint('Error saving avoidUnpaved: $e'),
     );
-    if (destLat != null && destLng != null) {
-      await buildTruckRoute();
-    }
+    await _recalculateActiveRoute();
   }
 
   /// Recalculate the route from the current position and restart navigation.

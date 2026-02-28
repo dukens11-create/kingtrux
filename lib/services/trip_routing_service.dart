@@ -39,7 +39,7 @@ class TripRoutingService {
     int totalDuration = 0;
     final List<NavigationManeuver> allManeuvers = [];
     double? totalTollCost;
-    final List<String> allWarnings = [];
+    final Set<String> warningSet = {};
 
     for (int i = 0; i < stops.length - 1; i++) {
       final from = stops[i];
@@ -73,10 +73,8 @@ class TripRoutingService {
         totalTollCost = (totalTollCost ?? 0) + leg.estimatedTollCostUsd!;
       }
 
-      // Collect route warnings from all legs (de-duplicate).
-      for (final w in leg.warnings) {
-        if (!allWarnings.contains(w)) allWarnings.add(w);
-      }
+      // Collect route warnings from all legs (de-duplicate via Set).
+      warningSet.addAll(leg.warnings);
     }
 
     return RouteResult(
@@ -86,7 +84,7 @@ class TripRoutingService {
       maneuvers: allManeuvers,
       avoidedTolls: avoidTolls,
       estimatedTollCostUsd: totalTollCost,
-      warnings: allWarnings,
+      warnings: warningSet.toList(),
     );
   }
 }
