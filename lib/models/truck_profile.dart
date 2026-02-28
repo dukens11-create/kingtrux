@@ -114,6 +114,18 @@ class TruckProfile {
     return errors;
   }
 
+  /// Returns `true` when this profile still matches [TruckProfile.defaultProfile],
+  /// indicating the driver has not yet entered their real vehicle dimensions.
+  bool get isDefaultProfile {
+    final d = TruckProfile.defaultProfile();
+    return heightMeters == d.heightMeters &&
+        widthMeters == d.widthMeters &&
+        lengthMeters == d.lengthMeters &&
+        weightTons == d.weightTons &&
+        axles == d.axles &&
+        hazmat == d.hazmat;
+  }
+
   /// Returns a human-readable summary of the profile.
   String summary({TruckUnit unit = TruckUnit.metric}) {
     if (unit == TruckUnit.imperial) {

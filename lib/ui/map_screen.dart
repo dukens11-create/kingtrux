@@ -9,6 +9,7 @@ import '../models/poi.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
 import 'theme/dark_map_style.dart';
+import 'widgets/route_options_sheet.dart';
 import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/poi_browser_sheet.dart';
@@ -84,6 +85,7 @@ class _MapScreenState extends State<MapScreen> {
           onGetHelp: _onGetHelpPressed,
           onSetDestination: _onSetDestinationPressed,
           onGoPro: _onGoProPressed,
+          onRouteOptions: _onRouteOptionsPressed,
           isPro: state.isPro,
           isSettingDestination: _settingDestination,
         ),
@@ -449,6 +451,15 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onRouteOptionsPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const RouteOptionsSheet(),
+    );
+  }
+
   void _onTripPlannerPressed() {
     HapticFeedback.selectionClick();
     showModalBottomSheet<void>(
@@ -598,6 +609,7 @@ class _MapToolbar extends StatelessWidget {
     required this.onGetHelp,
     required this.onSetDestination,
     required this.onGoPro,
+    required this.onRouteOptions,
     required this.isPro,
     required this.isSettingDestination,
   });
@@ -610,6 +622,7 @@ class _MapToolbar extends StatelessWidget {
   final VoidCallback onGetHelp;
   final VoidCallback onSetDestination;
   final VoidCallback onGoPro;
+  final VoidCallback onRouteOptions;
   final bool isPro;
   final bool isSettingDestination;
 
@@ -639,6 +652,11 @@ class _MapToolbar extends StatelessWidget {
             icon: Icons.local_shipping_rounded,
             label: 'Truck',
             onPressed: onTruckProfile,
+          ),
+          _ToolbarButton(
+            icon: Icons.tune_rounded,
+            label: 'Options',
+            onPressed: onRouteOptions,
           ),
           _ToolbarButton(
             icon: Icons.route_rounded,

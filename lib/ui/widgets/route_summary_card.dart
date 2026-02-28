@@ -6,6 +6,8 @@ import '../../services/trip_eta_service.dart';
 import '../../state/app_state.dart';
 import '../navigation_screen.dart';
 import '../theme/app_theme.dart';
+import 'route_warnings_card.dart';
+import 'truck_profile_sheet.dart';
 
 /// Card displaying route summary and POI loading controls.
 ///
@@ -45,7 +47,12 @@ class RouteSummaryCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildRouteSection(context, state),
+                  if (state.routeResult != null) ...[
+                    const SizedBox(height: AppTheme.spaceSM),
+                    _buildRouteWarnings(state.routeResult!),
+                  ],
                   const Divider(height: AppTheme.spaceLG),
+                  _buildTruckProfileBanner(context, state),
                   _buildTollToggle(context, state),
                   const SizedBox(height: AppTheme.spaceSM),
                   _buildPoiButton(context, state),
@@ -69,6 +76,60 @@ class RouteSummaryCard extends StatelessWidget {
       return const _EmptyRouteState();
     }
     return _RouteDetails(state: state);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Route warnings
+  // ---------------------------------------------------------------------------
+  Widget _buildRouteWarnings(RouteResult result) {
+    return RouteWarningsCard(result: result);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Truck profile completeness banner
+  // ---------------------------------------------------------------------------
+  Widget _buildTruckProfileBanner(BuildContext context, AppState state) {
+    if (!state.truckProfile.isDefaultProfile) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTheme.spaceSM),
+      child: InkWell(
+        onTap: () {
+          showModalBottomSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            builder: (_) => const TruckProfileSheet(),
+          );
+        },
+        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+        child: Container(
+          decoration: BoxDecoration(
+            color: cs.tertiaryContainer,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spaceMD,
+            vertical: AppTheme.spaceSM,
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline_rounded,
+                  size: 16, color: cs.onTertiaryContainer),
+              const SizedBox(width: AppTheme.spaceXS),
+              Expanded(
+                child: Text(
+                  'Using default truck profile — tap to configure your vehicle dimensions.',
+                  style: tt.bodySmall?.copyWith(color: cs.onTertiaryContainer),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  size: 16, color: cs.onTertiaryContainer),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------------
