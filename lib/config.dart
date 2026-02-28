@@ -99,4 +99,28 @@ class Config {
 
   /// Privacy Policy URL shown on the paywall.
   static const String privacyUrl = 'https://kingtrux.com/privacy';
+
+  // ---------------------------------------------------------------------------
+  // Admin access
+  // Comma-separated list of email addresses that are treated as app admins.
+  // Pass at build/run time:
+  //   flutter run --dart-define=ADMIN_EMAILS=admin@example.com,ops@example.com
+  // When empty, no user has admin access.
+  // ---------------------------------------------------------------------------
+
+  /// Comma-separated admin email addresses injected at build time.
+  static const String _rawAdminEmails =
+      String.fromEnvironment('ADMIN_EMAILS', defaultValue: '');
+
+  /// Set of email addresses (lower-cased) that have admin access.
+  ///
+  /// Populate via `--dart-define=ADMIN_EMAILS=admin@example.com`.
+  /// Multiple addresses are separated by commas.
+  static final Set<String> adminEmails = _rawAdminEmails.isEmpty
+      ? const {}
+      : _rawAdminEmails
+          .split(',')
+          .map((e) => e.trim().toLowerCase())
+          .where((e) => e.isNotEmpty)
+          .toSet();
 }

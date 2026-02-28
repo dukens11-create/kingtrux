@@ -8,6 +8,7 @@ A Flutter-based mobile application for truck drivers with advanced routing, POI 
   - Phone number with SMS OTP
   - Google sign-in
   - Apple sign-in (iOS)
+- **Admin Login** — email-allowlist-based admin gating with a protected Admin Area screen
 - **Real-time GPS tracking** using Google Maps Flutter SDK
 - **Truck Profile** — configure your vehicle dimensions and restrictions:
   - Height, width, length, weight, axle count, and hazmat flag
@@ -610,6 +611,50 @@ limits. A HERE API key (`HERE_API_KEY`) must be configured — see
 
 If required profile fields are zero or invalid, the app surfaces an actionable
 error before making any network request (no crash or silent fallback).
+
+## Admin Login
+
+KINGTRUX supports an **admin login** feature that grants access to a protected Admin Area screen. Admin access is determined by an email-address allowlist defined at build time.
+
+### Authorization rule
+
+A signed-in user is recognised as an admin when their Firebase Auth email address appears in the `ADMIN_EMAILS` allowlist. The allowlist is compiled into the app via a `--dart-define` flag, so **no secrets are stored in source control**.
+
+| Variable | Description |
+|---|---|
+| `ADMIN_EMAILS` | Comma-separated list of admin email addresses (case-insensitive). Example: `admin@example.com,ops@kingtrux.com` |
+
+### How it works
+
+1. The user signs in with any supported method (email/password, Google, etc.).
+2. `AdminService.isAdmin(user.email)` checks the allowlist.
+3. If the signed-in user's email is in `ADMIN_EMAILS`, an **Admin Area** tile appears in the Account screen.
+4. Tapping the tile opens `AdminScreen`, a dedicated protected screen.
+5. Non-admin users never see the tile and cannot navigate to `AdminScreen`.
+
+### Setup
+
+1. Decide which email address(es) should have admin access.
+2. Pass the allowlist at build/run time:
+
+```bash
+# Development
+flutter run --dart-define=ADMIN_EMAILS=admin@example.com
+
+# Multiple admins (comma-separated, no spaces)
+flutter run --dart-define=ADMIN_EMAILS=admin@example.com,ops@kingtrux.com
+
+# Release build (Android)
+flutter build apk --dart-define=ADMIN_EMAILS=admin@example.com
+
+# Release build (iOS)
+flutter build ipa --dart-define=ADMIN_EMAILS=admin@example.com
+```
+
+3. The admin user signs in via the normal login flow (email/password, Google, etc.).  
+4. After signing in, open **Account → Admin Area**.
+
+> **Security note:** The allowlist is compiled into the app binary. For stronger security in production, replace `AdminService` with a server-side check (e.g., Firestore custom claims or a Cloud Function).
 
 ## Toll vs Toll-Free Route Selection
 

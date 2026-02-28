@@ -1,7 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../services/admin_service.dart';
 import '../services/auth_service.dart';
+import 'admin_screen.dart';
 
 /// A simple account / profile screen.
 ///
@@ -14,6 +16,8 @@ class AccountScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final cs = Theme.of(context).colorScheme;
+    final adminService = context.read<AdminService>();
+    final userIsAdmin = adminService.isAdmin(user?.email);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Account')),
@@ -63,6 +67,19 @@ class AccountScreen extends StatelessWidget {
           const SizedBox(height: 32),
           const Divider(),
           const SizedBox(height: 8),
+          if (userIsAdmin) ...[
+            ListTile(
+              leading: Icon(Icons.admin_panel_settings_rounded,
+                  color: cs.primary),
+              title: const Text('Admin Area'),
+              subtitle: const Text('Access admin controls'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminScreen()),
+              ),
+            ),
+          ],
           ListTile(
             leading: const Icon(Icons.logout),
             title: const Text('Sign Out'),
