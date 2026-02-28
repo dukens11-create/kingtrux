@@ -57,8 +57,9 @@ void main() {
         (WidgetTester tester) async {
       await tester.pumpWidget(buildPreviewGalleryApp());
 
-      // Text appears in both RouteSummaryCard and _EmptyPreview; at least one
-      // instance must be present (some may be offstage in the scroll view).
+      // Text appears in the _EmptyPreview widget in the "Empty State" section.
+      // RouteSummaryCard no longer shows this hint unless settingDestination is
+      // true, so at least one instance is expected from _EmptyPreview.
       expect(
         find.text(
           'Long-press anywhere on the map to set a destination',

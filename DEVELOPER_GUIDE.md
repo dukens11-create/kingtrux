@@ -23,6 +23,29 @@ The Google Maps Android API key is injected at **two** points:
    The key is also passed as `--dart-define=GOOGLE_MAPS_ANDROID_API_KEY=<key>`.  
    If omitted, the app shows a `_MapsApiKeyWarningBanner` overlay explaining the issue.
 
+**Step-by-step (first-time setup):**
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) →
+   **APIs & Services → Library**, search for **Maps SDK for Android**, and
+   click **Enable**.
+2. Go to **APIs & Services → Credentials** → **Create Credentials → API key**.
+3. Restrict the key:
+   - Under *Application restrictions*, choose **Android apps**.
+   - Add a restriction entry:
+     - **Package name**: `com.kingtrux.app`
+     - **SHA-1 certificate fingerprint** (debug keystore):
+       ```bash
+       keytool -list -v \
+         -keystore ~/.android/debug.keystore \
+         -alias androiddebugkey \
+         -storepass android -keypass android | grep SHA1
+       ```
+     - Add a second entry for your **release keystore** SHA-1 when preparing a
+       production build.
+   - Under *API restrictions*, choose **Restrict key** and select
+     **Maps SDK for Android**.
+4. Copy the key value for use below.
+
 **Local development:**
 ```bash
 flutter run \
