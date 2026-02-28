@@ -27,7 +27,9 @@ import 'widgets/trip_planner_sheet.dart';
 import 'widgets/speed_display.dart';
 import 'widgets/compass_indicator.dart';
 import 'widgets/where_to_sheet.dart';
+import 'widgets/route_guidance_banner.dart';
 import 'account_screen.dart';
+import 'navigation_screen.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
 import 'settings_screen.dart';
@@ -242,6 +244,32 @@ class _MapScreenState extends State<MapScreen> {
                 right: 0,
                 child: const AlertBanner(),
               ),
+
+              // ── Route guidance banner (pre-navigation, route loaded) ────
+              if (state.routeResult != null &&
+                  state.routeResult!.maneuvers.isNotEmpty &&
+                  !state.isNavigating &&
+                  !_settingDestination)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top +
+                      kToolbarHeight +
+                      AppTheme.spaceMD,
+                  left: AppTheme.spaceMD,
+                  right: AppTheme.spaceMD,
+                  child: RouteGuidanceBanner(
+                    maneuver: state.routeResult!.maneuvers.first,
+                    onTap: () async {
+                      await state.startNavigation();
+                      if (context.mounted) {
+                        await Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const NavigationScreen(),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
 
               // ── Maneuver guidance banner (active navigation only) ────────
               Positioned(
