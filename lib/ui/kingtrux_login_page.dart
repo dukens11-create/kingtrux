@@ -45,7 +45,9 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
         fit: StackFit.expand,
         children: [
           // ── Custom painted map-lines background ────────────────────────────
-          CustomPaint(painter: const _MapBackgroundPainter()),
+          const SizedBox.expand(
+            child: CustomPaint(painter: _MapBackgroundPainter()),
+          ),
           // ── Vignette overlay ───────────────────────────────────────────────
           DecoratedBox(
             decoration: BoxDecoration(
