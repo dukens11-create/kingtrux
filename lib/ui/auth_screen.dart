@@ -10,7 +10,7 @@ import '../services/auth_service.dart';
 /// Apple sign-in options.
 ///
 /// On successful authentication the [AuthGate] in [app.dart] automatically
-/// navigates the user to [MapScreen] via the [authStateChanges] stream.
+/// navigates the user to [HomeScreen] via the [authStateChanges] stream.
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
 
@@ -78,7 +78,7 @@ class _AuthScreenState extends State<AuthScreen>
                 ],
               ),
               SizedBox(
-                height: 340,
+                height: 400,
                 child: TabBarView(
                   controller: _tabController,
                   children: const [
@@ -170,6 +170,7 @@ class _EmailTabState extends State<_EmailTab> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _pwCtrl = TextEditingController();
+  final _confirmPwCtrl = TextEditingController();
   bool _loading = false;
   bool _isSignUp = false;
 
@@ -177,6 +178,7 @@ class _EmailTabState extends State<_EmailTab> {
   void dispose() {
     _emailCtrl.dispose();
     _pwCtrl.dispose();
+    _confirmPwCtrl.dispose();
     super.dispose();
   }
 
@@ -214,8 +216,9 @@ class _EmailTabState extends State<_EmailTab> {
                 border: OutlineInputBorder(),
               ),
               obscureText: true,
-              textInputAction: TextInputAction.done,
-              onFieldSubmitted: (_) => _submit(),
+              textInputAction:
+                  _isSignUp ? TextInputAction.next : TextInputAction.done,
+              onFieldSubmitted: _isSignUp ? null : (_) => _submit(),
               validator: (v) {
                 if (v == null || v.isEmpty) return 'Enter your password';
                 if (_isSignUp && v.length < 6) {
@@ -225,6 +228,25 @@ class _EmailTabState extends State<_EmailTab> {
               },
             ),
             const SizedBox(height: 8),
+            if (_isSignUp) ...[
+              TextFormField(
+                controller: _confirmPwCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm Password',
+                  prefixIcon: Icon(Icons.lock_outline),
+                  border: OutlineInputBorder(),
+                ),
+                obscureText: true,
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => _submit(),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Confirm your password';
+                  if (v != _pwCtrl.text) return 'Passwords do not match';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
             if (!_isSignUp)
               Align(
                 alignment: Alignment.centerRight,
@@ -246,7 +268,10 @@ class _EmailTabState extends State<_EmailTab> {
             ),
             const SizedBox(height: 4),
             TextButton(
-              onPressed: () => setState(() => _isSignUp = !_isSignUp),
+              onPressed: () => setState(() {
+                _isSignUp = !_isSignUp;
+                _formKey.currentState?.reset();
+              }),
               child: Text(_isSignUp
                   ? 'Already have an account? Sign In'
                   : "Don't have an account? Create one"),

@@ -51,7 +51,7 @@ void main() {
     await ctrl.close();
   });
 
-  testWidgets('AuthGate routes to MapScreen when user is authenticated',
+  testWidgets('AuthGate routes to HomeScreen when user is authenticated',
       (WidgetTester tester) async {
     // Seed the controller so the first pump resolves immediately.
     final ctrl = StreamController<User?>.broadcast();
@@ -64,12 +64,11 @@ void main() {
     ctrl.add(_FakeUser());
     await tester.pump();
 
-    // MapScreen is the root widget shown to authenticated users.
+    // HomeScreen is the placeholder shown to authenticated users.
     // It renders inside a Scaffold; verify the Scaffold is present and no
     // AuthScreen is displayed.
     expect(find.byType(AuthScreen), findsNothing);
-    // The initial MapScreen body shows a CircularProgressIndicator while
-    // location is being acquired – confirm the full tree was built.
+    // The HomeScreen renders a welcome page – confirm the full tree was built.
     expect(find.byType(MaterialApp), findsOneWidget);
 
     await ctrl.close();

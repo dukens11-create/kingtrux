@@ -5,7 +5,7 @@ import 'services/admin_service.dart';
 import 'services/auth_service.dart';
 import 'state/app_state.dart';
 import 'ui/auth_screen.dart';
-import 'ui/map_screen.dart';
+import 'ui/home_screen.dart';
 import 'ui/theme/app_theme.dart';
 
 /// Main KINGTRUX application
@@ -42,7 +42,7 @@ class KingTruxApp extends StatelessWidget {
   }
 }
 
-/// Routes to [AuthScreen] or [MapScreen] based on Firebase auth state.
+/// Routes to [AuthScreen] or [HomeScreen] based on Firebase auth state.
 class _AuthGate extends StatelessWidget {
   const _AuthGate();
 
@@ -62,7 +62,7 @@ class _AuthGate extends StatelessWidget {
           return const AuthScreen();
         }
         if (snapshot.hasData) {
-          return const MapScreen();
+          return const HomeScreen();
         }
         return const AuthScreen();
       },
