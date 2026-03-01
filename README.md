@@ -74,7 +74,7 @@ Make sure `JAVA_HOME` points to JDK 17 before running `flutter build apk`.
 ### API Keys Required
 You'll need to obtain API keys from:
 1. **Google Maps API**: https://console.cloud.google.com/
-   - Enable "Maps SDK for Android" and "Maps SDK for iOS"
+   - Enable "Maps SDK for Android", "Maps SDK for iOS", and "Maps JavaScript API"
 2. **HERE API**: https://developer.here.com/
    - Sign up and create a project to get API key
 3. **HERE Navigate SDK** (for turn-by-turn navigation): https://developer.here.com/
@@ -83,6 +83,38 @@ You'll need to obtain API keys from:
    - Free tier available
 5. **RevenueCat**: https://app.revenuecat.com/
    - Free tier available; needed for in-app subscriptions
+
+### API Key Management Best Practices
+
+Follow these practices to keep your API keys secure:
+
+#### Key Restriction
+Restrict every API key to the minimum required scope:
+- **Google Maps Android** — restrict to "Android apps" with your app's SHA-1 fingerprint and package name.
+- **Google Maps iOS** — restrict to "iOS apps" with your iOS bundle identifier.
+- **Google Maps Web** — restrict to "HTTP referrers" (e.g. `https://your-domain.com/*`).
+- **HERE** — restrict by project or IP address where possible in the HERE developer portal.
+
+#### Key Rotation
+Rotate API keys periodically or immediately after a suspected exposure:
+1. Generate a new key in the relevant developer console.
+2. Update the corresponding GitHub Actions repository secret (Settings → Secrets → Actions).
+3. Deploy a new build so all clients receive the new key.
+4. Revoke the old key once the new build is live.
+
+#### Safe Usage
+- **Never** commit real API keys to source control. All keys are injected at build time via `--dart-define` or CI secrets.
+- **Never** log or print API keys. The app's logging never includes key material.
+- Monitor usage quotas in each developer console and set billing alerts for unexpected spikes.
+- Use separate keys for development, staging, and production environments.
+
+### Google Maps Attribution
+
+The [Google Maps Platform Terms of Service](https://cloud.google.com/maps-platform/terms) require that any app using the Google Maps SDK display the Google logo and attribution notice. The `google_maps_flutter` SDK includes these automatically as part of the map widget.
+
+- **Do not** hide, obscure, or remove the Google logo that appears in the bottom-left corner of the map.
+- The Settings screen (Legal → Map Data) displays the attribution: _"Map tiles © Google Maps"_ as required.
+- See the [Maps SDK attribution requirements](https://developers.google.com/maps/documentation/android-sdk/intro#attribution_requirements) for full details.
 
 ## Setup Instructions
 

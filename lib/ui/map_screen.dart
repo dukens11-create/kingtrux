@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../config.dart';
@@ -205,7 +206,7 @@ class _MapScreenState extends State<MapScreen> {
 
           // Show full-screen loader while acquiring first location fix.
           if (state.myLat == null || state.myLng == null) {
-            return _buildInitialLoader(cs);
+            return _buildInitialLoader(cs, state);
           }
 
           return Stack(
@@ -469,21 +470,78 @@ class _MapScreenState extends State<MapScreen> {
   // ---------------------------------------------------------------------------
   // Full-screen initial loading state
   // ---------------------------------------------------------------------------
-  Widget _buildInitialLoader(ColorScheme cs) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(color: cs.primary),
-            const SizedBox(height: AppTheme.spaceMD),
-            Text(
-              'Acquiring location…',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-            ),
-          ],
+  Widget _buildInitialLoader(ColorScheme cs, AppState state) {
+    final error = state.locationError;
+    if (error != null) {
+      // Detect permanently-denied case to offer "Open Settings" instead of Retry.
+      final isPermanentlyDenied =
+          error.toLowerCase().contains('permanently denied');
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.spaceLG),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.location_off_rounded, size: 48, color: cs.error),
+              const SizedBox(height: AppTheme.spaceMD),
+              Text(
+                'Location Unavailable',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: cs.onSurface,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppTheme.spaceSM),
+              Text(
+                error,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppTheme.spaceMD),
+              if (isPermanentlyDenied)
+                FilledButton.icon(
+                  icon: const Icon(Icons.settings_rounded, size: 18),
+                  label: const Text('Open App Settings'),
+                  onPressed: () async {
+                    await Geolocator.openAppSettings();
+                  },
+                )
+              else
+                FilledButton.icon(
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Retry'),
+                  onPressed: () async {
+                    try {
+                      await state.refreshMyLocation();
+                    } catch (_) {
+                      // error is surfaced via state.locationError
+                    }
+                  },
+                ),
+            ],
+          ),
         ),
       );
+    }
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(color: cs.primary),
+          const SizedBox(height: AppTheme.spaceMD),
+          Text(
+            'Acquiring location…',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // Markers
@@ -611,10 +669,19 @@ class _MapScreenState extends State<MapScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final msg = e.toString().replaceFirst('Exception: ', '');
+        final isPermanentlyDenied = msg.toLowerCase().contains('permanently denied');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Location error: $e'),
+            content: Text(msg),
             backgroundColor: Theme.of(context).colorScheme.error,
+            action: isPermanentlyDenied
+                ? SnackBarAction(
+                    label: 'Settings',
+                    textColor: Theme.of(context).colorScheme.onError,
+                    onPressed: () => Geolocator.openAppSettings(),
+                  )
+                : null,
           ),
         );
       }

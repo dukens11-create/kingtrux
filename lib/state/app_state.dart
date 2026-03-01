@@ -116,6 +116,12 @@ class AppState extends ChangeNotifier {
   double? myLat;
   double? myLng;
 
+  /// Non-null when the last location request failed (e.g. permission denied,
+  /// services disabled, or a network/GPS error).
+  ///
+  /// Reset to `null` on a successful location fix.
+  String? locationError;
+
   /// Current device heading in degrees (0–360, where 0 = North).
   /// `null` when no heading data is available yet.
   double? currentHeading;
@@ -597,6 +603,7 @@ class AppState extends ChangeNotifier {
       myLat = position.latitude;
       myLng = position.longitude;
       if (position.heading >= 0) currentHeading = position.heading;
+      locationError = null;
       notifyListeners();
 
       // Fetch weather for current location
@@ -611,6 +618,8 @@ class AppState extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error refreshing location: $e');
+      locationError = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
       rethrow;
     }
   }
