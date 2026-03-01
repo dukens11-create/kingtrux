@@ -47,6 +47,13 @@ android {
         targetSdk 34
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
+        // Inject the Google Maps API key into AndroidManifest.xml at build time.
+        // Set the GOOGLE_MAPS_ANDROID_API_KEY environment variable (or repo secret) to
+        // the real key. When unset the placeholder value is used so tiles will not load,
+        // matching the dart-define counterpart checked by Config.googleMapsAndroidKeyConfigured.
+        manifestPlaceholders += [
+            googleMapsApiKey: System.getenv("GOOGLE_MAPS_ANDROID_API_KEY") ?: "YOUR_GOOGLE_MAPS_API_KEY_HERE"
+        ]
     }
 
     buildTypes {

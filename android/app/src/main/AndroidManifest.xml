@@ -31,10 +31,10 @@
             </intent-filter>
         </activity>
         
-        <!-- Google Maps API Key -->
+        <!-- Google Maps API Key – injected via manifestPlaceholders in build.gradle -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyD0c5KgMWa1Zb7P3sarhl0I861_KLAPxXI"/>
+            android:value="${googleMapsApiKey}"/>
             
         <meta-data
             android:name="flutterEmbedding"
