@@ -870,6 +870,52 @@ kingtrux/
 └── README.md             # This file
 ```
 
+## Asset Management Best Practices
+
+Flutter assets are declared under `flutter → assets` in `pubspec.yaml`.  Follow
+these guidelines to keep the app lean and maintainable:
+
+### Image formats and sizes
+- **Prefer WebP** over PNG for photographic or complex images — typically 25–35%
+  smaller with no perceptible quality loss. For icons and logos with transparency,
+  PNG is fine at modest resolutions (512 × 512 or smaller).
+- **Compress PNGs** before committing. Tools like `pngquant`, `oxipng`, or the
+  online service [Squoosh](https://squoosh.app) can reduce PNG file size by 50–70%
+  losslessly. Run `flutter pub run flutter_launcher_icons` or similar tooling to
+  automate icon generation.
+
+### High-DPI (2x / 3x) variants
+Flutter automatically picks the best-resolution asset when you place variants in
+named sub-folders next to the base asset:
+
+```
+assets/images/map_bg.png        # 1x (baseline)
+assets/images/2.0x/map_bg.png  # 2x for high-DPI screens
+assets/images/3.0x/map_bg.png  # 3x for very-high-DPI screens
+```
+
+You only need to declare the *base* path in `pubspec.yaml`; Flutter resolves the
+`2.0x` / `3.0x` folders automatically. Ship at least a 2x variant for all
+raster assets that are visible on modern phones.
+
+### Removing unused assets
+Unused assets still inflate the app bundle.  Before each release:
+
+1. Search for the asset filename across `lib/` with `grep -r "asset_name" lib/`.
+2. If no Dart file references it, remove the file **and** its `pubspec.yaml` entry.
+3. Run `flutter pub get` and confirm the build succeeds.
+
+### Current asset catalogue
+
+| File | Used by | Notes |
+|------|---------|-------|
+| `assets/images/map_bg.png` | `KingtruxLoginPage` | Map-style background; replace with a real map export |
+| `assets/logo/kingtrux_shield.png` | `KingtruxLoginPage` | App shield logo |
+| `assets/bg_map.png` | legacy | Kept for backward compatibility; prefer `assets/images/map_bg.png` |
+| `assets/logo.png` | legacy | Kept for backward compatibility; prefer `assets/logo/kingtrux_shield.png` |
+| `assets/app_logo.png` | — | Spare copy; remove if confirmed unused |
+| `assets/logo_bg.png` | — | Spare copy; remove if confirmed unused |
+
 ## Dependencies
 Key packages used (see `pubspec.yaml` for complete list):
 - `google_maps_flutter` - Google Maps integration
