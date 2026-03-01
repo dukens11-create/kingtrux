@@ -491,7 +491,7 @@ class _SignedInCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const _KShield(),
+                Image.asset('assets/logo.png', width: 56, height: 64, fit: BoxFit.contain),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -567,41 +567,6 @@ class _SignedInCard extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// "K" shield logo widget
-// ---------------------------------------------------------------------------
-
-class _KShield extends StatelessWidget {
-  const _KShield();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 56,
-      height: 64,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1565C0),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(10),
-          topRight: Radius.circular(10),
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
-      ),
-      alignment: Alignment.center,
-      child: const Text(
-        'K',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 30,
-          fontWeight: FontWeight.bold,
-          height: 1,
         ),
       ),
     );
