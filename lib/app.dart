@@ -55,8 +55,24 @@ class _AuthGate extends StatelessWidget {
       stream: authService.authStateChanges,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    'assets/logo/kingtrux_shield.png',
+                    height: 80,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.shield_outlined,
+                      size: 64,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const CircularProgressIndicator(),
+                ],
+              ),
+            ),
           );
         }
         if (snapshot.hasData) {

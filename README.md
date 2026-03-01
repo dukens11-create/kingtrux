@@ -2,6 +2,12 @@
 
 A Flutter-based mobile application for truck drivers with advanced routing, POI discovery, and weather integration.
 
+## Branding
+
+The app uses a shield-style **"K" logo** (`assets/logo/kingtrux_shield.png`) as the official KINGTRUX brand mark.
+It appears on the login screen, the splash/loading screen, and the in-app navigation bar.
+The previous truck-icon logo has been retired; all branding now uses the shield logo.
+
 ## Features
 - **Multi-provider Authentication** via Firebase Auth:
   - Email/Password (create account, sign in, password reset)
