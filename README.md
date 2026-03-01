@@ -905,12 +905,32 @@ Unused assets still inflate the app bundle.  Before each release:
 2. If no Dart file references it, remove the file **and** its `pubspec.yaml` entry.
 3. Run `flutter pub get` and confirm the build succeeds.
 
+### App logo
+
+The primary app logo is `assets/logo/kingtrux_shield.png` — a shield-shaped brand mark
+used wherever the KINGTRUX identity appears in the UI.
+
+**Usage locations:**
+
+| Screen | Widget | Notes |
+|--------|--------|-------|
+| Login / sign-up | `_BrandHeader` in `KingtruxLoginPage` | 64 px height, with icon fallback |
+| Main map | `_buildAppBar` in `MapScreen` | 28 px height in the AppBar title row, with icon fallback |
+
+To replace the logo, swap `assets/logo/kingtrux_shield.png` with the new image (keep the
+same filename and register the asset in `pubspec.yaml` if the path changes).
+
+> **Splash screen:** The Android splash screen (`android/app/src/main/res/values/styles.xml`)
+> currently uses a plain colour background. To add the logo to the native splash, add the
+> PNG as an Android drawable and set `android:windowBackground` to a layer-list drawable
+> that includes it.
+
 ### Current asset catalogue
 
 | File | Used by | Notes |
 |------|---------|-------|
 | `assets/images/map_bg.png` | `KingtruxLoginPage` | Map-style background; replace with a real map export |
-| `assets/logo/kingtrux_shield.png` | `KingtruxLoginPage` | App shield logo |
+| `assets/logo/kingtrux_shield.png` | `KingtruxLoginPage`, `MapScreen` AppBar | **New app logo** — shield brand mark |
 | `assets/bg_map.png` | legacy | Kept for backward compatibility; prefer `assets/images/map_bg.png` |
 | `assets/logo.png` | legacy | Kept for backward compatibility; prefer `assets/logo/kingtrux_shield.png` |
 | `assets/app_logo.png` | — | Spare copy; remove if confirmed unused |
