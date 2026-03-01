@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -65,19 +67,76 @@ class _MapScreenState extends State<MapScreen> {
   // ── Onboarding ─────────────────────────────────────────────────────────────
   bool _showOnboarding = false;
 
+  // ── Map diagnostics ────────────────────────────────────────────────────────
+  /// True once [onMapCreated] fires, meaning the map controller is ready.
+  bool _mapCreated = false;
+  /// Non-null when a map-load issue has been detected (e.g. init timeout).
+  String? _mapLoadError;
+  /// Fires if the map controller has not been created within the timeout window.
+  Timer? _mapInitTimer;
+
   @override
   void initState() {
     super.initState();
+    _logMapInitStart();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AppState>().init();
       _loadMapPrefs();
+      _startMapInitTimer();
+    });
+  }
+
+  // ── Map diagnostics helpers ────────────────────────────────────────────────
+
+  static const _logName = 'KingTrux.Maps';
+
+  /// Logs the map initialization start and API key status.
+  void _logMapInitStart() {
+    developer.log('MapScreen.initState: starting map initialization', name: _logName);
+    final keyOk = Config.googleMapsAndroidKeyConfigured;
+    developer.log(
+      'MapScreen.initState: Google Maps Android API key configured = $keyOk',
+      name: _logName,
+      level: keyOk ? 800 : 900,
+    );
+    if (!keyOk) {
+      developer.log(
+        'MapScreen.initState: API key missing or placeholder – '
+        'pass --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=<key> to fix.',
+        name: _logName,
+        level: 1000,
+      );
+    }
+  }
+
+  /// Starts a 15-second timer that sets [_mapLoadError] if the map controller
+  /// has still not been created, giving the user a diagnostic message.
+  void _startMapInitTimer() {
+    _mapInitTimer = Timer(const Duration(seconds: 15), () {
+      if (_mapCreated || !mounted) return;
+      developer.log(
+        'MapScreen: map controller not created within 15 s – '
+        'possible API key, network, or Google Play Services issue.',
+        name: _logName,
+        level: 900,
+      );
+      setState(() {
+        _mapLoadError =
+            'Map tiles failed to load. Check your API key, '
+            'network connection, and Google Play Services.';
+      });
     });
   }
 
   /// Load persisted map preferences (map type, onboarding status).
   Future<void> _loadMapPrefs() async {
+    developer.log('MapScreen._loadMapPrefs: loading persisted map preferences', name: _logName);
     final mapType = await _mapPrefs.loadMapType();
     final dismissed = await _mapPrefs.loadOnboardingDismissed();
+    developer.log(
+      'MapScreen._loadMapPrefs: mapType=${mapType.name}, onboardingDismissed=$dismissed',
+      name: _logName,
+    );
     if (mounted) {
       setState(() {
         _mapType = mapType;
@@ -101,12 +160,18 @@ class _MapScreenState extends State<MapScreen> {
     final controller = _mapController;
     if (controller == null) return;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    developer.log(
+      'MapScreen._syncMapStyle: isDark=$isDark _darkMapApplied=$_darkMapApplied',
+      name: _logName,
+    );
     if (isDark && !_darkMapApplied) {
       await controller.setMapStyle(kDarkMapStyle);
       _darkMapApplied = true;
+      developer.log('MapScreen._syncMapStyle: dark map style applied', name: _logName);
     } else if (!isDark && _darkMapApplied) {
       await controller.setMapStyle(null);
       _darkMapApplied = false;
+      developer.log('MapScreen._syncMapStyle: map style cleared (light mode)', name: _logName);
     }
   }
 
@@ -155,7 +220,16 @@ class _MapScreenState extends State<MapScreen> {
                 ),
                 mapType: _mapType,
                 onMapCreated: (controller) async {
+                  developer.log(
+                    'MapScreen.onMapCreated: controller ready – map tiles loading',
+                    name: _logName,
+                  );
                   _mapController = controller;
+                  _mapInitTimer?.cancel();
+                  setState(() {
+                    _mapCreated = true;
+                    _mapLoadError = null;
+                  });
                   await _syncMapStyle();
                 },
                 onTap: _onMapTap,
@@ -304,6 +378,18 @@ class _MapScreenState extends State<MapScreen> {
                   left: 0,
                   right: 0,
                   child: _MapsApiKeyWarningBanner(),
+                ),
+
+              // ── Map-load failure diagnostic banner ────────────────────────
+              if (_mapLoadError != null)
+                Positioned(
+                  bottom: Config.googleMapsAndroidKeyConfigured ? 0 : null,
+                  top: Config.googleMapsAndroidKeyConfigured
+                      ? null
+                      : MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceXS,
+                  left: 0,
+                  right: 0,
+                  child: _MapLoadErrorBanner(message: _mapLoadError!),
                 ),
 
               // ── First-launch onboarding overlay ──────────────────────────
@@ -784,6 +870,7 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   void dispose() {
+    _mapInitTimer?.cancel();
     _mapController?.dispose();
     super.dispose();
   }
@@ -1037,6 +1124,51 @@ class _MapsApiKeyWarningBanner extends StatelessWidget {
                         'Pass --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=<key> '
                         'or set the GOOGLE_MAPS_ANDROID_API_KEY repo secret.'
                       : 'Map tiles unavailable: Google Maps API key missing.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cs.onErrorContainer,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Map-load failure diagnostic banner
+// ---------------------------------------------------------------------------
+
+/// Shown when the map controller fails to initialise within the expected
+/// timeout window.  Surfaces a human-readable message covering the three most
+/// common root causes: missing/invalid API key, network connectivity, or an
+/// unavailable Google Play Services installation.
+class _MapLoadErrorBanner extends StatelessWidget {
+  const _MapLoadErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.errorContainer,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spaceMD,
+            vertical: AppTheme.spaceSM,
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.warning_rounded, color: cs.onErrorContainer, size: 20),
+              const SizedBox(width: AppTheme.spaceSM),
+              Expanded(
+                child: Text(
+                  message,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: cs.onErrorContainer,
                       ),
