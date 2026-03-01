@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/poi.dart';
 import '../state/app_state.dart';
+import 'kingtrux_login_page.dart';
 import 'theme/app_theme.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/route_summary_card.dart';
@@ -52,6 +53,16 @@ class _PreviewGalleryPageState extends State<PreviewGalleryPage> {
                 // ── Logo & brand ──────────────────────────────────────────────
                 const _SectionHeader(title: 'Logo & Brand'),
                 const _LogoBrandPreview(),
+                const SizedBox(height: AppTheme.spaceLG),
+
+                // ── Splash / auth-loading screen ──────────────────────────────
+                const _SectionHeader(title: 'Splash / Auth Loading Screen'),
+                const _SplashScreenPreview(),
+                const SizedBox(height: AppTheme.spaceLG),
+
+                // ── Login page ────────────────────────────────────────────────
+                const _SectionHeader(title: 'Login Page'),
+                const _LoginPagePreview(),
                 const SizedBox(height: AppTheme.spaceLG),
 
                 // ── Map screen shell ──────────────────────────────────────────
@@ -168,7 +179,7 @@ class _LogoBrandPreview extends StatelessWidget {
         'assets/logo/kingtrux_shield.png',
         height: height,
         errorBuilder: (_, __, ___) => Icon(
-          Icons.local_shipping_rounded,
+          Icons.shield_outlined,
           color: cs.primary,
           size: height,
         ),
@@ -601,4 +612,68 @@ class _SheetButtons extends StatelessWidget {
 /// wrapped in the minimal widget tree it needs.
 Widget buildPreviewGalleryApp() {
   return const MaterialApp(home: PreviewGalleryPage());
+}
+
+/// Previews the branded auth-loading (splash) screen: shield logo + spinner.
+class _SplashScreenPreview extends StatelessWidget {
+  const _SplashScreenPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      clipBehavior: Clip.hardEdge,
+      child: SizedBox(
+        height: 200,
+        child: ColoredBox(
+          color: cs.surface,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/logo/kingtrux_shield.png',
+                  height: 80,
+                  errorBuilder: (_, __, ___) => Icon(
+                    Icons.shield_outlined,
+                    size: 80,
+                    color: cs.primary,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const CircularProgressIndicator(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Previews the full [KingtruxLoginPage] rendered inside a phone-frame card.
+///
+/// The page is wrapped in [IgnorePointer] so scrolling the gallery is not
+/// intercepted by the login form's text fields.
+class _LoginPagePreview extends StatelessWidget {
+  const _LoginPagePreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.hardEdge,
+      child: SizedBox(
+        height: 620,
+        child: IgnorePointer(
+          child: MediaQuery(
+            data: const MediaQueryData(size: Size(390, 844)),
+            child: Theme(
+              data: AppTheme.light,
+              child: const KingtruxLoginPage(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -21,6 +21,14 @@ void main() {
         find.text('Buttons & FAB Cluster', skipOffstage: false),
         findsOneWidget,
       );
+      expect(
+        find.text('Splash / Auth Loading Screen', skipOffstage: false),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Login Page', skipOffstage: false),
+        findsOneWidget,
+      );
     });
 
     testWidgets('theme toggle switches between light and dark',
