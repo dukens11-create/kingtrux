@@ -49,6 +49,11 @@ class _PreviewGalleryPageState extends State<PreviewGalleryPage> {
             builder: (context) => ListView(
               padding: const EdgeInsets.all(AppTheme.spaceMD),
               children: [
+                // ── Logo & brand ──────────────────────────────────────────────
+                const _SectionHeader(title: 'Logo & Brand'),
+                const _LogoBrandPreview(),
+                const SizedBox(height: AppTheme.spaceLG),
+
                 // ── Map screen shell ──────────────────────────────────────────
                 const _SectionHeader(title: 'Map Screen Shell'),
                 const _MapShellPreview(),
@@ -149,6 +154,128 @@ class _SectionHeader extends StatelessWidget {
             .titleMedium
             ?.copyWith(fontWeight: FontWeight.bold),
       ),
+    );
+  }
+}
+
+/// Shows the app logo in its two usage contexts: AppBar title row (28 px) and
+/// login-page brand header (64 px). An error-builder fallback is shown when
+/// the asset is not available (e.g. in test environments).
+class _LogoBrandPreview extends StatelessWidget {
+  const _LogoBrandPreview();
+
+  static Widget _logoImage(double height, ColorScheme cs) => Image.asset(
+        'assets/logo/kingtrux_shield.png',
+        height: height,
+        errorBuilder: (_, __, ___) => Icon(
+          Icons.local_shipping_rounded,
+          color: cs.primary,
+          size: height,
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── AppBar title row (28 px) ───────────────────────────────────────
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spaceMD,
+              vertical: AppTheme.spaceSM,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'AppBar title row (28 px)',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: AppTheme.spaceSM),
+                Container(
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSM),
+                    border: Border.all(color: cs.outlineVariant),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.spaceMD,
+                    vertical: AppTheme.spaceSM,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _logoImage(28, cs),
+                      const SizedBox(width: AppTheme.spaceSM),
+                      Text(
+                        'KINGTRUX',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: AppTheme.spaceMD),
+        // ── Login brand header (64 px) ─────────────────────────────────────
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.spaceMD),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Login brand header (64 px)',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: AppTheme.spaceMD),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A2D5A),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                  ),
+                  padding: const EdgeInsets.all(AppTheme.spaceMD),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _logoImage(64, cs),
+                      const SizedBox(width: 14),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'KINGTRUX',
+                            style: TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2.0,
+                              color: Color(0xFF214EA8),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Smart Truck Navigation',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Colors.white.withOpacity(0.85),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

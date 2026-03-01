@@ -15,6 +15,7 @@ void main() {
       await tester.pumpWidget(buildPreviewGalleryApp());
 
       // skipOffstage: false because ListView may scroll some items offscreen
+      expect(find.text('Logo & Brand'), findsOneWidget);
       expect(find.text('Map Screen Shell'), findsOneWidget);
       expect(
         find.text('Buttons & FAB Cluster', skipOffstage: false),

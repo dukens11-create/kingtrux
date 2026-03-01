@@ -408,7 +408,21 @@ class _MapScreenState extends State<MapScreen> {
   // ---------------------------------------------------------------------------
   // AppBar
   // ---------------------------------------------------------------------------
-  PreferredSizeWidget _buildAppBar(ColorScheme cs) => AppBar(
+  PreferredSizeWidget _buildAppBar(ColorScheme cs) {
+    final logoWidget = Image.asset(
+      'assets/logo/kingtrux_shield.png',
+      height: 28,
+      errorBuilder: (_, __, ___) =>
+          Icon(Icons.local_shipping_rounded, color: cs.primary, size: 26),
+    );
+    final titleRow = Row(
+      children: [
+        logoWidget,
+        const SizedBox(width: AppTheme.spaceSM),
+        const Text('KINGTRUX'),
+      ],
+    );
+    return AppBar(
         title: kDebugMode
             ? GestureDetector(
                 onLongPress: () => Navigator.push<void>(
@@ -417,21 +431,9 @@ class _MapScreenState extends State<MapScreen> {
                     builder: (_) => const PreviewGalleryPage(),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(Icons.local_shipping_rounded, color: cs.primary, size: 26),
-                    const SizedBox(width: AppTheme.spaceSM),
-                    const Text('KINGTRUX'),
-                  ],
-                ),
+                child: titleRow,
               )
-            : Row(
-                children: [
-                  Icon(Icons.local_shipping_rounded, color: cs.primary, size: 26),
-                  const SizedBox(width: AppTheme.spaceSM),
-                  const Text('KINGTRUX'),
-                ],
-              ),
+            : titleRow,
         actions: [
           if (Firebase.apps.isNotEmpty)
             IconButton(
@@ -466,6 +468,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ],
       );
+  }
 
   // ---------------------------------------------------------------------------
   // Full-screen initial loading state
