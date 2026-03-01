@@ -39,3 +39,5 @@ flutter:
     - assets/logo.png
     - assets/logo_bg.png
     - assets/bg_map.png
+    - assets/images/map_bg.png
+    - assets/logo/kingtrux_shield.png
