@@ -430,39 +430,18 @@ class _BrandHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Semantics(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 280),
+        child: Semantics(
           label: 'KINGTRUX logo',
           child: Image.asset(
-            'assets/logo.png',
-            height: 120,
+            'assets/kingtrux_wordmark.png',
             fit: BoxFit.contain,
             semanticLabel: 'KINGTRUX logo',
           ),
         ),
-        const SizedBox(height: 12),
-        const Text(
-          'KINGTRUX',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: 4,
-          ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Professional Truck GPS',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.white70,
-            letterSpacing: 1,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
