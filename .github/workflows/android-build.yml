@@ -55,11 +55,11 @@ jobs:
           GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
         run: |
           if [ -z "$GOOGLE_MAPS_ANDROID_API_KEY" ]; then
-            echo "::error::GOOGLE_MAPS_ANDROID_API_KEY secret is not set. Map tiles will not load in the built APK."
-            exit 1
+            echo "Google Maps Android API key not provided via secret; using the key embedded in build.gradle."
+          else
+            sed -i "s|AIzaSyD0c5KgMWa1Zb7P3sarhl0I861_KLAPxXI|${GOOGLE_MAPS_ANDROID_API_KEY}|g" \
+              android/app/build.gradle
           fi
-          sed -i "s|YOUR_GOOGLE_MAPS_API_KEY_HERE|${GOOGLE_MAPS_ANDROID_API_KEY}|g" \
-            android/app/src/main/AndroidManifest.xml
 
       - name: Inject google-services.json
         env:

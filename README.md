@@ -118,51 +118,32 @@ flutter run \
 
 #### Google Maps Platform Configuration
 
-**Android** (`android/app/src/main/AndroidManifest.xml`):
+**Android** (`android/app/build.gradle`):
 
-The source file contains a placeholder. **Do not replace it manually** — it is injected by the CI
-workflow from the `GOOGLE_MAPS_ANDROID_API_KEY` repository secret via `sed`. For local development,
-pass the key via `--dart-define`:
-```bash
-flutter run --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=your_android_key ...
+The Google Maps API key is configured directly in `defaultConfig` via `manifestPlaceholders`:
+```groovy
+manifestPlaceholders = [googleMapsApiKey: "YOUR_GOOGLE_MAPS_API_KEY"]
 ```
-
-The manifest entry (kept as placeholder in source control):
+This injects the key into `AndroidManifest.xml` at build time through the `${googleMapsApiKey}`
+placeholder:
 ```xml
 <meta-data
     android:name="com.google.android.geo.API_KEY"
-    android:value="YOUR_GOOGLE_MAPS_API_KEY_HERE"/>
+    android:value="${googleMapsApiKey}"/>
 ```
-
-**First-time Android key setup:**
-
-1. In [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services → Library**,
-   search for **Maps SDK for Android** and click **Enable**.
-2. Go to **Credentials → Create Credentials → API key**.
-3. Restrict the key for security:
-   - *Application restrictions* → **Android apps** → add package `com.kingtrux.app` with your
-     **debug SHA-1** (`keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey
-     -storepass android -keypass android | grep SHA1`) and your **release keystore SHA-1**.
-   - *API restrictions* → **Restrict key** → select **Maps SDK for Android**.
-4. Store the key as the `GOOGLE_MAPS_ANDROID_API_KEY` repository secret for CI builds.
+CI can override the embedded key by setting the `GOOGLE_MAPS_ANDROID_API_KEY` repository secret.
 
 **iOS** (`ios/Runner/Info.plist`):
 
-The source file contains a placeholder value for `GMSApiKey`. Replace it **only in your local
-working copy** (do not commit the real key):
+The Google Maps API key is set directly in `Info.plist`:
 ```xml
 <key>GMSApiKey</key>
-<string>YOUR_GOOGLE_MAPS_API_KEY_HERE</string>
+<string>YOUR_GOOGLE_MAPS_API_KEY</string>
 ```
+The key is read by `AppDelegate.swift` and passed to `GMSServices.provideAPIKey` at launch.
 
-Steps:
-1. Go to [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services → Credentials**.
-2. Create a new API key, enable **Maps SDK for iOS**, and restrict it to your app's bundle ID.
-3. Open `ios/Runner/Info.plist` and replace `YOUR_GOOGLE_MAPS_API_KEY_HERE` with your key.
-4. The key is read by `AppDelegate.swift` and passed to `GMSServices.provideAPIKey`.
-
-> iOS and Android require **separate** API keys. Restrict each key to the respective platform in
-> the Google Cloud Console.
+> Android and iOS share the same API key. Ensure both **Maps SDK for Android** and
+> **Maps SDK for iOS** are enabled for this key in Google Cloud Console.
 
 ## Login Page
 
