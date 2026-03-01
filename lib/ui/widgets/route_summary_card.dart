@@ -234,7 +234,9 @@ class _RouteSummaryCardState extends State<RouteSummaryCard> {
         label: Text(
           state.isLoadingPois
               ? 'Loading POIs…'
-              : 'Nearby POIs (${state.pois.length})',
+              : state.pois.isEmpty
+                  ? 'Find Nearby POIs'
+                  : 'Nearby POIs (${state.pois.length})',
         ),
       ),
     );

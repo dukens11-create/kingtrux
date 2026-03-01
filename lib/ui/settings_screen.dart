@@ -118,6 +118,14 @@ class SettingsScreen extends StatelessWidget {
                 trailing: const Icon(Icons.open_in_new_rounded, size: 18),
                 onTap: () => _launchUrl(context, Config.termsUrl),
               ),
+              ListTile(
+                leading: Icon(Icons.map_rounded, color: cs.primary),
+                title: const Text('Map Data'),
+                subtitle: const Text(
+                  'Map tiles © Google Maps. '
+                  'POI data © OpenStreetMap contributors (ODbL).',
+                ),
+              ),
 
               const SizedBox(height: AppTheme.spaceLG),
             ],
