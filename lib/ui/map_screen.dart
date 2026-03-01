@@ -418,7 +418,14 @@ class _MapScreenState extends State<MapScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.local_shipping_rounded, color: cs.primary, size: 26),
+                    Image.asset(
+                      'assets/app_logo.png',
+                      height: 26,
+                      width: 26,
+                      semanticLabel: 'KINGTRUX logo',
+                      errorBuilder: (context, error, stackTrace) =>
+                          Icon(Icons.local_shipping_rounded, color: cs.primary, size: 26),
+                    ),
                     const SizedBox(width: AppTheme.spaceSM),
                     const Text('KINGTRUX'),
                   ],
@@ -426,7 +433,14 @@ class _MapScreenState extends State<MapScreen> {
               )
             : Row(
                 children: [
-                  Icon(Icons.local_shipping_rounded, color: cs.primary, size: 26),
+                  Image.asset(
+                    'assets/app_logo.png',
+                    height: 26,
+                    width: 26,
+                    semanticLabel: 'KINGTRUX logo',
+                    errorBuilder: (context, error, stackTrace) =>
+                        Icon(Icons.local_shipping_rounded, color: cs.primary, size: 26),
+                  ),
                   const SizedBox(width: AppTheme.spaceSM),
                   const Text('KINGTRUX'),
                 ],
