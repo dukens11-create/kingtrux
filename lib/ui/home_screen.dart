@@ -14,6 +14,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -32,6 +33,8 @@ class HomeScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Icon(Icons.local_shipping_rounded, size: 72, color: cs.primary),
+              const SizedBox(height: 24),
               Text(
                 'Welcome!',
                 style: Theme.of(context)
