@@ -389,14 +389,23 @@ KINGTRUX uses Firebase Authentication for multi-provider user sign-in (Email/Pas
 
 ### 0. Email/Password quick-start
 
-The app entry point (`lib/main.dart`) initialises Firebase and launches
-`SimpleEmailAuthPage` — a minimal auth gate that handles the full
-Email/Password flow in one screen:
+The app entry point (`lib/main.dart`) initialises Firebase and runs
+`KingTruxApp`. An `_AuthGate` (in `lib/app.dart`) listens to
+`AuthService.authStateChanges` and routes the user to:
+
+- **`KingtruxLoginPage`** (`lib/ui/kingtrux_login_page.dart`) — the full
+  branded sign-in / create-account screen — when no user is signed in.
+- **`MapScreen`** — the main app content — once the user is authenticated.
+
+A simpler, standalone example page is also available at
+`lib/auth_page.dart` (`AuthPage`). It handles the same Email/Password
+sign-in and sign-up flow with minimal boilerplate and is useful as a
+starting point for contributors or for embedding auth in other screens.
 
 | State | What the user sees |
 |-------|-------------------|
-| Signed out | Email + password fields with **Sign in** and **Sign up** buttons |
-| Signed in | `"Signed in as: <email>"` and a **Sign out** button |
+| Signed out | Email + password fields with **Sign In** and **Sign Up** buttons |
+| Error | Inline error message below the buttons |
 
 To run the app with Email/Password auth working end-to-end:
 
