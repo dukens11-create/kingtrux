@@ -435,9 +435,11 @@ The `build.gradle` files are already configured to apply the `google-services` p
 1. In the Firebase Console, click **Add app → iOS**.
 2. Enter the bundle ID: `com.kingtrux.app` (or your custom bundle ID).
 3. Download **GoogleService-Info.plist** and place it at
-   `ios/Runner/GoogleService-Info.plist`, replacing the placeholder file.
+   `ios/Runner/GoogleService-Info.plist`.
+   A sample placeholder (`ios/Runner/GoogleService-Info.plist.sample`) shows the expected
+   structure — copy it as a starting point and fill in your real values.
    > **Never commit a real GoogleService-Info.plist to version control.**
-   > Add it as a CI secret and inject it at build time (see below).
+   > The file is listed in `.gitignore`; add it as a CI secret and inject it at build time (see below).
 4. In Xcode, open `ios/Runner.xcworkspace`:
    - Select the **Runner** target → **Signing & Capabilities**.
    - Click **+ Capability** and add **Sign in with Apple**.

@@ -1,23 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  PLACEHOLDER — Replace with your real GoogleService-Info.plist from the Firebase Console.
+  SAMPLE — Copy this file to GoogleService-Info.plist and replace the placeholder
+  values with the real ones from the Firebase Console.
   See README.md → "Firebase Authentication Setup – iOS" for instructions.
+  NEVER commit the real GoogleService-Info.plist to version control.
 -->
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
 	<string>YOUR_IOS_FIREBASE_API_KEY</string>
 	<key>GCM_SENDER_ID</key>
-	<string>000000000000</string>
+	<string>YOUR_GCM_SENDER_ID</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.kingtrux</string>
+	<string>com.kingtrux.app</string>
 	<key>PROJECT_ID</key>
-	<string>your-firebase-project-id</string>
+	<string>YOUR_FIREBASE_PROJECT_ID</string>
 	<key>STORAGE_BUCKET</key>
-	<string>your-firebase-project-id.appspot.com</string>
+	<string>YOUR_FIREBASE_PROJECT_ID.appspot.com</string>
 	<key>IS_ADS_ENABLED</key>
 	<false/>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -29,7 +31,7 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true/>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:000000000000:ios:0000000000000000000000</string>
+	<string>1:YOUR_PROJECT_NUMBER:ios:YOUR_APP_ID</string>
 	<key>CLIENT_ID</key>
 	<string>YOUR_IOS_CLIENT_ID.apps.googleusercontent.com</string>
 </dict>
