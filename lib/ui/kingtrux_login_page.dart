@@ -1,5 +1,8 @@
 import 'dart:ui';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
 
 class KingtruxLoginPage extends StatefulWidget {
   const KingtruxLoginPage({super.key});
@@ -9,46 +12,121 @@ class KingtruxLoginPage extends StatefulWidget {
 }
 
 class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
+  final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
+  final _confirmPassCtrl = TextEditingController();
 
   bool _obscure = true;
   bool _loading = false;
+  bool _isSignUp = false;
+  String? _error;
 
   @override
   void dispose() {
     _emailCtrl.dispose();
     _passCtrl.dispose();
+    _confirmPassCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _signIn() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
-    setState(() => _loading = true);
-
-    // TODO: Replace with your real auth (Firebase / API).
-    await Future.delayed(const Duration(milliseconds: 900));
-
-    setState(() => _loading = false);
-
-    // Example:
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Signed in (demo). Hook up real auth now.")),
-    );
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final auth = context.read<AuthService>();
+      await auth.signInWithEmail(_emailCtrl.text.trim(), _passCtrl.text);
+    } on FirebaseAuthException catch (e) {
+      if (mounted) setState(() => _error = _friendlyAuthMessage(e.code));
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
-  void _createAccount() {
-    FocusScope.of(context).unfocus();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Create account (demo). Navigate to signup.")),
-    );
+  Future<void> _createAccount() async {
+    if (_isSignUp) {
+      if (!(_formKey.currentState?.validate() ?? false)) return;
+      FocusScope.of(context).unfocus();
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+      try {
+        final auth = context.read<AuthService>();
+        await auth.createAccountWithEmail(
+            _emailCtrl.text.trim(), _passCtrl.text);
+      } on FirebaseAuthException catch (e) {
+        if (mounted) setState(() => _error = _friendlyAuthMessage(e.code));
+      } catch (e) {
+        if (mounted) setState(() => _error = e.toString());
+      } finally {
+        if (mounted) setState(() => _loading = false);
+      }
+    } else {
+      setState(() {
+        _isSignUp = true;
+        _error = null;
+        _formKey.currentState?.reset();
+      });
+    }
   }
 
-  void _forgotPassword() {
+  Future<void> _forgotPassword() async {
     FocusScope.of(context).unfocus();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Forgot password (demo). Add reset flow.")),
-    );
+    final email = _emailCtrl.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Enter your email address above first.')),
+      );
+      return;
+    }
+    try {
+      final auth = context.read<AuthService>();
+      await auth.sendPasswordReset(email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password reset email sent.')),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) setState(() => _error = _friendlyAuthMessage(e.code));
+    }
+  }
+
+  void _switchToSignIn() {
+    setState(() {
+      _isSignUp = false;
+      _error = null;
+      _formKey.currentState?.reset();
+    });
+  }
+
+  static String _friendlyAuthMessage(String code) {
+    switch (code) {
+      case 'user-not-found':
+        return 'No account found for that email.';
+      case 'wrong-password':
+        return 'Incorrect password. Please try again.';
+      case 'email-already-in-use':
+        return 'An account already exists for that email.';
+      case 'weak-password':
+        return 'Password is too weak. Use at least 6 characters.';
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      case 'network-request-failed':
+        return 'Network error. Check your connection.';
+      default:
+        return 'Authentication error ($code). Please try again.';
+    }
   }
 
   @override
@@ -62,7 +140,7 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
           // BACKGROUND (map image if available, otherwise gradient)
           Positioned.fill(
             child: Image.asset(
-              "assets/images/map_bg.png",
+              'assets/images/map_bg.png',
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) {
                 return Container(
@@ -85,9 +163,7 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
           // Soft overlay to make text readable
           Positioned.fill(
             child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.15),
-              ),
+              color: Colors.black.withOpacity(0.15),
             ),
           ),
 
@@ -97,154 +173,241 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 18),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 8),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 8),
 
-                      // TOP CHIPS
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: const [
-                          _TopChip(
-                            icon: Icons.directions_bus_filled,
-                            label: "Driver account",
-                            bg: Colors.white,
-                            fg: Color(0xFF243B6B),
-                          ),
-                          _TopChip(
-                            icon: Icons.gps_fixed,
-                            label: "GPS Ready",
-                            bg: Color(0xFF203B7A),
-                            fg: Colors.white,
-                            trailingCheck: true,
-                          ),
-                        ],
-                      ),
+                        // TOP CHIPS
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: const [
+                            _TopChip(
+                              icon: Icons.directions_bus_filled,
+                              label: 'Driver account',
+                              bg: Colors.white,
+                              fg: Color(0xFF243B6B),
+                            ),
+                            _TopChip(
+                              icon: Icons.gps_fixed,
+                              label: 'GPS Ready',
+                              bg: Color(0xFF203B7A),
+                              fg: Colors.white,
+                              trailingCheck: true,
+                            ),
+                          ],
+                        ),
 
-                      // push brand higher
-                      SizedBox(height: isSmall ? 36 : 62),
+                        SizedBox(height: isSmall ? 36 : 62),
 
-                      // BRAND HEADER (LOGO LEFT + TEXT RIGHT)
-                      const _BrandHeader(),
+                        // BRAND HEADER
+                        const _BrandHeader(),
 
-                      SizedBox(height: isSmall ? 26 : 38),
+                        SizedBox(height: isSmall ? 26 : 38),
 
-                      // LOGIN GLASS CARD
-                      _GlassCard(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-                          child: Column(
-                            children: [
-                              _InputField(
-                                controller: _emailCtrl,
-                                hint: "Email",
-                                icon: Icons.email_outlined,
-                                keyboardType: TextInputType.emailAddress,
-                              ),
-                              const SizedBox(height: 14),
-                              _InputField(
-                                controller: _passCtrl,
-                                hint: "Password",
-                                icon: Icons.lock_outline,
-                                obscureText: _obscure,
-                                suffix: IconButton(
-                                  onPressed: () => setState(() => _obscure = !_obscure),
-                                  icon: Icon(
-                                    _obscure ? Icons.visibility_off : Icons.visibility,
-                                    color: const Color(0xFF6D7A96),
-                                  ),
-                                ),
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton(
-                                  onPressed: _forgotPassword,
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: const Color(0xFF7B3A2E),
-                                    textStyle: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
+                        // LOGIN GLASS CARD
+                        _GlassCard(
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(18, 18, 18, 18),
+                            child: Column(
+                              children: [
+                                if (_error != null) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Colors.red.shade50.withOpacity(0.85),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      _error!,
+                                      style: TextStyle(
+                                          color: Colors.red.shade700,
+                                          fontSize: 13),
                                     ),
                                   ),
-                                  child: const Text("Forgot password?"),
+                                  const SizedBox(height: 10),
+                                ],
+
+                                // Email field
+                                _InputFormField(
+                                  controller: _emailCtrl,
+                                  hint: 'Email',
+                                  icon: Icons.email_outlined,
+                                  keyboardType: TextInputType.emailAddress,
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) {
+                                      return 'Enter your email';
+                                    }
+                                    return null;
+                                  },
                                 ),
-                              ),
+                                const SizedBox(height: 14),
 
-                              const SizedBox(height: 4),
-
-                              // SIGN IN BUTTON
-                              SizedBox(
-                                width: double.infinity,
-                                height: 56,
-                                child: ElevatedButton(
-                                  onPressed: _loading ? null : _signIn,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF214EA8),
-                                    foregroundColor: Colors.white,
-                                    elevation: 8,
-                                    shadowColor: Colors.black.withOpacity(0.25),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(18),
+                                // Password field
+                                _InputFormField(
+                                  controller: _passCtrl,
+                                  hint: 'Password',
+                                  icon: Icons.lock_outline,
+                                  obscureText: _obscure,
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty) {
+                                      return 'Enter your password';
+                                    }
+                                    if (_isSignUp && v.length < 6) {
+                                      return 'Password must be at least 6 characters';
+                                    }
+                                    return null;
+                                  },
+                                  suffix: IconButton(
+                                    onPressed: () =>
+                                        setState(() => _obscure = !_obscure),
+                                    icon: Icon(
+                                      _obscure
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      color: const Color(0xFF6D7A96),
                                     ),
                                   ),
-                                  child: _loading
-                                      ? const SizedBox(
-                                          width: 22,
-                                          height: 22,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                        )
-                                      : const Text(
-                                          "Sign in",
-                                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                                ),
+
+                                // Confirm password (sign-up only)
+                                if (_isSignUp) ...[
+                                  const SizedBox(height: 14),
+                                  _InputFormField(
+                                    controller: _confirmPassCtrl,
+                                    hint: 'Confirm Password',
+                                    icon: Icons.lock_outline,
+                                    obscureText: true,
+                                    validator: (v) {
+                                      if (v == null || v.isEmpty) {
+                                        return 'Confirm your password';
+                                      }
+                                      if (v != _passCtrl.text) {
+                                        return 'Passwords do not match';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ],
+
+                                // Forgot password (sign-in only)
+                                if (!_isSignUp) ...[
+                                  const SizedBox(height: 12),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: _forgotPassword,
+                                      style: TextButton.styleFrom(
+                                        foregroundColor:
+                                            const Color(0xFF7B3A2E),
+                                        textStyle: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
                                         ),
-                                ),
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              // CREATE ACCOUNT BUTTON (OUTLINE)
-                              SizedBox(
-                                width: double.infinity,
-                                height: 56,
-                                child: OutlinedButton(
-                                  onPressed: _createAccount,
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF214EA8),
-                                    side: const BorderSide(color: Color(0xFF214EA8), width: 1.6),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(18),
+                                      ),
+                                      child: const Text('Forgot password?'),
                                     ),
-                                    backgroundColor: Colors.white.withOpacity(0.15),
                                   ),
-                                  child: const Text(
-                                    "Create account",
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                                ] else
+                                  const SizedBox(height: 12),
+
+                                const SizedBox(height: 4),
+
+                                // PRIMARY BUTTON (Sign in / Create Account)
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 56,
+                                  child: FilledButton(
+                                    onPressed:
+                                        _loading ? null : (_isSignUp ? _createAccount : _signIn),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor:
+                                          const Color(0xFF214EA8),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(18),
+                                      ),
+                                    ),
+                                    child: _loading
+                                        ? const SizedBox(
+                                            width: 22,
+                                            height: 22,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white),
+                                          )
+                                        : Text(
+                                            _isSignUp
+                                                ? 'Create Account'
+                                                : 'Sign in',
+                                            style: const TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w700),
+                                          ),
                                   ),
                                 ),
-                              ),
-                            ],
+
+                                const SizedBox(height: 12),
+
+                                // SECONDARY BUTTON
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 56,
+                                  child: OutlinedButton(
+                                    onPressed: _loading
+                                        ? null
+                                        : (_isSignUp
+                                            ? _switchToSignIn
+                                            : _createAccount),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor:
+                                          const Color(0xFF214EA8),
+                                      side: const BorderSide(
+                                          color: Color(0xFF214EA8),
+                                          width: 1.6),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(18),
+                                      ),
+                                      backgroundColor:
+                                          Colors.white.withOpacity(0.15),
+                                    ),
+                                    child: Text(
+                                      _isSignUp
+                                          ? 'Back to Sign in'
+                                          : 'Create account',
+                                      style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
 
-                      const Spacer(),
+                        const Spacer(),
 
-                      // FOOTER
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: Text(
-                          "KINGTRUX • Built for truckers",
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.75),
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.6,
+                        // FOOTER
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: Text(
+                            'KINGTRUX • Built for truckers',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.75),
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.6,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -256,7 +419,7 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
   }
 }
 
-/// ====== BRAND HEADER (LOGO LEFT + TEXT RIGHT) ======
+/// ====== BRAND HEADER ======
 class _BrandHeader extends StatelessWidget {
   const _BrandHeader();
 
@@ -267,10 +430,9 @@ class _BrandHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Image.asset(
-          "assets/logo/kingtrux_shield.png",
+          'assets/logo/kingtrux_shield.png',
           height: 64,
           errorBuilder: (_, __, ___) {
-            // fallback if logo missing
             return Container(
               height: 64,
               width: 64,
@@ -279,7 +441,11 @@ class _BrandHeader extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
               ),
               child: const Center(
-                child: Text("K", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 26)),
+                child: Text('K',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 26)),
               ),
             );
           },
@@ -289,7 +455,7 @@ class _BrandHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "KINGTRUX",
+              'KINGTRUX',
               style: TextStyle(
                 fontSize: 30,
                 fontWeight: FontWeight.w900,
@@ -299,7 +465,7 @@ class _BrandHeader extends StatelessWidget {
             ),
             const SizedBox(height: 3),
             Text(
-              "Smart Truck Navigation",
+              'Professional Truck GPS',
               style: TextStyle(
                 fontSize: 15,
                 color: Colors.white.withOpacity(0.85),
@@ -392,7 +558,8 @@ class _GlassCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.22),
             borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: Colors.white.withOpacity(0.35), width: 1.0),
+            border:
+                Border.all(color: Colors.white.withOpacity(0.35), width: 1.0),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.22),
@@ -408,22 +575,24 @@ class _GlassCard extends StatelessWidget {
   }
 }
 
-/// ====== INPUT FIELD ======
-class _InputField extends StatelessWidget {
+/// ====== INPUT FORM FIELD ======
+class _InputFormField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final IconData icon;
   final TextInputType? keyboardType;
   final bool obscureText;
   final Widget? suffix;
+  final String? Function(String?)? validator;
 
-  const _InputField({
+  const _InputFormField({
     required this.controller,
     required this.hint,
     required this.icon,
     this.keyboardType,
     this.obscureText = false,
     this.suffix,
+    this.validator,
   });
 
   @override
@@ -434,10 +603,11 @@ class _InputField extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withOpacity(0.8)),
       ),
-      child: TextField(
+      child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
         obscureText: obscureText,
+        validator: validator,
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
@@ -452,9 +622,13 @@ class _InputField extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+          errorStyle: const TextStyle(fontSize: 12),
         ),
       ),
     );
   }
 }
+
+
