@@ -422,10 +422,11 @@ To run the app with Email/Password auth working end-to-end:
 
 1. In the Firebase Console, click **Add app → Android**.
 2. Enter the package name: `com.kingtrux.app` (or your custom bundle ID).
-3. Download **google-services.json** and place it at `android/app/google-services.json`,
-   replacing the placeholder file already there.
+3. Download **google-services.json** and place it at `android/app/google-services.json`.
+   A sample placeholder (`android/app/google-services.json.sample`) shows the expected
+   structure — copy it as a starting point and fill in your real values.
    > **Never commit a real google-services.json to version control.**
-   > Add it as a CI secret and inject it at build time (see below).
+   > The file is listed in `.gitignore`; add it as a CI secret and inject it at build time (see below).
 
 The `build.gradle` files are already configured to apply the `google-services` plugin.
 
