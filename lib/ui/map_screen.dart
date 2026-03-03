@@ -32,6 +32,7 @@ import 'widgets/speed_display.dart';
 import 'widgets/compass_indicator.dart';
 import 'widgets/where_to_sheet.dart';
 import 'widgets/route_guidance_banner.dart';
+import 'widgets/kingtrux_logo.dart';
 import 'account_screen.dart';
 import 'navigation_screen.dart';
 import 'paywall_screen.dart';
@@ -409,12 +410,7 @@ class _MapScreenState extends State<MapScreen> {
   // AppBar
   // ---------------------------------------------------------------------------
   PreferredSizeWidget _buildAppBar(ColorScheme cs) {
-    final logoWidget = Image.asset(
-      'assets/logo/kingtrux_shield.png',
-      height: 28,
-      errorBuilder: (_, __, ___) =>
-          Icon(Icons.local_shipping_rounded, color: cs.primary, size: 26),
-    );
+    const logoWidget = KingtruxLogo(size: 28);
     final titleRow = Row(
       children: [
         logoWidget,

@@ -6,6 +6,7 @@ import 'theme/app_theme.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/route_summary_card.dart';
 import 'widgets/truck_profile_sheet.dart';
+import 'widgets/kingtrux_logo.dart';
 
 /// In-app UI preview / gallery screen (debug/profile builds only).
 ///
@@ -164,15 +165,7 @@ class _SectionHeader extends StatelessWidget {
 class _LogoBrandPreview extends StatelessWidget {
   const _LogoBrandPreview();
 
-  static Widget _logoImage(double height, ColorScheme cs) => Image.asset(
-        'assets/logo/kingtrux_shield.png',
-        height: height,
-        errorBuilder: (_, __, ___) => Icon(
-          Icons.local_shipping_rounded,
-          color: cs.primary,
-          size: height,
-        ),
-      );
+  static Widget _logoImage(double height) => KingtruxLogo(size: height);
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +201,7 @@ class _LogoBrandPreview extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _logoImage(28, cs),
+                      _logoImage(28),
                       const SizedBox(width: AppTheme.spaceSM),
                       Text(
                         'KINGTRUX',
@@ -243,7 +236,7 @@ class _LogoBrandPreview extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _logoImage(64, cs),
+                      _logoImage(64),
                       const SizedBox(width: 14),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
