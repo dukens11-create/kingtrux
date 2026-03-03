@@ -175,7 +175,7 @@ class _LogoBrandPreview extends StatelessWidget {
   const _LogoBrandPreview();
 
   static Widget _logoImage(double height, ColorScheme cs) => Image.asset(
-        'assets/logo/kingtrux_shield.png',
+        'assets/app_logo.png',
         height: height,
         errorBuilder: (_, __, ___) => Icon(
           Icons.local_shipping_rounded,
