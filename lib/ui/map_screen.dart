@@ -409,8 +409,12 @@ class _MapScreenState extends State<MapScreen> {
   // AppBar
   // ---------------------------------------------------------------------------
   PreferredSizeWidget _buildAppBar(ColorScheme cs) {
-    final logoWidget =
-        Icon(Icons.local_shipping_rounded, color: cs.primary, size: 26);
+    final logoWidget = Image.asset(
+      'assets/logo/kingtrux_shield.png',
+      height: 28,
+      errorBuilder: (_, __, ___) =>
+          Icon(Icons.local_shipping_rounded, color: cs.primary, size: 26),
+    );
     final titleRow = Row(
       children: [
         logoWidget,

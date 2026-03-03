@@ -429,20 +429,26 @@ class _BrandHeader extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
+        Image.asset(
+          'assets/logo/kingtrux_shield.png',
           height: 64,
-          width: 64,
-          decoration: BoxDecoration(
-            color: const Color(0xFF214EA8),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: const Center(
-            child: Text('K',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 26)),
-          ),
+          errorBuilder: (_, __, ___) {
+            return Container(
+              height: 64,
+              width: 64,
+              decoration: BoxDecoration(
+                color: const Color(0xFF214EA8),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Center(
+                child: Text('K',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 26)),
+              ),
+            );
+          },
         ),
         const SizedBox(width: 14),
         Column(
