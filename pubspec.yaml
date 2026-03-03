@@ -35,9 +35,5 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/app_logo.png
-    - assets/logo.png
-    - assets/logo_bg.png
     - assets/bg_map.png
     - assets/images/map_bg.png
-    - assets/logo/kingtrux_shield.png
