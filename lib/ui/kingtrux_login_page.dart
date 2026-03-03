@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import 'widgets/kingtrux_logo.dart';
 
 class KingtruxLoginPage extends StatefulWidget {
   const KingtruxLoginPage({super.key});
@@ -429,27 +430,7 @@ class _BrandHeader extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Image.asset(
-          'assets/logo/kingtrux_shield.png',
-          height: 64,
-          errorBuilder: (_, __, ___) {
-            return Container(
-              height: 64,
-              width: 64,
-              decoration: BoxDecoration(
-                color: const Color(0xFF214EA8),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Center(
-                child: Text('K',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 26)),
-              ),
-            );
-          },
-        ),
+        const KingtruxLogo(size: 64),
         const SizedBox(width: 14),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
