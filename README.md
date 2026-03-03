@@ -308,6 +308,41 @@ flutter build ios --release \
   --dart-define=REVENUECAT_IOS_API_KEY=appl_xxx
 ```
 
+## iOS IPA Build (GitHub Actions)
+
+The workflow `.github/workflows/build_ios_ipa.yml` automatically builds a
+release IPA file and uploads it as a downloadable artifact on every push,
+pull request, or manual trigger. The IPA is **not** submitted to the App
+Store or TestFlight — it is only produced for internal/testing distribution.
+
+### How to trigger the build
+
+| Trigger | How |
+|---|---|
+| **Push** | Open a pull request or push commits to any branch |
+| **Manual** | Go to **Actions → iOS IPA Build → Run workflow** in the GitHub UI |
+
+### How to download the IPA
+
+1. Open the [Actions](../../actions) tab of the repository.
+2. Click the **iOS IPA Build** workflow run you want.
+3. Scroll to the **Artifacts** section at the bottom of the run summary.
+4. Click **kingtrux-ios-ipa** to download the `.zip` containing the `.ipa`.
+
+> **Note:** The IPA is built without code signing (`--no-codesign`) so it
+> cannot be installed directly on a device. To install on a real device you
+> need a valid Apple Developer certificate and provisioning profile configured
+> via GitHub secrets or a distribution service such as Diawi or Firebase App
+> Distribution.
+
+### Required secrets (optional — build still runs without them)
+
+| Secret name | Value |
+|---|---|
+| `HERE_API_KEY` | HERE platform REST API key |
+| `REVENUECAT_IOS_API_KEY` | RevenueCat iOS public SDK key (`appl_…`) |
+| `GOOGLE_SERVICE_INFO_PLIST` | Base64-encoded `GoogleService-Info.plist` for Firebase |
+
 ## In-App Subscriptions (RevenueCat)
 
 KINGTRUX Pro is gated behind a subscription paywall powered by [RevenueCat](https://www.revenuecat.com/).

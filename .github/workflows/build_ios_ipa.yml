@@ -1,0 +1,78 @@
+name: iOS IPA Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ios-ipa:
+    name: Build iOS IPA (release, no-codesign)
+    runs-on: macos-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Check API key configuration
+        env:
+          HERE_API_KEY: ${{ secrets.HERE_API_KEY }}
+          REVENUECAT_IOS_API_KEY: ${{ secrets.REVENUECAT_IOS_API_KEY }}
+        run: |
+          echo "HERE_API_KEY: $( [ -n "$HERE_API_KEY" ] && echo 'set' || echo 'unset' )"
+          echo "REVENUECAT_IOS_API_KEY: $( [ -n "$REVENUECAT_IOS_API_KEY" ] && echo 'set' || echo 'unset' )"
+
+      - name: Inject GoogleService-Info.plist
+        env:
+          GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+            echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
+          fi
+
+      - name: Generate iOS Flutter config files
+        run: |
+          flutter build ios --config-only --release --no-codesign \
+            --dart-define=HERE_API_KEY=${{ secrets.HERE_API_KEY }} \
+            --dart-define=REVENUECAT_IOS_API_KEY=${{ secrets.REVENUECAT_IOS_API_KEY }}
+
+      - name: Clean CocoaPods state
+        run: |
+          cd ios
+          rm -rf Pods
+          rm -f Podfile.lock
+
+      - name: Install CocoaPods dependencies
+        run: cd ios && pod install --repo-update
+
+      - name: Build iOS IPA (release, no-codesign)
+        run: |
+          flutter build ipa --release --no-codesign \
+            --dart-define=HERE_API_KEY=${{ secrets.HERE_API_KEY }} \
+            --dart-define=REVENUECAT_IOS_API_KEY=${{ secrets.REVENUECAT_IOS_API_KEY }}
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingtrux-ios-ipa
+          path: build/ios/ipa/*.ipa
+          if-no-files-found: error
