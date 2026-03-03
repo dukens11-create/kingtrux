@@ -54,6 +54,16 @@ class _PreviewGalleryPageState extends State<PreviewGalleryPage> {
                 const _LogoBrandPreview(),
                 const SizedBox(height: AppTheme.spaceLG),
 
+                // ── App launcher icon ─────────────────────────────────────────
+                const _SectionHeader(title: 'App Launcher Icon'),
+                const _LauncherIconPreview(),
+                const SizedBox(height: AppTheme.spaceLG),
+
+                // ── Login screen preview ──────────────────────────────────────
+                const _SectionHeader(title: 'Login Screen'),
+                const _LoginScreenPreview(),
+                const SizedBox(height: AppTheme.spaceLG),
+
                 // ── Map screen shell ──────────────────────────────────────────
                 const _SectionHeader(title: 'Map Screen Shell'),
                 const _MapShellPreview(),
@@ -602,3 +612,279 @@ class _SheetButtons extends StatelessWidget {
 Widget buildPreviewGalleryApp() {
   return const MaterialApp(home: PreviewGalleryPage());
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Launcher icon & login screen previews
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Simulates the app launcher icon as it appears on a typical Android and iOS
+/// home screen, using the canonical [assets/app_logo.png] icon asset.
+class _LauncherIconPreview extends StatelessWidget {
+  const _LauncherIconPreview();
+
+  static Widget _iconTile(String label, double iconSize, double cornerRadius) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: iconSize + 16,
+          height: iconSize + 16,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(cornerRadius),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.18),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(cornerRadius),
+            child: Image.asset(
+              'assets/app_logo.png',
+              width: iconSize,
+              height: iconSize,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: const Color(0xFF214EA8),
+                child: const Center(
+                  child: Text(
+                    'K',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 28,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(label, style: const TextStyle(fontSize: 11)),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spaceMD),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Android home screen simulation
+            Text('Android Launcher', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: AppTheme.spaceMD),
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF1A2D5A), Color(0xFF243B6B)],
+                ),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+              ),
+              padding: const EdgeInsets.all(AppTheme.spaceLG),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _iconTile('KINGTRUX', 60, 14),
+                  _iconTile('Maps', 60, 14),
+                  _iconTile('Settings', 60, 14),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppTheme.spaceLG),
+
+            // iOS home screen simulation
+            Text('iOS Launcher', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: AppTheme.spaceMD),
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF4A6FA5), Color(0xFF8DA9C4)],
+                ),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+              ),
+              padding: const EdgeInsets.all(AppTheme.spaceLG),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _iconTile('KINGTRUX', 60, 18),
+                  _iconTile('Maps', 60, 18),
+                  _iconTile('Settings', 60, 18),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Simulates the login screen header as it appears with the new [app_logo.png]
+/// icon. Shown as a static preview card (no interaction).
+class _LoginScreenPreview extends StatelessWidget {
+  const _LoginScreenPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.hardEdge,
+      child: SizedBox(
+        height: 280,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Background gradient (mirrors login page)
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFE8EEF9), Color(0xFFCBD7F2), Color(0xFFE8EEF9)],
+                ),
+              ),
+            ),
+            Container(color: Colors.black.withOpacity(0.15)),
+
+            // Centered brand header
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icon
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.18),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(10),
+                    child: Image.asset(
+                      'assets/app_logo.png',
+                      width: 72,
+                      height: 72,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF214EA8),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'K',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 32,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'KINGTRUX',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2.4,
+                      color: Color(0xFF214EA8),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Professional Truck GPS',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white.withOpacity(0.85),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Stub login card
+                  Container(
+                    width: 260,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.22),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white.withOpacity(0.35)),
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'Email',
+                              style: TextStyle(color: Color(0xFF6D7A96), fontSize: 14),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'Password',
+                              style: TextStyle(color: Color(0xFF6D7A96), fontSize: 14),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF214EA8),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'Sign in',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
