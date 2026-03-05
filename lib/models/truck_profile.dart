@@ -99,6 +99,24 @@ class TruckProfile {
   /// Converts US short tons to metric tons.
   static double shortTonsToMetricTons(double st) => st / 1.10231;
 
+  /// Converts pounds to metric tons (1 lb ≈ 0.00045359237 metric tons).
+  static double poundsToMetricTons(double lbs) => lbs * 0.00045359237;
+
+  /// Converts metric tons to pounds.
+  static double metricTonsToPounds(double mt) => mt / 0.00045359237;
+
+  /// Decomposes a meter value into a (feet, inches) pair.
+  ///
+  /// The returned tuple is `(wholeFeet, wholeInches)` where inches is 0–11.
+  static (int, int) metersToFeetInches(double meters) {
+    final totalInches = (meters * 39.3701).round();
+    return (totalInches ~/ 12, totalInches % 12);
+  }
+
+  /// Converts whole feet + whole inches to meters.
+  static double feetInchesToMeters(int feet, int inches) =>
+      (feet * 12 + inches) / 39.3701;
+
   /// Validates the profile for use in route calculations.
   ///
   /// Returns a list of human-readable error messages describing any invalid

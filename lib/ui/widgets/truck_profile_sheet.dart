@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/truck_profile.dart';
+import '../../services/truck_profile_service.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
 
@@ -22,6 +23,13 @@ class _TruckProfileSheetState extends State<TruckProfileSheet> {
   late bool _hazmat;
   TruckUnit _unit = TruckUnit.metric;
 
+  // Text controllers for US-units inputs
+  late final TextEditingController _heightFtCtrl;
+  late final TextEditingController _heightInCtrl;
+  late final TextEditingController _weightLbsCtrl;
+
+  final _svc = TruckProfileService();
+
   @override
   void initState() {
     super.initState();
@@ -32,13 +40,72 @@ class _TruckProfileSheetState extends State<TruckProfileSheet> {
     _weight = profile.weightTons;
     _axles = profile.axles;
     _hazmat = profile.hazmat;
+
+    final (ft, ins) = TruckProfile.metersToFeetInches(_height);
+    _heightFtCtrl = TextEditingController(text: '$ft');
+    _heightInCtrl = TextEditingController(text: '$ins');
+    _weightLbsCtrl = TextEditingController(
+      text: TruckProfile.metricTonsToPounds(_weight).round().toString(),
+    );
+
+    _loadUnit();
+  }
+
+  @override
+  void dispose() {
+    _heightFtCtrl.dispose();
+    _heightInCtrl.dispose();
+    _weightLbsCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUnit() async {
+    final u = await _svc.loadUnit();
+    if (mounted) {
+      setState(() {
+        _unit = u;
+        _syncUsControllers();
+      });
+    }
+  }
+
+  /// Sync the US-units text controllers from current metric values.
+  void _syncUsControllers() {
+    final (ft, ins) = TruckProfile.metersToFeetInches(_height);
+    _heightFtCtrl.text = '$ft';
+    _heightInCtrl.text = '$ins';
+    _weightLbsCtrl.text =
+        TruckProfile.metricTonsToPounds(_weight).round().toString();
+  }
+
+  void _onUnitChanged(TruckUnit unit) {
+    if (unit == TruckUnit.imperial) _syncUsControllers();
+    setState(() => _unit = unit);
+    _svc.saveUnit(unit).catchError(
+      (Object e) => debugPrint('Error saving truck unit: $e'),
+    );
+  }
+
+  void _onHeightUsChanged() {
+    final ft = int.tryParse(_heightFtCtrl.text.trim()) ?? -1;
+    final ins = int.tryParse(_heightInCtrl.text.trim()) ?? -1;
+    if (ft >= 0 && ins >= 0 && ins < 12) {
+      setState(() => _height = TruckProfile.feetInchesToMeters(ft, ins));
+    }
+  }
+
+  void _onWeightLbsChanged() {
+    final lbs = double.tryParse(_weightLbsCtrl.text.trim());
+    if (lbs != null && lbs > 0) {
+      setState(() => _weight = TruckProfile.poundsToMetricTons(lbs));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final isImperial = _unit == TruckUnit.imperial;
+    final isUs = _unit == TruckUnit.imperial;
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
@@ -78,119 +145,92 @@ class _TruckProfileSheetState extends State<TruckProfileSheet> {
                 ),
                 ButtonSegment(
                   value: TruckUnit.imperial,
-                  label: Text('Imperial (ft / st)'),
+                  label: Text('US (ft·in / lbs)'),
                   icon: Icon(Icons.straighten_rounded),
                 ),
               ],
               selected: {_unit},
-              onSelectionChanged: (s) => setState(() => _unit = s.first),
+              onSelectionChanged: (s) => _onUnitChanged(s.first),
             ),
             const SizedBox(height: AppTheme.spaceMD),
 
             // Height
-            _SliderRow(
-              label: 'Height',
-              helperText: isImperial
-                  ? 'Common US height limit: 13\'6\" (varies by state)'
-                  : 'Legal max in most EU countries: 4.0 m',
-              value: isImperial
-                  ? TruckProfile.metersToFeet(_height)
-                  : _height,
-              unit: isImperial ? 'ft' : 'm',
-              min: isImperial ? TruckProfile.metersToFeet(2.5) : 2.5,
-              max: isImperial ? TruckProfile.metersToFeet(4.8) : 4.8,
-              divisions: 23,
-              onChanged: (v) => setState(() => _height =
-                  isImperial ? TruckProfile.feetToMeters(v) : v),
-            ),
+            if (isUs)
+              _UsHeightRow(
+                ftCtrl: _heightFtCtrl,
+                inCtrl: _heightInCtrl,
+                metricEquiv: _height,
+                onChanged: _onHeightUsChanged,
+              )
+            else
+              _SliderRow(
+                label: 'Height',
+                helperText: 'Legal max in most EU countries: 4.0 m',
+                value: _height,
+                unit: 'm',
+                min: 2.5,
+                max: 4.8,
+                divisions: 23,
+                onChanged: (v) => setState(() => _height = v),
+              ),
 
             // Width
             _SliderRow(
               label: 'Width',
-              helperText: isImperial
+              helperText: isUs
                   ? 'Legal max in most US states: 8.5 ft'
                   : 'Legal max in most EU countries: 2.55 m',
-              value: isImperial
-                  ? TruckProfile.metersToFeet(_width)
-                  : _width,
-              unit: isImperial ? 'ft' : 'm',
-              min: isImperial ? TruckProfile.metersToFeet(2.0) : 2.0,
-              max: isImperial ? TruckProfile.metersToFeet(3.0) : 3.0,
+              value: isUs ? TruckProfile.metersToFeet(_width) : _width,
+              unit: isUs ? 'ft' : 'm',
+              min: isUs ? TruckProfile.metersToFeet(2.0) : 2.0,
+              max: isUs ? TruckProfile.metersToFeet(3.0) : 3.0,
               divisions: 10,
-              onChanged: (v) => setState(() => _width =
-                  isImperial ? TruckProfile.feetToMeters(v) : v),
+              onChanged: (v) => setState(
+                () => _width = isUs ? TruckProfile.feetToMeters(v) : v,
+              ),
             ),
 
             // Length
             _SliderRow(
               label: 'Length',
-              helperText: isImperial
+              helperText: isUs
                   ? 'Typical semi: 53 ft trailer + cab'
                   : 'Typical semi: ~21 m total',
-              value: isImperial
-                  ? TruckProfile.metersToFeet(_length)
-                  : _length,
-              unit: isImperial ? 'ft' : 'm',
-              min: isImperial ? TruckProfile.metersToFeet(6.0) : 6.0,
-              max: isImperial ? TruckProfile.metersToFeet(30.0) : 30.0,
+              value: isUs ? TruckProfile.metersToFeet(_length) : _length,
+              unit: isUs ? 'ft' : 'm',
+              min: isUs ? TruckProfile.metersToFeet(6.0) : 6.0,
+              max: isUs ? TruckProfile.metersToFeet(30.0) : 30.0,
               divisions: 24,
               fractionDigits: 1,
-              onChanged: (v) => setState(() => _length =
-                  isImperial ? TruckProfile.feetToMeters(v) : v),
+              onChanged: (v) => setState(
+                () => _length = isUs ? TruckProfile.feetToMeters(v) : v,
+              ),
             ),
 
             // Weight
-            _SliderRow(
-              label: 'Weight',
-              helperText: isImperial
-                  ? 'US federal gross weight limit: 40 short tons'
-                  : 'EU gross weight limit: 40 t (44 t intermodal)',
-              value: isImperial
-                  ? TruckProfile.metricTonsToShortTons(_weight)
-                  : _weight,
-              unit: isImperial ? 'st' : 't',
-              min: isImperial
-                  ? TruckProfile.metricTonsToShortTons(5.0)
-                  : 5.0,
-              max: isImperial
-                  ? TruckProfile.metricTonsToShortTons(45.0)
-                  : 45.0,
-              divisions: 40,
-              fractionDigits: 1,
-              onChanged: (v) => setState(() => _weight = isImperial
-                  ? TruckProfile.shortTonsToMetricTons(v)
-                  : v),
-            ),
+            if (isUs)
+              _UsWeightRow(
+                lbsCtrl: _weightLbsCtrl,
+                metricEquiv: _weight,
+                onChanged: _onWeightLbsChanged,
+              )
+            else
+              _SliderRow(
+                label: 'Weight',
+                helperText: 'EU gross weight limit: 40 t (44 t intermodal)',
+                value: _weight,
+                unit: 't',
+                min: 5.0,
+                max: 45.0,
+                divisions: 40,
+                fractionDigits: 1,
+                onChanged: (v) => setState(() => _weight = v),
+              ),
 
             // Axles
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceXS),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Axles', style: tt.bodyMedium),
-                        Text(
-                          'Total axle count affects weight distribution',
-                          style: tt.bodySmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ),
-                  DropdownButton<int>(
-                    value: _axles,
-                    underline: const SizedBox(),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                    items: List.generate(7, (i) => i + 2)
-                        .map((n) => DropdownMenuItem(value: n, child: Text('$n')))
-                        .toList(),
-                    onChanged: (value) => setState(() => _axles = value!),
-                  ),
-                ],
-              ),
+            _AxleRow(
+              selected: _axles,
+              onChanged: (n) => setState(() => _axles = n),
             ),
 
             // Hazmat
@@ -227,6 +267,14 @@ class _TruckProfileSheetState extends State<TruckProfileSheet> {
   }
 
   String _currentSummary() {
+    if (_unit == TruckUnit.imperial) {
+      final (ft, ins) = TruckProfile.metersToFeetInches(_height);
+      final wFt = TruckProfile.metersToFeet(_width).toStringAsFixed(1);
+      final lFt = TruckProfile.metersToFeet(_length).toStringAsFixed(1);
+      final lbs = TruckProfile.metricTonsToPounds(_weight).round();
+      return '${ft}ft ${ins}in H · ${wFt}ft W · ${lFt}ft L · ${lbs}lbs · $_axles axles'
+          '${_hazmat ? ' · HAZMAT' : ''}';
+    }
     final profile = TruckProfile(
       heightMeters: _height,
       widthMeters: _width,
@@ -235,7 +283,7 @@ class _TruckProfileSheetState extends State<TruckProfileSheet> {
       axles: _axles,
       hazmat: _hazmat,
     );
-    return profile.summary(unit: _unit);
+    return profile.summary();
   }
 
   void _save() {
@@ -254,6 +302,189 @@ class _TruckProfileSheetState extends State<TruckProfileSheet> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Truck profile saved')),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// US-units height input (ft + in) with metric equivalent
+// ---------------------------------------------------------------------------
+
+class _UsHeightRow extends StatelessWidget {
+  const _UsHeightRow({
+    required this.ftCtrl,
+    required this.inCtrl,
+    required this.metricEquiv,
+    required this.onChanged,
+  });
+
+  final TextEditingController ftCtrl;
+  final TextEditingController inCtrl;
+  final double metricEquiv;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTheme.spaceXS),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Height', style: tt.bodyMedium),
+          const SizedBox(height: AppTheme.spaceXS),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: ftCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: 'Feet',
+                    suffixText: 'ft',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => onChanged(),
+                ),
+              ),
+              const SizedBox(width: AppTheme.spaceSM),
+              Expanded(
+                child: TextField(
+                  controller: inCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: 'Inches',
+                    suffixText: 'in',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => onChanged(),
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(
+              top: AppTheme.spaceXS,
+              left: AppTheme.spaceSM,
+            ),
+            child: Text(
+              '≈ ${metricEquiv.toStringAsFixed(2)} m  ·  '
+              "Common US limit: 13'6\"",
+              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// US-units weight input (lbs) with metric equivalent
+// ---------------------------------------------------------------------------
+
+class _UsWeightRow extends StatelessWidget {
+  const _UsWeightRow({
+    required this.lbsCtrl,
+    required this.metricEquiv,
+    required this.onChanged,
+  });
+
+  final TextEditingController lbsCtrl;
+  final double metricEquiv;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTheme.spaceXS),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Weight', style: tt.bodyMedium),
+          const SizedBox(height: AppTheme.spaceXS),
+          TextField(
+            controller: lbsCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+            ],
+            decoration: const InputDecoration(
+              labelText: 'Gross weight',
+              suffixText: 'lbs',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (_) => onChanged(),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(
+              top: AppTheme.spaceXS,
+              left: AppTheme.spaceSM,
+            ),
+            child: Text(
+              '≈ ${metricEquiv.toStringAsFixed(1)} t  ·  '
+              'US federal limit: 80,000 lbs',
+              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Axle preset chip row
+// ---------------------------------------------------------------------------
+
+class _AxleRow extends StatelessWidget {
+  const _AxleRow({required this.selected, required this.onChanged});
+
+  final int selected;
+  final ValueChanged<int> onChanged;
+
+  static const _presets = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceXS),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Axles', style: tt.bodyMedium),
+          Text(
+            'Total axle count affects weight distribution',
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppTheme.spaceXS),
+          Wrap(
+            spacing: 6.0,
+            children: _presets
+                .map(
+                  (n) => FilterChip(
+                    label: Text('$n'),
+                    selected: selected == n,
+                    onSelected: (_) {
+                      HapticFeedback.selectionClick();
+                      onChanged(n);
+                    },
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
     );
   }
 }

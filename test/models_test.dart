@@ -104,6 +104,43 @@ void main() {
         );
         expect(converted, closeTo(original, 0.00001));
       });
+
+      test('poundsToMetricTons converts 80000 lbs to ~36.3 t', () {
+        expect(
+          TruckProfile.poundsToMetricTons(80000),
+          closeTo(36.287, 0.001),
+        );
+      });
+
+      test('metricTonsToPounds is the inverse of poundsToMetricTons', () {
+        const original = 36.287;
+        final converted = TruckProfile.poundsToMetricTons(
+          TruckProfile.metricTonsToPounds(original),
+        );
+        expect(converted, closeTo(original, 0.0001));
+      });
+
+      test('metersToFeetInches decomposes 4.1148 m into (13, 6)', () {
+        final (ft, ins) = TruckProfile.metersToFeetInches(4.1148);
+        expect(ft, 13);
+        expect(ins, 6);
+      });
+
+      test('feetInchesToMeters converts 13 ft 6 in to ~4.115 m', () {
+        expect(
+          TruckProfile.feetInchesToMeters(13, 6),
+          closeTo(4.115, 0.001),
+        );
+      });
+
+      test('feetInchesToMeters and metersToFeetInches are inverses', () {
+        const meters = 4.1148;
+        final (ft, ins) = TruckProfile.metersToFeetInches(meters);
+        expect(
+          TruckProfile.feetInchesToMeters(ft, ins),
+          closeTo(meters, 0.01),
+        );
+      });
     });
 
     group('summary()', () {
