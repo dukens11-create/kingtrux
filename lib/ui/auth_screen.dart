@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../services/auth_service.dart';
+import '../services/user_service.dart';
 
 /// Authentication screen offering Email/Password, Phone OTP, Google, and
 /// Apple sign-in options.
@@ -288,8 +289,11 @@ class _EmailTabState extends State<_EmailTab> {
     setState(() => _loading = true);
     try {
       if (_isSignUp) {
-        await auth.createAccountWithEmail(
+        final credential = await auth.createAccountWithEmail(
             _emailCtrl.text.trim(), _pwCtrl.text);
+        if (credential.user != null) {
+          await UserService().createUserDocument(credential.user!);
+        }
       } else {
         await auth.signInWithEmail(_emailCtrl.text.trim(), _pwCtrl.text);
       }

@@ -621,6 +621,84 @@ making it easy to diagnose misconfigurations without attaching a device.
 
 ---
 
+## Firestore User Document Creation
+
+When a user completes email/password sign-up, the app automatically creates a
+detailed profile document in the Firestore `user` collection. The document is
+written by `UserService` (`lib/services/user_service.dart`) immediately after
+`createAccountWithEmail` succeeds.
+
+### Document ID
+
+The document ID equals the Firebase Auth **UID** of the newly created user.
+
+### Document schema
+
+| Field         | Type      | Default / source                         |
+|---------------|-----------|------------------------------------------|
+| `email`       | String    | Firebase Auth `user.email`               |
+| `name`        | String    | From signup form; `''` when not provided |
+| `createdAt`   | Timestamp | `FieldValue.serverTimestamp()`           |
+| `photoUrl`    | String    | `'Avatar'` (or custom URL from form)     |
+| `role`        | String    | `'user'` (override to `'admin'` etc.)    |
+| `phoneNumber` | String    | From signup form; `''` when not provided |
+| `lastLoginAt` | Timestamp | `FieldValue.serverTimestamp()`           |
+| `isActive`    | bool      | `true`                                   |
+
+### Sample Firestore document
+
+```json
+{
+  "email": "driver@example.com",
+  "name": "Jane Trucker",
+  "createdAt": "2025-10-01T12:00:00Z",
+  "photoUrl": "Avatar",
+  "role": "user",
+  "phoneNumber": "+12025551234",
+  "lastLoginAt": "2025-10-01T12:00:00Z",
+  "isActive": true
+}
+```
+
+### Firestore setup
+
+1. In the [Firebase Console](https://console.firebase.google.com/), navigate to
+   **Firestore Database** and click **Create database**.
+2. Choose **Production mode** (or **Test mode** for local development).
+3. Select a region close to your users.
+4. The `user` collection and documents are created automatically — no manual
+   collection setup is required.
+
+### Firestore Security Rules (recommended)
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /user/{userId} {
+      // Authenticated user can read and write their own document
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+
+### Implementation notes
+
+* If a document for the UID already exists the write is silently skipped
+  (idempotent — safe to call on every sign-in).
+* Firestore write failures are caught and logged via `debugPrint` under the
+  `[UserService]` tag; they never block the sign-up flow.
+* `UserService` accepts an optional `FirebaseFirestore` constructor parameter
+  for dependency injection in tests.
+
+> **Config files:** No sensitive Firebase config files are committed to the
+> repository. Add `google-services.json` (Android) and
+> `GoogleService-Info.plist` (iOS) manually as described in the
+> [Firebase Authentication Setup](#firebase-authentication-setup) section.
+
+---
+
 ## Firebase Web Modules
 
 `web/firebase-init.js` provides a ready-to-use **Firebase JS SDK v11 modular** initialization
