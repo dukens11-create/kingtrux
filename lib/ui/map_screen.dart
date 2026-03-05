@@ -41,6 +41,9 @@ import 'settings_screen.dart';
 // Height of the slim top-bar content area (excluding the system status bar).
 const double _kSlimBarContentH = 48.0;
 
+// Approximate height of the floating "Where to?" search bar.
+const double _kSearchBarH = 52.0;
+
 /// Main map screen with Google Maps integration
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -225,7 +228,10 @@ class _MapScreenState extends State<MapScreen> {
                 myLocationEnabled: true,
                 myLocationButtonEnabled: false,
                 padding: EdgeInsets.only(
-                  top: MediaQuery.of(context).padding.top + _kSlimBarContentH,
+                  top: MediaQuery.of(context).padding.top +
+                      _kSlimBarContentH +
+                      _kSearchBarH +
+                      AppTheme.spaceSM,
                   bottom: 180,
                 ),
               ),
@@ -233,7 +239,10 @@ class _MapScreenState extends State<MapScreen> {
               // ── Route / POI loading indicator (non-blocking) ────────────
               if (state.isLoadingRoute || state.isLoadingPois)
                 Positioned(
-                  top: MediaQuery.of(context).padding.top + _kSlimBarContentH + AppTheme.spaceMD,
+                  top: MediaQuery.of(context).padding.top +
+                      _kSlimBarContentH +
+                      _kSearchBarH +
+                      AppTheme.spaceSM,
                   left: 0,
                   right: 0,
                   child: Center(
@@ -258,7 +267,7 @@ class _MapScreenState extends State<MapScreen> {
                 child: SpeedDisplay(),
               ),
 
-              // ── Alert banner (below slim top bar) ────────────────────────
+              // ── Alert banner (overlays search bar when active) ───────────
               Positioned(
                 top: MediaQuery.of(context).padding.top + _kSlimBarContentH + AppTheme.spaceXS,
                 left: 0,
@@ -267,6 +276,7 @@ class _MapScreenState extends State<MapScreen> {
               ),
 
               // ── Route guidance banner (pre-navigation, route loaded) ────
+              // Positioned below the search bar so they don't overlap.
               if (state.routeResult != null &&
                   state.routeResult!.maneuvers.isNotEmpty &&
                   !state.isNavigating &&
@@ -274,7 +284,8 @@ class _MapScreenState extends State<MapScreen> {
                 Positioned(
                   top: MediaQuery.of(context).padding.top +
                       _kSlimBarContentH +
-                      AppTheme.spaceMD,
+                      _kSearchBarH +
+                      AppTheme.spaceSM,
                   left: AppTheme.spaceMD,
                   right: AppTheme.spaceMD,
                   child: RouteGuidanceBanner(
@@ -293,6 +304,8 @@ class _MapScreenState extends State<MapScreen> {
                 ),
 
               // ── Maneuver guidance banner (active navigation only) ────────
+              // During navigation the search bar is hidden, so this sits just
+              // below the slim top bar.
               Positioned(
                 top: MediaQuery.of(context).padding.top + _kSlimBarContentH + AppTheme.spaceMD,
                 left: AppTheme.spaceMD,
@@ -335,6 +348,17 @@ class _MapScreenState extends State<MapScreen> {
                   left: 0,
                   right: 0,
                   child: _MapLoadErrorBanner(message: _mapLoadError!),
+                ),
+
+              // ── Floating "Where to?" search bar (Truck Path style) ───────
+              // Visible when not in active navigation or destination-setting
+              // mode so the map stays clean during those flows.
+              if (!_settingDestination && !state.isNavigating)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + _kSlimBarContentH + AppTheme.spaceXS,
+                  left: AppTheme.spaceMD,
+                  right: AppTheme.spaceMD,
+                  child: _SearchBar(onTap: _onWhereToCTAPressed),
                 ),
 
               // ── Slim top bar: logo + toll toggles ────────────────────────
@@ -1156,4 +1180,80 @@ class _LoadingBadge extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Floating "Where to?" search bar  (Truck Path style)
+// ---------------------------------------------------------------------------
+
+/// A prominent, pill-shaped search bar that sits just below the slim top bar.
+/// Tapping it opens the full [WhereToSheet] destination-search flow, matching
+/// the look and feel found in professional truck-navigation apps.
+class _SearchBar extends StatelessWidget {
+  const _SearchBar({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Semantics(
+      label: 'Search destination',
+      button: true,
+      child: Material(
+        key: const Key('where_to_search_bar'),
+        elevation: AppTheme.elevationSheet,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+        color: cs.surface,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spaceMD,
+              vertical: AppTheme.spaceSM + 2,
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.search_rounded, color: cs.primary, size: 22),
+                const SizedBox(width: AppTheme.spaceSM),
+                Expanded(
+                  child: Text(
+                    'Where to?',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.spaceSM,
+                    vertical: AppTheme.spaceXS,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.local_shipping_rounded,
+                          size: 14, color: cs.onPrimaryContainer),
+                      const SizedBox(width: AppTheme.spaceXS),
+                      Text(
+                        'Navigate',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: cs.onPrimaryContainer,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
