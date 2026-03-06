@@ -57,7 +57,7 @@ filePermissions`).
 | JDK | **17** (Temurin / OpenJDK) |
 | Gradle | 8.11.1 |
 | Android Gradle Plugin (AGP) | 8.9.1 |
-| Kotlin Gradle Plugin | 1.9.23 |
+| Kotlin Gradle Plugin | 2.3.0 |
 | Android SDK compile / target | 34 |
 
 Install JDK 17 via [Eclipse Temurin](https://adoptium.net/) or your OS package manager:
