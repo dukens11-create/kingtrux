@@ -1,11 +1,13 @@
 # KINGTRUX Developer Quick Reference
 
-## Confirmed Working State (2026-03-05)
+## Confirmed Working State (2026-03-04 ~9 PM)
 
-All Dart source files, UI widgets, and app features are at the last fully working
-version from 2026-03-05 (after PR #152 "redesign-kingtrux-map-ui"). The build
-configuration was subsequently stabilised in PRs #153–#156 (Kotlin 2.3.0, AGP 8.9.1,
-Gradle 8.11.1, and removal of a machine-specific JDK path from `gradle.properties`).
+All Dart source files, UI widgets, and app features have been restored to the last fully
+working version from **2026-03-04 ~9 PM** (commit `ee26578`, after PR #150
+"improve-truck-profile-ux" and PR #151 "add-user-document-creation"). The Kotlin Gradle
+Plugin is pinned to **2.1.0** (matching the working state). The machine-specific
+`org.gradle.java.home` Windows path has been kept out of `gradle.properties` as it
+breaks CI.
 
 ### Expected UI Features
 
@@ -14,11 +16,11 @@ After a clean rebuild you should see the following in the app:
 | Feature | Location | Description |
 |---------|----------|-------------|
 | **Truck map** | Full screen | Google Maps tile view centred on the device location |
-| **Slim top bar** | Top overlay | Logo + "Toll" / "Toll-Free" toggle chips |
-| **"Where to?" search bar** | Below top bar | Pill-shaped floating bar; tap to open destination search |
-| **Truck profile prompt** | Bottom card | Banner when using default profile — tap to configure vehicle dimensions |
-| **Toll/Toll-Free toggle** | Bottom card | Segmented button to choose toll or toll-free routing |
-| **"Find Nearby POIs" button** | Bottom card | Load fuel stations, rest areas, truck stops within 15 km |
+| **Top app bar** | Top | KINGTRUX logo/title with settings, preview, and sign-out actions |
+| **Search bar** | Top bar action | Tapping the search icon opens the "Where to?" destination sheet |
+| **Toll / POI selection** | Bottom toolbar | Toll-avoidance toggle and POI layer/browse buttons in BottomAppBar |
+| **Truck profile prompt** | Bottom card | "Using default truck profile" banner — tap to open profile sheet |
+| **Bottom navigation toolbar** | Bottom | BottomAppBar with My Location, Set Destination, Truck Profile, Layers, Route Options buttons |
 | **"Start Navigation" button** | Bottom card (after route set) | Begins turn-by-turn navigation |
 
 ### Feature Validation Checklist
@@ -26,15 +28,16 @@ After a clean rebuild you should see the following in the app:
 Use this checklist after merging and rebuilding to confirm the app is working correctly:
 
 - [ ] Map tiles visible once location is acquired
-- [ ] Slim top bar shows KINGTRUX logo and Toll/Toll-Free chips
-- [ ] Tapping "Where to?" opens the destination-search sheet
+- [ ] Top app bar shows KINGTRUX title with settings and sign-out icons
+- [ ] Tapping the search icon opens the "Where to?" destination sheet
 - [ ] Long-pressing the map sets a destination and triggers route calculation
 - [ ] Route polyline appears on the map after calculation
-- [ ] "Start Navigation" button appears after a route is set
+- [ ] "Start Navigation" button appears in the route card after a route is set
 - [ ] "Using default truck profile" banner visible until profile is configured
-- [ ] Tapping the truck profile banner (or the tune icon) opens the profile sheet
-- [ ] POI markers appear after tapping "Find Nearby POIs"
-- [ ] Toll / Toll-Free toggle re-routes correctly when changed
+- [ ] Tapping the truck profile button in the BottomAppBar opens the profile sheet
+- [ ] POI markers appear after tapping the layers/POI button
+- [ ] Toll avoidance toggle re-routes correctly when changed
+- [ ] Bottom toolbar buttons work: My Location, Set Destination, Truck Profile, Layers, Route Options
 
 ---
 
@@ -380,10 +383,10 @@ try {
 - [ ] GPS location obtained and map centred on device
 - [ ] Map tiles load correctly (no blank tiles / grey screen)
 
-### UI Layout (restored from 2026-03-05 working version)
-- [ ] Slim top bar visible: logo on left, Toll/Toll-Free chips on right
-- [ ] "Where to?" floating search bar visible below the top bar
-- [ ] Tapping "Where to?" opens destination search sheet
+### UI Layout (restored from 2026-03-04 working version)
+- [ ] Top AppBar visible: KINGTRUX title, settings, and sign-out icons
+- [ ] Search icon in AppBar opens "Where to?" destination sheet
+- [ ] BottomAppBar visible with navigation toolbar buttons
 
 ### Navigation & Routing
 - [ ] Long-press on map sets destination and triggers route calculation

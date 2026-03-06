@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'dart:math' as math;
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,7 +9,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/poi.dart';
-import '../models/toll_preference.dart';
 import '../services/map_preferences_service.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
@@ -34,15 +33,11 @@ import 'widgets/compass_indicator.dart';
 import 'widgets/where_to_sheet.dart';
 import 'widgets/route_guidance_banner.dart';
 import 'widgets/kingtrux_logo.dart';
+import 'account_screen.dart';
 import 'navigation_screen.dart';
 import 'paywall_screen.dart';
+import 'preview_gallery_page.dart';
 import 'settings_screen.dart';
-
-// Height of the slim top-bar content area (excluding the system status bar).
-const double _kSlimBarContentH = 48.0;
-
-// Approximate height of the floating "Where to?" search bar.
-const double _kSearchBarH = 52.0;
 
 /// Main map screen with Google Maps integration
 class MapScreen extends StatefulWidget {
@@ -184,10 +179,29 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: _buildAppBar(cs),
+      bottomNavigationBar: Consumer<AppState>(
+        builder: (context, state, _) => _MapToolbar(
+          onRecenter: _onMyLocationPressed,
+          onLayers: _onLayersPressed,
+          onPoiBrowser: _onPoiBrowserPressed,
+          onTruckProfile: _onTruckProfilePressed,
+          onTripPlanner: _onTripPlannerPressed,
+          onGetHelp: _onGetHelpPressed,
+          onSetDestination: _onSetDestinationPressed,
+          onGoPro: _onGoProPressed,
+          onSteps: _onStepsPressed,
+          onRouteOptions: _onRouteOptionsPressed,
+          isPro: state.isPro,
+          isSettingDestination: _settingDestination,
+          isNavigating: state.isNavigating,
+        ),
+      ),
       body: Consumer<AppState>(
         builder: (context, state, _) {
-          final cs = Theme.of(context).colorScheme;
           // Track location changes for follow mode.
           _maybeMoveCamera(state);
 
@@ -228,21 +242,55 @@ class _MapScreenState extends State<MapScreen> {
                 myLocationEnabled: true,
                 myLocationButtonEnabled: false,
                 padding: EdgeInsets.only(
-                  top: MediaQuery.of(context).padding.top +
-                      _kSlimBarContentH +
-                      _kSearchBarH +
-                      AppTheme.spaceSM,
+                  top: MediaQuery.of(context).padding.top + kToolbarHeight,
                   bottom: 180,
+                ),
+              ),
+
+              // ── "Where to?" CTA bar ─────────────────────────────────────
+              // Hidden when tap-to-set destination mode is active.
+              if (!_settingDestination)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceXS,
+                  left: AppTheme.spaceMD,
+                  right: AppTheme.spaceMD,
+                  child: _WhereToCta(onTap: _onWhereToCTAPressed),
+                ),
+
+              // ── Map overlay buttons (right side) ─────────────────────────
+              Positioned(
+                top: MediaQuery.of(context).padding.top + kToolbarHeight + 56 + AppTheme.spaceSM,
+                right: AppTheme.spaceSM,
+                child: Column(
+                  children: [
+                    _MapFab(
+                      key: const Key('map_type_toggle'),
+                      icon: _mapType == MapType.satellite
+                          ? Icons.map_rounded
+                          : Icons.satellite_alt_rounded,
+                      tooltip: _mapType == MapType.satellite
+                          ? 'Normal map'
+                          : 'Satellite view',
+                      onPressed: _onMapTypeToggle,
+                    ),
+                    const SizedBox(height: AppTheme.spaceXS),
+                    _MapFab(
+                      key: const Key('follow_mode_toggle'),
+                      icon: _followMode
+                          ? Icons.navigation_rounded
+                          : Icons.navigation_outlined,
+                      tooltip: _followMode ? 'Following location' : 'Follow location',
+                      onPressed: _onFollowModeToggle,
+                      active: _followMode,
+                    ),
+                  ],
                 ),
               ),
 
               // ── Route / POI loading indicator (non-blocking) ────────────
               if (state.isLoadingRoute || state.isLoadingPois)
                 Positioned(
-                  top: MediaQuery.of(context).padding.top +
-                      _kSlimBarContentH +
-                      _kSearchBarH +
-                      AppTheme.spaceSM,
+                  top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceMD + 48,
                   left: 0,
                   right: 0,
                   child: Center(
@@ -267,25 +315,23 @@ class _MapScreenState extends State<MapScreen> {
                 child: SpeedDisplay(),
               ),
 
-              // ── Alert banner (overlays search bar when active) ───────────
+              // ── Alert banner (below status bar + app bar) ────────────────
               Positioned(
-                top: MediaQuery.of(context).padding.top + _kSlimBarContentH + AppTheme.spaceXS,
+                top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceXS,
                 left: 0,
                 right: 0,
                 child: const AlertBanner(),
               ),
 
               // ── Route guidance banner (pre-navigation, route loaded) ────
-              // Positioned below the search bar so they don't overlap.
               if (state.routeResult != null &&
                   state.routeResult!.maneuvers.isNotEmpty &&
                   !state.isNavigating &&
                   !_settingDestination)
                 Positioned(
                   top: MediaQuery.of(context).padding.top +
-                      _kSlimBarContentH +
-                      _kSearchBarH +
-                      AppTheme.spaceSM,
+                      kToolbarHeight +
+                      AppTheme.spaceMD,
                   left: AppTheme.spaceMD,
                   right: AppTheme.spaceMD,
                   child: RouteGuidanceBanner(
@@ -304,10 +350,8 @@ class _MapScreenState extends State<MapScreen> {
                 ),
 
               // ── Maneuver guidance banner (active navigation only) ────────
-              // During navigation the search bar is hidden, so this sits just
-              // below the slim top bar.
               Positioned(
-                top: MediaQuery.of(context).padding.top + _kSlimBarContentH + AppTheme.spaceMD,
+                top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceMD,
                 left: AppTheme.spaceMD,
                 right: AppTheme.spaceMD,
                 child: const ManeuverBanner(),
@@ -323,7 +367,7 @@ class _MapScreenState extends State<MapScreen> {
               // ── "Set Destination" mode overlay ───────────────────────────
               if (_settingDestination)
                 Positioned(
-                  top: MediaQuery.of(context).padding.top + _kSlimBarContentH + AppTheme.spaceMD,
+                  top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceMD,
                   left: AppTheme.spaceMD,
                   right: AppTheme.spaceMD,
                   child: _SetDestinationBanner(onCancel: _cancelSetDestination),
@@ -344,33 +388,11 @@ class _MapScreenState extends State<MapScreen> {
                   bottom: Config.googleMapsAndroidKeyConfigured ? 0 : null,
                   top: Config.googleMapsAndroidKeyConfigured
                       ? null
-                      : MediaQuery.of(context).padding.top + _kSlimBarContentH + AppTheme.spaceXS,
+                      : MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceXS,
                   left: 0,
                   right: 0,
                   child: _MapLoadErrorBanner(message: _mapLoadError!),
                 ),
-
-              // ── Floating "Where to?" search bar (Truck Path style) ───────
-              // Visible when not in active navigation or destination-setting
-              // mode so the map stays clean during those flows.
-              if (!_settingDestination && !state.isNavigating)
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + _kSlimBarContentH + AppTheme.spaceXS,
-                  left: AppTheme.spaceMD,
-                  right: AppTheme.spaceMD,
-                  child: _SearchBar(onTap: _onWhereToCTAPressed),
-                ),
-
-              // ── Slim top bar: logo + toll toggles ────────────────────────
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: _SlimTopBar(
-                  tollPreference: state.tollPreference,
-                  onToggleToll: state.setTollPreference,
-                ),
-              ),
 
               // ── First-launch onboarding overlay ──────────────────────────
               if (_showOnboarding)
@@ -382,6 +404,66 @@ class _MapScreenState extends State<MapScreen> {
         },
       ),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // AppBar
+  // ---------------------------------------------------------------------------
+  PreferredSizeWidget _buildAppBar(ColorScheme cs) {
+    const logoWidget = KingtruxLogo(size: 28);
+    final titleRow = Row(
+      children: [
+        logoWidget,
+        const SizedBox(width: AppTheme.spaceSM),
+        const Text('KINGTRUX'),
+      ],
+    );
+    return AppBar(
+        title: kDebugMode
+            ? GestureDetector(
+                onLongPress: () => Navigator.push<void>(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const PreviewGalleryPage(),
+                  ),
+                ),
+                child: titleRow,
+              )
+            : titleRow,
+        actions: [
+          if (Firebase.apps.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.account_circle_outlined),
+              tooltip: 'Account',
+              onPressed: () => Navigator.push<void>(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const AccountScreen(),
+                ),
+              ),
+            ),
+          IconButton(
+            icon: const Icon(Icons.warning_amber_rounded),
+            tooltip: 'Road Sign Alerts',
+            onPressed: _onRoadSignAlertsPressed,
+          ),
+          IconButton(
+            icon: const Icon(Icons.palette_outlined),
+            tooltip: 'Color Theme',
+            onPressed: _onThemeSettingsPressed,
+          ),
+          IconButton(
+            icon: const Icon(Icons.record_voice_over_rounded),
+            tooltip: 'Voice Settings',
+            onPressed: _onVoiceSettingsPressed,
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: _onSettingsPressed,
+          ),
+        ],
+      );
   }
 
   // ---------------------------------------------------------------------------
@@ -494,26 +576,13 @@ class _MapScreenState extends State<MapScreen> {
       if (!state.enabledPoiLayers.contains(poi.type)) continue;
       // Respect per-brand filter for truck stop POIs.
       if (!state.isTruckStopBrandVisible(poi)) continue;
-
-      // Build a label that includes distance in miles, e.g. 'Truck Stop – 2.3 mi'.
-      final typeLabel = PoiDetailSheet.poiLabel(poi.type);
-      String snippet;
-      if (state.myLat != null && state.myLng != null) {
-        final distMi = _poiDistanceMi(
-          state.myLat!, state.myLng!, poi.lat, poi.lng,
-        );
-        snippet = '$typeLabel – ${distMi.toStringAsFixed(1)} mi';
-      } else {
-        snippet = typeLabel;
-      }
-
       markers.add(
         Marker(
           markerId: MarkerId('poi_${poi.id}'),
           position: LatLng(poi.lat, poi.lng),
           infoWindow: InfoWindow(
             title: poi.name,
-            snippet: snippet,
+            snippet: PoiDetailSheet.poiLabel(poi.type),
           ),
           icon: BitmapDescriptor.defaultMarkerWithHue(_getPoiColor(poi.type)),
           onTap: () => _onPoiMarkerTap(poi),
@@ -538,22 +607,6 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     return markers;
-  }
-
-  /// Calculates the great-circle distance in miles between two coordinates.
-  double _poiDistanceMi(
-    double lat1, double lng1, double lat2, double lng2,
-  ) {
-    const earthRadiusMi = 3958.8;
-    final dLat = (lat2 - lat1) * (math.pi / 180);
-    final dLng = (lng2 - lng1) * (math.pi / 180);
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(lat1 * (math.pi / 180)) *
-            math.cos(lat2 * (math.pi / 180)) *
-            math.sin(dLng / 2) *
-            math.sin(dLng / 2);
-    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    return earthRadiusMi * c;
   }
 
   double _getPoiColor(PoiType type) {
@@ -890,105 +943,162 @@ class _MapScreenState extends State<MapScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Slim top bar – logo + toll toggles
+// Persistent map toolbar (BottomAppBar)
 // ---------------------------------------------------------------------------
 
-/// A slim, semi-transparent bar pinned to the top of the map that shows the
-/// KINGTRUX brand mark on the left and Toll / Toll-Free toggle chips on the
-/// right.  It keeps the map maximally visible while giving quick access to the
-/// most-used routing preference.
-class _SlimTopBar extends StatelessWidget {
-  const _SlimTopBar({
-    required this.tollPreference,
-    required this.onToggleToll,
+/// A persistent bottom toolbar that exposes all core map actions as clearly
+/// labelled icon buttons, keeping features always visible and discoverable.
+class _MapToolbar extends StatelessWidget {
+  const _MapToolbar({
+    required this.onRecenter,
+    required this.onLayers,
+    required this.onPoiBrowser,
+    required this.onTruckProfile,
+    required this.onTripPlanner,
+    required this.onGetHelp,
+    required this.onSetDestination,
+    required this.onGoPro,
+    required this.onSteps,
+    required this.onRouteOptions,
+    required this.isPro,
+    required this.isSettingDestination,
+    required this.isNavigating,
   });
 
-  final TollPreference tollPreference;
-  final void Function(TollPreference) onToggleToll;
+  final VoidCallback onRecenter;
+  final VoidCallback onLayers;
+  final VoidCallback onPoiBrowser;
+  final VoidCallback onTruckProfile;
+  final VoidCallback onTripPlanner;
+  final VoidCallback onGetHelp;
+  final VoidCallback onSetDestination;
+  final VoidCallback onGoPro;
+  final VoidCallback onSteps;
+  final VoidCallback onRouteOptions;
+  final bool isPro;
+  final bool isSettingDestination;
+  final bool isNavigating;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      color: cs.surface.withValues(alpha: 0.88),
-      child: SafeArea(
-        bottom: false,
-        child: SizedBox(
-          height: _kSlimBarContentH,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.spaceMD,
-            ),
-            child: Row(
-              children: [
-                // Brand mark
-                const KingtruxLogo(size: 22),
-                const SizedBox(width: AppTheme.spaceXS),
-                Text(
-                  'KINGTRUX',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: cs.onSurface,
-                      ),
-                ),
-                const Spacer(),
-                // Toll / Toll-Free toggle chips
-                _TollChip(
-                  label: 'Toll',
-                  selected: tollPreference == TollPreference.any,
-                  onTap: () => onToggleToll(TollPreference.any),
-                ),
-                const SizedBox(width: AppTheme.spaceXS),
-                _TollChip(
-                  label: 'Toll-Free',
-                  selected: tollPreference == TollPreference.tollFree,
-                  onTap: () => onToggleToll(TollPreference.tollFree),
-                ),
-              ],
-            ),
+    return BottomAppBar(
+      padding: EdgeInsets.zero,
+      child: Row(
+        children: [
+          _ToolbarButton(
+            icon: Icons.my_location_rounded,
+            label: 'Recenter',
+            onPressed: onRecenter,
           ),
-        ),
+          _ToolbarButton(
+            icon: Icons.layers_rounded,
+            label: 'Layers',
+            onPressed: onLayers,
+          ),
+          _ToolbarButton(
+            icon: Icons.place_rounded,
+            label: 'POIs',
+            onPressed: onPoiBrowser,
+          ),
+          _ToolbarButton(
+            icon: Icons.local_shipping_rounded,
+            label: 'Truck',
+            onPressed: onTruckProfile,
+          ),
+          _ToolbarButton(
+            icon: Icons.tune_rounded,
+            label: 'Options',
+            onPressed: onRouteOptions,
+          ),
+          _ToolbarButton(
+            icon: Icons.route_rounded,
+            label: 'Trip',
+            onPressed: onTripPlanner,
+          ),
+          if (isNavigating)
+            _ToolbarButton(
+              icon: Icons.list_alt_rounded,
+              label: 'Steps',
+              onPressed: onSteps,
+              iconColor: cs.primary,
+              labelColor: cs.primary,
+            ),
+          _ToolbarButton(
+            icon: Icons.flag_rounded,
+            label: 'Destination',
+            onPressed: onSetDestination,
+            iconColor: isSettingDestination ? cs.primary : null,
+            labelColor: isSettingDestination ? cs.primary : null,
+          ),
+          _ToolbarButton(
+            icon: Icons.emergency_rounded,
+            label: 'Help',
+            onPressed: onGetHelp,
+            iconColor: cs.error,
+            labelColor: cs.error,
+          ),
+          if (!isPro)
+            _ToolbarButton(
+              icon: Icons.workspace_premium_rounded,
+              label: 'Go Pro',
+              onPressed: onGoPro,
+            ),
+        ],
       ),
     );
   }
 }
 
-/// A compact selectable chip used for the Toll / Toll-Free toggle.
-class _TollChip extends StatelessWidget {
-  const _TollChip({
+/// A compact icon + label button used inside [_MapToolbar].
+class _ToolbarButton extends StatelessWidget {
+  const _ToolbarButton({
+    required this.icon,
     required this.label,
-    required this.selected,
-    required this.onTap,
+    required this.onPressed,
+    this.iconColor,
+    this.labelColor,
   });
 
+  final IconData icon;
   final String label;
-  final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback onPressed;
+  final Color? iconColor;
+  final Color? labelColor;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.spaceSM + 2,
-          vertical: AppTheme.spaceXS,
-        ),
-        decoration: BoxDecoration(
-          color: selected ? cs.primary : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-        ),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: selected ? cs.onPrimary : cs.onSurfaceVariant,
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+    final effectiveIconColor = iconColor ?? cs.onSurface;
+    final effectiveLabelColor = labelColor ?? cs.onSurface;
+    return Expanded(
+      child: Tooltip(
+        message: label,
+        child: Semantics(
+          label: label,
+          button: true,
+          child: InkWell(
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceXS),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 22, color: effectiveIconColor),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: effectiveLabelColor,
+                        ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
+            ),
+          ),
         ),
       ),
     );
@@ -1181,74 +1291,90 @@ class _LoadingBadge extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Floating "Where to?" search bar  (Truck Path style)
+// "Where to?" CTA bar
 // ---------------------------------------------------------------------------
 
-/// A prominent, pill-shaped search bar that sits just below the slim top bar.
-/// Tapping it opens the full [WhereToSheet] destination-search flow, matching
-/// the look and feel found in professional truck-navigation apps.
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({required this.onTap});
+/// A tappable search-bar–style CTA that opens the [WhereToSheet].
+class _WhereToCta extends StatelessWidget {
+  const _WhereToCta({required this.onTap});
 
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Semantics(
-      label: 'Search destination',
-      button: true,
-      child: Material(
-        key: const Key('where_to_search_bar'),
-        elevation: AppTheme.elevationSheet,
+    return Material(
+      key: const Key('where_to_cta'),
+      elevation: AppTheme.elevationSheet,
+      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+      color: cs.surface,
+      child: InkWell(
         borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-        color: cs.surface,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.spaceMD,
-              vertical: AppTheme.spaceSM + 2,
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.search_rounded, color: cs.primary, size: 22),
-                const SizedBox(width: AppTheme.spaceSM),
-                Expanded(
-                  child: Text(
-                    'Where to?',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTheme.spaceSM,
-                    vertical: AppTheme.spaceXS,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cs.primaryContainer,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.local_shipping_rounded,
-                          size: 14, color: cs.onPrimaryContainer),
-                      const SizedBox(width: AppTheme.spaceXS),
-                      Text(
-                        'Navigate',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: cs.onPrimaryContainer,
-                              fontWeight: FontWeight.bold,
-                            ),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spaceMD,
+            vertical: AppTheme.spaceSM + 2,
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.search_rounded, color: cs.primary, size: 22),
+              const SizedBox(width: AppTheme.spaceSM),
+              Expanded(
+                child: Text(
+                  'Where to?',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
-                    ],
-                  ),
                 ),
-              ],
+              ),
+              Icon(Icons.arrow_forward_ios_rounded,
+                  size: 14, color: cs.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Small floating action button for map overlay controls
+// ---------------------------------------------------------------------------
+
+class _MapFab extends StatelessWidget {
+  const _MapFab({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.active = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  /// When true the button is highlighted with the primary color.
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        elevation: AppTheme.elevationSheet,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+        color: active ? cs.primaryContainer : cs.surface,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.spaceSM),
+            child: Icon(
+              icon,
+              size: 22,
+              color: active ? cs.onPrimaryContainer : cs.onSurface,
             ),
           ),
         ),
