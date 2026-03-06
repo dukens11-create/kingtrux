@@ -2,6 +2,9 @@
 
 A Flutter-based mobile application for truck drivers with advanced routing, POI discovery, and weather integration.
 
+> **After merging this PR:** run `flutter clean && flutter pub get` to clear stale
+> caches before rebuilding.  Full instructions are in [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md#post-mergepost-pull-cache-cleanup).
+
 ## Features
 - **Multi-provider Authentication** via Firebase Auth:
   - Email/Password (create account, sign in, password reset)
@@ -10,11 +13,16 @@ A Flutter-based mobile application for truck drivers with advanced routing, POI 
   - Apple sign-in (iOS)
 - **Admin Login** — email-allowlist-based admin gating with a protected Admin Area screen
 - **Real-time GPS tracking** using Google Maps Flutter SDK
+- **Truck-optimised map UI** (redesigned 2026-03-05):
+  - Slim top bar with KINGTRUX brand and quick **Toll / Toll-Free** toggle chips
+  - Floating **"Where to?"** pill-shaped search bar (Truck Path style) below the top bar
+  - Route summary card at the bottom with route distance, ETA, and toll cost estimate
+  - **Start Navigation** button after a route is calculated
 - **Truck Profile** — configure your vehicle dimensions and restrictions:
   - Height, width, length, weight, axle count, and hazmat flag
   - Imperial (ft / short tons) and metric (m / t) display units
   - **Persists locally on device** (no account or API keys required)
-  - Will be used for HERE truck routing once HERE keys are configured
+  - Prompt banner shown until profile is configured so routes use real vehicle data
 - **Truck-specific route planning** with HERE Routing API v8
   - Configurable truck profile (height, weight, width, length, axles, hazmat)
   - Route optimization considering truck restrictions

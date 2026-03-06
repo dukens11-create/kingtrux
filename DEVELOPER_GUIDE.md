@@ -1,5 +1,43 @@
 # KINGTRUX Developer Quick Reference
 
+## Confirmed Working State (2026-03-05)
+
+All Dart source files, UI widgets, and app features are at the last fully working
+version from 2026-03-05 (after PR #152 "redesign-kingtrux-map-ui"). The build
+configuration was subsequently stabilised in PRs #153–#156 (Kotlin 2.3.0, AGP 8.9.1,
+Gradle 8.11.1, and removal of a machine-specific JDK path from `gradle.properties`).
+
+### Expected UI Features
+
+After a clean rebuild you should see the following in the app:
+
+| Feature | Location | Description |
+|---------|----------|-------------|
+| **Truck map** | Full screen | Google Maps tile view centred on the device location |
+| **Slim top bar** | Top overlay | Logo + "Toll" / "Toll-Free" toggle chips |
+| **"Where to?" search bar** | Below top bar | Pill-shaped floating bar; tap to open destination search |
+| **Truck profile prompt** | Bottom card | Banner when using default profile — tap to configure vehicle dimensions |
+| **Toll/Toll-Free toggle** | Bottom card | Segmented button to choose toll or toll-free routing |
+| **"Find Nearby POIs" button** | Bottom card | Load fuel stations, rest areas, truck stops within 15 km |
+| **"Start Navigation" button** | Bottom card (after route set) | Begins turn-by-turn navigation |
+
+### Feature Validation Checklist
+
+Use this checklist after merging and rebuilding to confirm the app is working correctly:
+
+- [ ] Map tiles visible once location is acquired
+- [ ] Slim top bar shows KINGTRUX logo and Toll/Toll-Free chips
+- [ ] Tapping "Where to?" opens the destination-search sheet
+- [ ] Long-pressing the map sets a destination and triggers route calculation
+- [ ] Route polyline appears on the map after calculation
+- [ ] "Start Navigation" button appears after a route is set
+- [ ] "Using default truck profile" banner visible until profile is configured
+- [ ] Tapping the truck profile banner (or the tune icon) opens the profile sheet
+- [ ] POI markers appear after tapping "Find Nearby POIs"
+- [ ] Toll / Toll-Free toggle re-routes correctly when changed
+
+---
+
 ## Post-Merge/Post-Pull Cache Cleanup
 
 After pulling or merging changes that modify `pubspec.yaml`, `android/build.gradle`,
@@ -337,16 +375,36 @@ try {
 
 ## Testing Checklist
 
+### Map & Location
 - [ ] Location permission granted
-- [ ] GPS location obtained
+- [ ] GPS location obtained and map centred on device
+- [ ] Map tiles load correctly (no blank tiles / grey screen)
+
+### UI Layout (restored from 2026-03-05 working version)
+- [ ] Slim top bar visible: logo on left, Toll/Toll-Free chips on right
+- [ ] "Where to?" floating search bar visible below the top bar
+- [ ] Tapping "Where to?" opens destination search sheet
+
+### Navigation & Routing
+- [ ] Long-press on map sets destination and triggers route calculation
+- [ ] Route polyline displayed on the map after calculation
+- [ ] "Start Navigation" button appears in bottom card after route is set
+- [ ] Turn-by-turn navigation works via NavigationScreen
+
+### Truck Profile
+- [ ] "Using default truck profile" prompt visible in bottom card
+- [ ] Tapping the prompt opens the TruckProfileSheet
+- [ ] Saving custom profile dismisses the prompt
+
+### POI & Toll
+- [ ] "Find Nearby POIs" button loads POI markers within 15 km
+- [ ] POI markers show info window on tap
+- [ ] Toll/Toll-Free toggle re-routes correctly
+- [ ] Layer toggles show/hide POI categories
+
+### General
 - [ ] Weather displayed correctly
-- [ ] Long-press sets destination
-- [ ] Route calculated and displayed
-- [ ] Truck profile adjustable
-- [ ] POIs load correctly
-- [ ] POI markers show info on tap
-- [ ] Layer toggles work
-- [ ] Map centering works
+- [ ] Map centering (follow mode) works
 - [ ] All API keys configured
 
 ## Common Issues
