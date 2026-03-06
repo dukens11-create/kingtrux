@@ -1,6 +1,66 @@
 # KINGTRUX Developer Quick Reference
 
-## API Configuration
+## Post-Merge/Post-Pull Cache Cleanup
+
+After pulling or merging changes that modify `pubspec.yaml`, `android/build.gradle`,
+`android/settings.gradle`, `android/gradle.properties`, or the Gradle wrapper, run the
+following commands to clear stale caches and avoid spurious build errors:
+
+```bash
+# 1. Remove Dart/Flutter package cache for this project
+flutter clean
+
+# 2. Re-fetch all pub dependencies
+flutter pub get
+
+# 3. (Android) Invalidate the Gradle build cache
+cd android && ./gradlew --stop && ./gradlew clean && cd ..
+```
+
+If you still see Kotlin or AGP version mismatch errors, also delete the Gradle user-home
+wrapper cache:
+
+```bash
+# macOS / Linux
+rm -rf ~/.gradle/caches
+rm -rf ~/.gradle/wrapper/dists
+
+# Windows (PowerShell)
+Remove-Item -Recurse -Force "$env:USERPROFILE\.gradle\caches"
+Remove-Item -Recurse -Force "$env:USERPROFILE\.gradle\wrapper\dists"
+```
+
+Then re-run `flutter pub get` and rebuild.
+
+> **Note:** Do **not** commit a `org.gradle.java.home` entry in
+> `android/gradle.properties`. That property is machine-specific and will break CI
+> (which sets `JAVA_HOME` itself via the `actions/setup-java` step).
+
+## Build Instructions
+
+### Android debug APK (local)
+
+```bash
+flutter pub get
+flutter build apk --debug \
+  --dart-define=HERE_API_KEY=<your_key> \
+  --dart-define=OPENWEATHER_API_KEY=<your_key> \
+  --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=<your_key>
+```
+
+### Android release APK (local)
+
+```bash
+flutter pub get
+flutter build apk --release \
+  --dart-define=HERE_API_KEY=<your_key> \
+  --dart-define=OPENWEATHER_API_KEY=<your_key> \
+  --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=<your_key>
+```
+
+The built APK is at `build/app/outputs/flutter-apk/app-release.apk`.
+
+
 
 ### Required Environment Variables
 ```bash
