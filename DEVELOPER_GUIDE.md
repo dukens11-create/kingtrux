@@ -1,5 +1,46 @@
 # KINGTRUX Developer Quick Reference
 
+## Confirmed Working State (2026-03-04 ~9 PM)
+
+All Dart source files, UI widgets, and app features have been restored to the last fully
+working version from **2026-03-04 ~9 PM** (commit `ee26578`, after PR #150
+"improve-truck-profile-ux" and PR #151 "add-user-document-creation"). The Kotlin Gradle
+Plugin is pinned to **2.1.0** (matching the working state). The machine-specific
+`org.gradle.java.home` Windows path has been kept out of `gradle.properties` as it
+breaks CI.
+
+### Expected UI Features
+
+After a clean rebuild you should see the following in the app:
+
+| Feature | Location | Description |
+|---------|----------|-------------|
+| **Truck map** | Full screen | Google Maps tile view centred on the device location |
+| **Top app bar** | Top | KINGTRUX logo/title with settings, preview, and sign-out actions |
+| **Search bar** | Top bar action | Tapping the search icon opens the "Where to?" destination sheet |
+| **Toll / POI selection** | Bottom toolbar | Toll-avoidance toggle and POI layer/browse buttons in BottomAppBar |
+| **Truck profile prompt** | Bottom card | "Using default truck profile" banner — tap to open profile sheet |
+| **Bottom navigation toolbar** | Bottom | BottomAppBar with My Location, Set Destination, Truck Profile, Layers, Route Options buttons |
+| **"Start Navigation" button** | Bottom card (after route set) | Begins turn-by-turn navigation |
+
+### Feature Validation Checklist
+
+Use this checklist after merging and rebuilding to confirm the app is working correctly:
+
+- [ ] Map tiles visible once location is acquired
+- [ ] Top app bar shows KINGTRUX title with settings and sign-out icons
+- [ ] Tapping the search icon opens the "Where to?" destination sheet
+- [ ] Long-pressing the map sets a destination and triggers route calculation
+- [ ] Route polyline appears on the map after calculation
+- [ ] "Start Navigation" button appears in the route card after a route is set
+- [ ] "Using default truck profile" banner visible until profile is configured
+- [ ] Tapping the truck profile button in the BottomAppBar opens the profile sheet
+- [ ] POI markers appear after tapping the layers/POI button
+- [ ] Toll avoidance toggle re-routes correctly when changed
+- [ ] Bottom toolbar buttons work: My Location, Set Destination, Truck Profile, Layers, Route Options
+
+---
+
 ## Post-Merge/Post-Pull Cache Cleanup
 
 After pulling or merging changes that modify `pubspec.yaml`, `android/build.gradle`,
@@ -337,16 +378,36 @@ try {
 
 ## Testing Checklist
 
+### Map & Location
 - [ ] Location permission granted
-- [ ] GPS location obtained
+- [ ] GPS location obtained and map centred on device
+- [ ] Map tiles load correctly (no blank tiles / grey screen)
+
+### UI Layout (restored from 2026-03-04 working version)
+- [ ] Top AppBar visible: KINGTRUX title, settings, and sign-out icons
+- [ ] Search icon in AppBar opens "Where to?" destination sheet
+- [ ] BottomAppBar visible with navigation toolbar buttons
+
+### Navigation & Routing
+- [ ] Long-press on map sets destination and triggers route calculation
+- [ ] Route polyline displayed on the map after calculation
+- [ ] "Start Navigation" button appears in bottom card after route is set
+- [ ] Turn-by-turn navigation works via NavigationScreen
+
+### Truck Profile
+- [ ] "Using default truck profile" prompt visible in bottom card
+- [ ] Tapping the prompt opens the TruckProfileSheet
+- [ ] Saving custom profile dismisses the prompt
+
+### POI & Toll
+- [ ] "Find Nearby POIs" button loads POI markers within 15 km
+- [ ] POI markers show info window on tap
+- [ ] Toll/Toll-Free toggle re-routes correctly
+- [ ] Layer toggles show/hide POI categories
+
+### General
 - [ ] Weather displayed correctly
-- [ ] Long-press sets destination
-- [ ] Route calculated and displayed
-- [ ] Truck profile adjustable
-- [ ] POIs load correctly
-- [ ] POI markers show info on tap
-- [ ] Layer toggles work
-- [ ] Map centering works
+- [ ] Map centering (follow mode) works
 - [ ] All API keys configured
 
 ## Common Issues

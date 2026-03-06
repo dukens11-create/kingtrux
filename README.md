@@ -2,6 +2,9 @@
 
 A Flutter-based mobile application for truck drivers with advanced routing, POI discovery, and weather integration.
 
+> **After merging this PR:** run `flutter clean && flutter pub get` to clear stale
+> caches before rebuilding.  Full instructions are in [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md#post-mergepost-pull-cache-cleanup).
+
 ## Features
 - **Multi-provider Authentication** via Firebase Auth:
   - Email/Password (create account, sign in, password reset)
@@ -10,11 +13,17 @@ A Flutter-based mobile application for truck drivers with advanced routing, POI 
   - Apple sign-in (iOS)
 - **Admin Login** — email-allowlist-based admin gating with a protected Admin Area screen
 - **Real-time GPS tracking** using Google Maps Flutter SDK
+- **Truck-optimised map UI** (working state: 2026-03-04):
+  - Standard AppBar with KINGTRUX title, search, settings and sign-out actions
+  - **"Where to?"** search button in the top bar to open destination search
+  - Persistent **BottomAppBar** toolbar: My Location, Set Destination, Truck Profile, Layers, Route Options
+  - Route summary card at the bottom with route distance, ETA, and toll cost estimate
+  - **Start Navigation** button after a route is calculated
 - **Truck Profile** — configure your vehicle dimensions and restrictions:
   - Height, width, length, weight, axle count, and hazmat flag
   - Imperial (ft / short tons) and metric (m / t) display units
   - **Persists locally on device** (no account or API keys required)
-  - Will be used for HERE truck routing once HERE keys are configured
+  - Prompt banner shown until profile is configured so routes use real vehicle data
 - **Truck-specific route planning** with HERE Routing API v8
   - Configurable truck profile (height, weight, width, length, axles, hazmat)
   - Route optimization considering truck restrictions
@@ -57,7 +66,7 @@ filePermissions`).
 | JDK | **17** (Temurin / OpenJDK) |
 | Gradle | 8.11.1 |
 | Android Gradle Plugin (AGP) | 8.9.1 |
-| Kotlin Gradle Plugin | 2.3.0 |
+| Kotlin Gradle Plugin | 2.1.0 |
 | Android SDK compile / target | 34 |
 
 Install JDK 17 via [Eclipse Temurin](https://adoptium.net/) or your OS package manager:
