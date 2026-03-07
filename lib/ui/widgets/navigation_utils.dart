@@ -56,3 +56,11 @@ String formatManeuverDistance(double meters) {
   }
   return '${miles.toStringAsFixed(1)} mi';
 }
+
+/// Format [meters] as a POI straight-line distance string in miles.
+///
+/// Always displays in miles (e.g. "0.1 mi", "1.2 mi").
+String formatPoiDistance(double meters) {
+  final miles = meters * 0.000621371;
+  return '${miles.toStringAsFixed(1)} mi';
+}

@@ -26,6 +26,7 @@ import 'widgets/theme_settings_sheet.dart';
 import 'widgets/road_sign_alert_settings_sheet.dart';
 import 'widgets/alert_banner.dart';
 import 'widgets/maneuver_banner.dart';
+import 'widgets/navigation_utils.dart';
 import 'widgets/steps_list_sheet.dart';
 import 'widgets/trip_planner_sheet.dart';
 import 'widgets/speed_display.dart';
@@ -576,13 +577,26 @@ class _MapScreenState extends State<MapScreen> {
       if (!state.enabledPoiLayers.contains(poi.type)) continue;
       // Respect per-brand filter for truck stop POIs.
       if (!state.isTruckStopBrandVisible(poi)) continue;
+      final label = PoiDetailSheet.poiLabel(poi.type);
+      final String snippet;
+      if (state.myLat != null && state.myLng != null) {
+        final meters = Geolocator.distanceBetween(
+          state.myLat!,
+          state.myLng!,
+          poi.lat,
+          poi.lng,
+        );
+        snippet = '$label · ${formatPoiDistance(meters)}';
+      } else {
+        snippet = label;
+      }
       markers.add(
         Marker(
           markerId: MarkerId('poi_${poi.id}'),
           position: LatLng(poi.lat, poi.lng),
           infoWindow: InfoWindow(
             title: poi.name,
-            snippet: PoiDetailSheet.poiLabel(poi.type),
+            snippet: snippet,
           ),
           icon: BitmapDescriptor.defaultMarkerWithHue(_getPoiColor(poi.type)),
           onTap: () => _onPoiMarkerTap(poi),
