@@ -262,7 +262,7 @@ class _MapScreenState extends State<MapScreen> {
                   child: UnifiedSearchBar(
                     onDestinationSelected: _onUnifiedDestinationSelected,
                     onPoiSelected: _onPoiMarkerTap,
-                    onCameraSelected: (_) => _onRoadCamerasPressed(),
+                    onCameraSelected: _onCameraMarkerTap,
                     onTruckProfile: _onTruckProfilePressed,
                     onLayers: _onLayersPressed,
                     onRoadCameras: _onRoadCamerasPressed,

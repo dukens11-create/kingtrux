@@ -506,7 +506,7 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
     final query = _controller.text.trim();
     return [
       _ActionTile(
-        icon: query.isEmpty ? Icons.search_rounded : Icons.search_rounded,
+        icon: Icons.search_rounded,
         label: query.isEmpty
             ? 'Type an address then press ↵ to search'
             : 'Search: "$query"',
