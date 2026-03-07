@@ -98,7 +98,7 @@ void main() {
       for (final c in cameras) {
         expect(c.id, isNotEmpty);
         expect(c.name, isNotEmpty);
-        expect(c.country, anyOf('US', 'CA'));
+        expect(c.country, anyOf(equals('US'), equals('CA')));
       }
     });
 

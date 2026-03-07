@@ -64,7 +64,7 @@ class RoadCameraService {
   /// [radiusKm] kilometres.
   ///
   /// When real API keys are configured the method queries live DOT feeds;
-  /// otherwise it returns [_democameras].
+  /// otherwise it returns [_demoCameras].
   ///
   /// Results are sorted by ascending distance from the given coordinates.
   Future<List<RoadCamera>> fetchCameras({
@@ -79,7 +79,7 @@ class RoadCameraService {
         'RoadCameraService: no API key configured – returning demo data. '
         'See lib/services/road_camera_service.dart for setup instructions.',
       );
-      return _sortByDistance(_democameras, centerLat, centerLng);
+      return _sortByDistance(_demoCameras, centerLat, centerLng);
     }
 
     final results = <RoadCamera>[];
@@ -119,7 +119,7 @@ class RoadCameraService {
       debugPrint(
         'RoadCameraService: all feeds failed; returning demo data. Errors: $errors',
       );
-      return _sortByDistance(_democameras, centerLat, centerLng);
+      return _sortByDistance(_demoCameras, centerLat, centerLng);
     }
 
     return _sortByDistance(results, centerLat, centerLng);
@@ -427,7 +427,7 @@ class RoadCameraService {
   // Replace or extend this list once you have real DOT API keys.
   // ---------------------------------------------------------------------------
 
-  static final List<RoadCamera> _democameras = [
+  static final List<RoadCamera> _demoCameras = [
     // ── USA ───────────────────────────────────────────────────────────────────
     const RoadCamera(
       id: 'demo_us_ny_1',
