@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kingtrux/models/poi.dart';
+import 'package:kingtrux/ui/widgets/navigation_utils.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -185,6 +186,32 @@ void main() {
       final now = DateTime.now();
       // ~0.5 km offset (within 0.009 degrees)
       expect(isCacheValid(now, 45.0, -73.0, 45.005, -73.005), isTrue);
+    });
+  });
+
+  group('formatPoiDistance', () {
+    test('formats 0 meters as 0.0 mi', () {
+      expect(formatPoiDistance(0), '0.0 mi');
+    });
+
+    test('formats 1609 meters (~1 mile) as 1.0 mi', () {
+      // 1609.344 meters = 1 mile exactly; 1609 ≈ 1.0 mi
+      expect(formatPoiDistance(1609), '1.0 mi');
+    });
+
+    test('formats 8047 meters (~5 miles) as 5.0 mi', () {
+      // 8046.72 m = 5 miles
+      expect(formatPoiDistance(8047), '5.0 mi');
+    });
+
+    test('formats 500 meters as 0.3 mi', () {
+      // 500 * 0.000621371 = 0.3107 → '0.3 mi'
+      expect(formatPoiDistance(500), '0.3 mi');
+    });
+
+    test('always uses mi suffix regardless of distance', () {
+      expect(formatPoiDistance(100), endsWith(' mi'));
+      expect(formatPoiDistance(50000), endsWith(' mi'));
     });
   });
 }
