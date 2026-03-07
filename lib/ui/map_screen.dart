@@ -11,6 +11,7 @@ import '../config.dart';
 import '../models/poi.dart';
 import '../models/road_camera.dart';
 import '../services/map_preferences_service.dart';
+import '../services/here_geocoding_service.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
 import 'theme/dark_map_style.dart';
@@ -32,10 +33,10 @@ import 'widgets/steps_list_sheet.dart';
 import 'widgets/trip_planner_sheet.dart';
 import 'widgets/speed_display.dart';
 import 'widgets/compass_indicator.dart';
-import 'widgets/where_to_sheet.dart';
 import 'widgets/route_guidance_banner.dart';
 import 'widgets/kingtrux_logo.dart';
 import 'widgets/road_cameras_sheet.dart';
+import 'widgets/unified_search_bar.dart';
 import 'account_screen.dart';
 import 'navigation_screen.dart';
 import 'paywall_screen.dart';
@@ -251,14 +252,23 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-              // ── "Where to?" CTA bar ─────────────────────────────────────
+              // ── Unified search bar (floats below AppBar, never covers map) ──
               // Hidden when tap-to-set destination mode is active.
               if (!_settingDestination)
                 Positioned(
                   top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceXS,
                   left: AppTheme.spaceMD,
                   right: AppTheme.spaceMD,
-                  child: _WhereToCta(onTap: _onWhereToCTAPressed),
+                  child: UnifiedSearchBar(
+                    onDestinationSelected: _onUnifiedDestinationSelected,
+                    onPoiSelected: _onPoiMarkerTap,
+                    onCameraSelected: _onCameraMarkerTap,
+                    onTruckProfile: _onTruckProfilePressed,
+                    onLayers: _onLayersPressed,
+                    onRoadCameras: _onRoadCamerasPressed,
+                    onPoiBrowser: _onPoiBrowserPressed,
+                    onSetDestinationByMap: _onSetDestinationPressed,
+                  ),
                 ),
 
               // ── Map overlay buttons (right side) ─────────────────────────
@@ -877,14 +887,18 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // "Where to?" CTA
+  // Unified search bar – destination selected callback
   // ---------------------------------------------------------------------------
-  Future<void> _onWhereToCTAPressed() async {
-    HapticFeedback.selectionClick();
-    final result = await showWhereToSheet(context);
-    // If the user chose "Use Map", activate tap-to-set mode.
-    if (result == 'long_press' && mounted) {
-      setState(() => _settingDestination = true);
+
+  /// Called when the driver picks a geocoded address from [UnifiedSearchBar].
+  /// Sets the destination in app state and builds the truck route.
+  Future<void> _onUnifiedDestinationSelected(GeocodedLocation location) async {
+    final state = context.read<AppState>();
+    state.setDestination(location.lat, location.lng);
+    try {
+      await state.buildTruckRoute();
+    } catch (_) {
+      // Errors are surfaced via AppState.routeError / SnackBar in _setDestinationAt.
     }
   }
 
@@ -1349,54 +1363,6 @@ class _LoadingBadge extends StatelessWidget {
             const SizedBox(width: AppTheme.spaceSM),
             Text(label, style: Theme.of(context).textTheme.bodySmall),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// "Where to?" CTA bar
-// ---------------------------------------------------------------------------
-
-/// A tappable search-bar–style CTA that opens the [WhereToSheet].
-class _WhereToCta extends StatelessWidget {
-  const _WhereToCta({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      key: const Key('where_to_cta'),
-      elevation: AppTheme.elevationSheet,
-      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-      color: cs.surface,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppTheme.spaceMD,
-            vertical: AppTheme.spaceSM + 2,
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.search_rounded, color: cs.primary, size: 22),
-              const SizedBox(width: AppTheme.spaceSM),
-              Expanded(
-                child: Text(
-                  'Where to?',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                ),
-              ),
-              Icon(Icons.arrow_forward_ios_rounded,
-                  size: 14, color: cs.onSurfaceVariant),
-            ],
-          ),
         ),
       ),
     );
