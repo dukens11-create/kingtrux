@@ -31,6 +31,10 @@ A Flutter-based mobile application for truck drivers with advanced routing, POI 
 - **Points of Interest (POI) discovery** via OpenStreetMap Overpass API
   - Fuel stations
   - Rest areas
+- **Road Cameras** — aggregated USA & Canada DOT traffic camera feeds
+  - Search, filter by country, and view camera snapshots / streams
+  - Camera locations shown as map markers with distance from current position
+  - Demo data when no API key is configured; live 511 / DriveBC feeds when keys are set
 - **Real-time weather updates** at current location using OpenWeather API
 - **Interactive map interface** with route visualization
 - **Location-based services** with comprehensive permission handling
@@ -92,6 +96,9 @@ You'll need to obtain API keys from:
    - Free tier available
 5. **RevenueCat**: https://app.revenuecat.com/
    - Free tier available; needed for in-app subscriptions
+6. **511 DOT API** _(optional, Road Cameras feature)_: https://511ny.org/dev
+   - Free registration; enables live USA road camera feeds
+   - Canada's DriveBC feed works without any key
 
 ### API Key Management Best Practices
 
@@ -153,6 +160,7 @@ flutter run \
   --dart-define=HERE_NAVIGATE_ACCESS_KEY_ID=your_here_navigate_id \
   --dart-define=HERE_NAVIGATE_ACCESS_KEY_SECRET=your_here_navigate_secret \
   --dart-define=OPENWEATHER_API_KEY=your_openweather_api_key \
+  --dart-define=ROAD_CAMERA_511_API_KEY=your_511_api_key \
   --dart-define=REVENUECAT_IOS_API_KEY=appl_xxx \
   --dart-define=REVENUECAT_ANDROID_API_KEY=goog_xxx
 ```
@@ -351,6 +359,81 @@ Store or TestFlight — it is only produced for internal/testing distribution.
 | `HERE_API_KEY` | HERE platform REST API key |
 | `REVENUECAT_IOS_API_KEY` | RevenueCat iOS public SDK key (`appl_…`) |
 | `GOOGLE_SERVICE_INFO_PLIST` | Base64-encoded `GoogleService-Info.plist` for Firebase |
+
+## Road Cameras
+
+KINGTRUX aggregates publicly available road / traffic camera feeds from USA and
+Canada Departments of Transportation (DOT) via the **511 feed standard** and
+the **DriveBC open-data API** (British Columbia).
+
+### Feature overview
+
+| Capability | Details |
+|---|---|
+| **Map markers** | Cyan camera pins appear on the main map after loading |
+| **Camera list panel** | Bottom sheet sorted by distance from the driver |
+| **Search & filter** | Free-text search + country filter (USA / Canada) |
+| **Snapshot viewer** | Tap a camera tile to open the DOT snapshot image in the browser |
+| **Live stream** | When the data source provides a stream URL (HLS/MJPEG) it is opened instead |
+| **Distance display** | Shows distance in miles or km (follows the app-wide units setting) |
+| **Demo data** | When no API key is configured the feature runs with sample camera locations |
+
+### Getting a 511 API key (USA)
+
+1. Visit **https://511ny.org/dev** and register for a free API key.
+   - The 511NY platform key works with many north-eastern states.
+2. For Washington State (WSDOT) visit **https://wsdot.wa.gov/traffic/api/**.
+3. Pass the key at build / run time:
+
+```bash
+flutter run --dart-define=ROAD_CAMERA_511_API_KEY=your_511_key
+```
+
+### Canada – DriveBC (British Columbia)
+
+The DriveBC API is completely open and **does not require a key**.
+Cameras in British Columbia are returned automatically whenever the Road
+Cameras sheet is opened.
+
+For other Canadian provinces (Ontario, Québec, Alberta, …) you will need to
+register with the provincial 511 or MTO portal individually and add a matching
+`_fetch<Province>Cameras` method in `lib/services/road_camera_service.dart`
+following the same pattern as the existing methods.
+
+### Expanding to additional US states
+
+Each DOT feed uses the same 511-compatible JSON format.  To add a state:
+
+1. Open `lib/services/road_camera_service.dart`.
+2. Copy the `_fetch511NyCameras` method and rename it (e.g., `_fetch511PaCameras`).
+3. Update the `Uri.https(...)` host and any state-specific fields.
+4. Call the new method inside `fetchCameras()` alongside the existing calls.
+5. Add the state code to the `stateOrProvince` field so the filter chips work.
+
+### Expanding globally
+
+To add cameras outside North America:
+
+1. Create a `_fetch<Country>Cameras(double lat, double lng, double radiusKm)` method.
+2. Map the feed's JSON to `RoadCamera` objects (see `lib/models/road_camera.dart`).
+3. Call it inside `fetchCameras()` and combine the results.
+4. If the feed requires authentication, add a constant to `lib/config.dart`
+   following the `roadCamera511ApiKey` pattern and inject it via `--dart-define`.
+
+### CI / CD
+
+Add the key to your GitHub Actions repository secrets
+(**Settings → Secrets and variables → Actions**):
+
+| Secret name | Value |
+|---|---|
+| `ROAD_CAMERA_511_API_KEY` | Your 511 DOT API key |
+
+Then pass it to the build step:
+
+```yaml
+flutter build apk --dart-define=ROAD_CAMERA_511_API_KEY=${{ secrets.ROAD_CAMERA_511_API_KEY }}
+```
 
 ## In-App Subscriptions (RevenueCat)
 

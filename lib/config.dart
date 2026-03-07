@@ -106,6 +106,33 @@ class Config {
   static const String feedbackUrl = 'https://kingtrux.com/feedback';
 
   // ---------------------------------------------------------------------------
+  // Road Cameras – 511 DOT API key
+  //
+  // USA  – Register for a free key at https://511ny.org/dev (also accepted by
+  //        many other state 511 portals that share the same platform).
+  //        Pass via: flutter run --dart-define=ROAD_CAMERA_511_API_KEY=<key>
+  //
+  // Canada – The DriveBC open-data feed (British Columbia) does NOT require a
+  //          key.  Other provincial feeds may require separate registration.
+  //
+  // When no key is configured the app falls back to a set of demo cameras so
+  // the Road Cameras feature remains fully functional without registration.
+  // ---------------------------------------------------------------------------
+
+  /// 511 DOT API key for USA road camera feeds.
+  ///
+  /// Pass at build / run time:
+  ///   flutter run --dart-define=ROAD_CAMERA_511_API_KEY=your_key
+  static const String roadCamera511ApiKey =
+      String.fromEnvironment('ROAD_CAMERA_511_API_KEY', defaultValue: '');
+
+  /// Returns `true` when a 511 API key has been provided.
+  ///
+  /// When `false` the [RoadCameraService] serves demo cameras so the Road
+  /// Cameras screen is always usable.
+  static bool get roadCameraApiConfigured => roadCamera511ApiKey.isNotEmpty;
+
+  // ---------------------------------------------------------------------------
   // Admin access
   // Comma-separated list of email addresses that are treated as app admins.
   // Pass at build/run time:
