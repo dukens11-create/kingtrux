@@ -9,6 +9,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/poi.dart';
+import '../models/road_camera.dart';
 import '../services/map_preferences_service.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
@@ -34,6 +35,7 @@ import 'widgets/compass_indicator.dart';
 import 'widgets/where_to_sheet.dart';
 import 'widgets/route_guidance_banner.dart';
 import 'widgets/kingtrux_logo.dart';
+import 'widgets/road_cameras_sheet.dart';
 import 'account_screen.dart';
 import 'navigation_screen.dart';
 import 'paywall_screen.dart';
@@ -189,6 +191,7 @@ class _MapScreenState extends State<MapScreen> {
           onRecenter: _onMyLocationPressed,
           onLayers: _onLayersPressed,
           onPoiBrowser: _onPoiBrowserPressed,
+          onRoadCameras: _onRoadCamerasPressed,
           onTruckProfile: _onTruckProfilePressed,
           onTripPlanner: _onTripPlannerPressed,
           onGetHelp: _onGetHelpPressed,
@@ -620,6 +623,27 @@ class _MapScreenState extends State<MapScreen> {
       );
     }
 
+    // Road cameras (shown when loaded via the Cameras sheet).
+    for (final camera in state.roadCameras) {
+      markers.add(
+        Marker(
+          markerId: MarkerId('camera_${camera.id}'),
+          position: LatLng(camera.lat, camera.lng),
+          infoWindow: InfoWindow(
+            title: camera.name,
+            snippet: [
+              camera.stateOrProvince,
+              camera.direction,
+            ].whereType<String>().join(' · '),
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueCyan,
+          ),
+          onTap: () => _onCameraMarkerTap(camera),
+        ),
+      );
+    }
+
     return markers;
   }
 
@@ -779,6 +803,15 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onRoadCamerasPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const RoadCamerasSheet(),
+    );
+  }
+
   void _onGetHelpPressed() {
     HapticFeedback.heavyImpact();
     showModalBottomSheet<void>(
@@ -802,6 +835,17 @@ class _MapScreenState extends State<MapScreen> {
     showModalBottomSheet<void>(
       context: context,
       builder: (context) => PoiDetailSheet(poi: poi),
+    );
+  }
+
+  /// Tapping a camera marker opens the Road Cameras sheet so the driver can
+  /// see the full camera list and tap the specific camera to open its feed.
+  void _onCameraMarkerTap(RoadCamera camera) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const RoadCamerasSheet(),
     );
   }
 
@@ -967,6 +1011,7 @@ class _MapToolbar extends StatelessWidget {
     required this.onRecenter,
     required this.onLayers,
     required this.onPoiBrowser,
+    required this.onRoadCameras,
     required this.onTruckProfile,
     required this.onTripPlanner,
     required this.onGetHelp,
@@ -982,6 +1027,7 @@ class _MapToolbar extends StatelessWidget {
   final VoidCallback onRecenter;
   final VoidCallback onLayers;
   final VoidCallback onPoiBrowser;
+  final VoidCallback onRoadCameras;
   final VoidCallback onTruckProfile;
   final VoidCallback onTripPlanner;
   final VoidCallback onGetHelp;
@@ -1014,6 +1060,11 @@ class _MapToolbar extends StatelessWidget {
             icon: Icons.place_rounded,
             label: 'POIs',
             onPressed: onPoiBrowser,
+          ),
+          _ToolbarButton(
+            icon: Icons.videocam_rounded,
+            label: 'Cameras',
+            onPressed: onRoadCameras,
           ),
           _ToolbarButton(
             icon: Icons.local_shipping_rounded,

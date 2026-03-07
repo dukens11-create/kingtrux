@@ -54,6 +54,8 @@ import '../services/tts_language_service.dart';
 import '../services/alert_phrase_service.dart';
 import '../services/destination_persistence_service.dart';
 import '../services/units_service.dart';
+import '../models/road_camera.dart';
+import '../services/road_camera_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -87,6 +89,7 @@ class AppState extends ChangeNotifier {
       NightModeSettingsService();
   final RoadsideAssistanceService _roadsideAssistanceService =
       RoadsideAssistanceService();
+  final RoadCameraService _roadCameraService = RoadCameraService();
   final ThemeSettingsService _themeSettingsService = ThemeSettingsService();
   final TtsLanguageService _ttsLanguageService = TtsLanguageService();
   final DestinationPersistenceService _destinationPersistenceService =
@@ -383,6 +386,19 @@ class AppState extends ChangeNotifier {
 
   /// `true` while [loadRoadsideProviders] is running.
   bool isLoadingRoadside = false;
+
+  // ---------------------------------------------------------------------------
+  // Road cameras state
+  // ---------------------------------------------------------------------------
+
+  /// Road / traffic cameras loaded via [loadRoadCameras].
+  List<RoadCamera> roadCameras = [];
+
+  /// `true` while [loadRoadCameras] is in progress.
+  bool isLoadingCameras = false;
+
+  /// Error message from the last [loadRoadCameras] call, or `null` on success.
+  String? cameraError;
 
   // Subscription / entitlement state
   /// `true` when the user has an active KINGTRUX Pro entitlement.
@@ -889,6 +905,36 @@ class AppState extends ChangeNotifier {
       );
     } finally {
       isLoadingRoadside = false;
+      notifyListeners();
+    }
+  }
+
+  /// Populates [roadCameras] with road / traffic cameras near the current
+  /// location within [radiusKm] kilometres.
+  ///
+  /// When a real 511 API key is configured via
+  /// `--dart-define=ROAD_CAMERA_511_API_KEY=<key>`, live DOT feeds are queried.
+  /// Otherwise demo cameras are returned so the UI is always functional.
+  Future<void> loadRoadCameras({double radiusKm = 200}) async {
+    if (myLat == null || myLng == null) {
+      throw Exception('Current location not set');
+    }
+
+    isLoadingCameras = true;
+    cameraError = null;
+    notifyListeners();
+
+    try {
+      roadCameras = await _roadCameraService.fetchCameras(
+        centerLat: myLat!,
+        centerLng: myLng!,
+        radiusKm: radiusKm,
+      );
+    } catch (e) {
+      cameraError = e.toString().replaceFirst('Exception: ', '');
+      roadCameras = [];
+    } finally {
+      isLoadingCameras = false;
       notifyListeners();
     }
   }
