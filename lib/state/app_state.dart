@@ -60,6 +60,7 @@ import '../models/weigh_station.dart';
 import '../services/weigh_station_service.dart';
 import '../services/weigh_station_monitor.dart';
 import '../services/weigh_station_settings_service.dart';
+import '../services/firestore_weigh_station_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -98,6 +99,8 @@ class AppState extends ChangeNotifier {
   final WeighStationMonitor _weighStationMonitor = WeighStationMonitor();
   final WeighStationSettingsService _weighStationSettingsService =
       WeighStationSettingsService();
+  final FirestoreWeighStationService _firestoreWeighStationService =
+      FirestoreWeighStationService();
   final ThemeSettingsService _themeSettingsService = ThemeSettingsService();
   final TtsLanguageService _ttsLanguageService = TtsLanguageService();
   final DestinationPersistenceService _destinationPersistenceService =
@@ -423,6 +426,13 @@ class AppState extends ChangeNotifier {
 
   /// Driver-configurable weigh-station alert settings.
   WeighStationSettings weighStationSettings = const WeighStationSettings();
+
+  /// Called by [AppState] when the driver enters the 150-foot submission
+  /// radius of a weigh station and submission prompts are enabled.
+  ///
+  /// The UI layer (MapScreen) sets this callback to show the status-report
+  /// dialog to the driver.
+  WeighStationSubmissionCallback? onWeighStationSubmissionPrompt;
 
   // Subscription / entitlement state
   /// `true` when the user has an active KINGTRUX Pro entitlement.
@@ -972,8 +982,9 @@ class AppState extends ChangeNotifier {
   /// Populates [weighStations] with weigh / inspection stations near the
   /// current location within [radiusKm] kilometres.
   ///
-  /// The built-in static baseline is always available; register a real-time
-  /// provider on [_weighStationService] to add live enforcement-status data.
+  /// After fetching the static baseline, overlays the most-recent Firestore
+  /// crowdsourced status for each station.  Stations with no fresh Firestore
+  /// report retain [WeighStationStatus.unknown].
   Future<void> loadWeighStations({double radiusKm = 300}) async {
     if (myLat == null || myLng == null) {
       throw Exception('Current location not set');
@@ -984,11 +995,13 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      weighStations = await _weighStationService.fetchStations(
+      final raw = await _weighStationService.fetchStations(
         centerLat: myLat!,
         centerLng: myLng!,
         radiusKm: radiusKm,
       );
+      // Overlay Firestore crowdsourced statuses on top of the static baseline.
+      weighStations = await _applyFirestoreStatuses(raw);
     } catch (e) {
       weighStationError = e.toString().replaceFirst('Exception: ', '');
       weighStations = [];
@@ -996,6 +1009,49 @@ class AppState extends ChangeNotifier {
       isLoadingWeighStations = false;
       notifyListeners();
     }
+  }
+
+  /// Overlays the latest Firestore crowdsourced statuses onto [stations].
+  Future<List<WeighStation>> _applyFirestoreStatuses(
+    List<WeighStation> stations,
+  ) async {
+    final overrides =
+        await _firestoreWeighStationService.getLatestStatusPerStation();
+    if (overrides.isEmpty) return stations;
+    return stations.map((s) {
+      final ov = overrides[s.id];
+      if (ov == null) return s;
+      return s.copyWith(
+        status: ov.status,
+        statusUpdatedAt: ov.updatedAt,
+        source: 'Crowdsourced',
+      );
+    }).toList();
+  }
+
+  /// Submit a crowdsourced weigh-station status report to Firestore and
+  /// immediately update the local [weighStations] list.
+  Future<void> submitWeighStationReport({
+    required String stationId,
+    required WeighStationStatus status,
+  }) async {
+    // Update local state immediately for a snappy UI.
+    final now = DateTime.now();
+    weighStations = weighStations.map((s) {
+      if (s.id != stationId) return s;
+      return s.copyWith(
+        status: status,
+        statusUpdatedAt: now,
+        source: 'Crowdsourced',
+      );
+    }).toList();
+    notifyListeners();
+
+    // Persist to Firestore in the background.
+    await _firestoreWeighStationService.submitReport(
+      stationId: stationId,
+      status: status,
+    );
   }
 
   /// Update the weigh-station alert settings and persist them.
@@ -1678,20 +1734,26 @@ class AppState extends ChangeNotifier {
       final distMi = (dist / 1609.344).toStringAsFixed(1);
       final distKm = (dist / 1000).toStringAsFixed(1);
       final distLabel = useMetricUnits ? '$distKm km' : '$distMi mi';
-      final statusLabel = station.status == WeighStationStatus.open
-          ? 'Open (enforcing)'
-          : 'Status unknown';
+      final effectiveStatus = station.effectiveStatus;
+      final statusLabel = effectiveStatus == WeighStationStatus.unknown
+          ? 'Status unknown'
+          : effectiveStatus.label;
       addAlert(AlertEvent(
         id: 'weigh_station_${station.id}_${DateTime.now().millisecondsSinceEpoch}',
         type: AlertType.weighStationAlert,
         title: 'Weigh Station Ahead',
         message: '${station.name} — $statusLabel, $distLabel away.',
-        severity: station.status == WeighStationStatus.open
+        severity: effectiveStatus.isActive
             ? AlertSeverity.warning
             : AlertSeverity.info,
         timestamp: DateTime.now(),
         speakable: weighStationSettings.enableTts,
       ));
+    };
+    _weighStationMonitor.onSubmissionPrompt = (WeighStation station) {
+      if (weighStationSettings.enableSubmissionPrompts) {
+        onWeighStationSubmissionPrompt?.call(station);
+      }
     };
 
     _hazardMonitor.onHazardApproaching = (Hazard hazard, double dist) {
@@ -1941,6 +2003,7 @@ class AppState extends ChangeNotifier {
       lng: pos.longitude,
       stations: weighStations,
       enabled: weighStationSettings.enableAlerts,
+      submissionEnabled: weighStationSettings.enableSubmissionPrompts,
     );
   }
 

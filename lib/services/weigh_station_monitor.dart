@@ -1,10 +1,17 @@
 import 'dart:math' as math;
 import '../models/weigh_station.dart';
 
-/// Callback fired when the driver approaches a weigh station.
+/// Callback fired when the driver approaches a weigh station for an alert.
 typedef WeighStationAlertCallback = void Function(
   WeighStation station,
   double distanceMeters,
+);
+
+/// Callback fired when the driver is within the crowdsourcing submission
+/// radius of a station.  The UI should show a prompt for the driver to
+/// report the current status.
+typedef WeighStationSubmissionCallback = void Function(
+  WeighStation station,
 );
 
 // =============================================================================
@@ -15,32 +22,46 @@ typedef WeighStationAlertCallback = void Function(
 /// [onNearbyStation] when the driver comes within [thresholdMeters] of a
 /// station that has not already been announced in this session.
 ///
-/// Alert behaviour by status:
-/// - [WeighStationStatus.open]    – alert fires (station is enforcing).
-/// - [WeighStationStatus.closed]  – no alert (station is bypassed).
-/// - [WeighStationStatus.unknown] – alert fires when [alertOnUnknown] is
-///   `true` (default), so drivers are always notified when status is
-///   unavailable.
+/// Additionally fires [onSubmissionPrompt] when the driver is within
+/// [submissionProximityMeters] (150 ft ≈ 45.72 m) of a station for which
+/// a crowdsourcing prompt has not yet been shown this session.
 ///
-/// Spam prevention: each station alert fires at most once per session.
+/// Alert behaviour by status:
+/// - [WeighStationStatus.openBypass]       – alert fires (active enforcement).
+/// - [WeighStationStatus.openGoingThrough] – alert fires (active enforcement).
+/// - [WeighStationStatus.monitoring]       – alert fires.
+/// - [WeighStationStatus.closed]           – no alert.
+/// - [WeighStationStatus.unknown]          – alert fires when [alertOnUnknown]
+///   is `true` (default).
+///
+/// Spam prevention: each alert fires at most once per session.
 /// Call [reset] when a new route or navigation session starts.
 ///
 /// Position updates are supplied by the caller; this monitor has no GPS
 /// subscription of its own.
 class WeighStationMonitor {
   // ---------------------------------------------------------------------------
-  // Threshold
+  // Thresholds
   // ---------------------------------------------------------------------------
 
-  /// Default proximity threshold in metres (~1 mile).
+  /// Default proximity threshold in metres (~1 mile) for the alert banner.
   static const double defaultThresholdMeters = 1609.3;
 
+  /// Radius in metres at which the crowdsourcing submission prompt appears.
+  ///
+  /// 150 feet = 45.72 metres, per requirements spec.
+  static const double submissionProximityMeters = 45.72;
+
   // ---------------------------------------------------------------------------
-  // Callback
+  // Callbacks
   // ---------------------------------------------------------------------------
 
   /// Called when the driver approaches a qualifying weigh station.
   WeighStationAlertCallback? onNearbyStation;
+
+  /// Called when the driver is within [submissionProximityMeters] of a station
+  /// and has not yet been prompted to submit a status report this session.
+  WeighStationSubmissionCallback? onSubmissionPrompt;
 
   // ---------------------------------------------------------------------------
   // Configuration
@@ -52,19 +73,22 @@ class WeighStationMonitor {
   double thresholdMeters;
 
   /// Whether to fire alerts for stations with [WeighStationStatus.unknown]
-  /// status.
+  /// effective status.
   ///
   /// When `true` (default) the driver is notified even when the enforcement
   /// status cannot be determined.  When `false`, alerts only fire for
-  /// explicitly [WeighStationStatus.open] stations.
+  /// explicitly active stations.
   bool alertOnUnknown;
 
   // ---------------------------------------------------------------------------
   // Internal state
   // ---------------------------------------------------------------------------
 
-  /// Station IDs that have already been announced in the current session.
+  /// Station IDs for which the alert has already been announced this session.
   final Set<String> _announcedIds = {};
+
+  /// Station IDs for which the submission prompt has already been shown.
+  final Set<String> _promptedIds = {};
 
   // ---------------------------------------------------------------------------
   // Constructor
@@ -83,6 +107,9 @@ class WeighStationMonitor {
   /// [onNearbyStation] for any qualifying station within [thresholdMeters]
   /// that has not yet been announced this session.
   ///
+  /// Also fires [onSubmissionPrompt] for stations within
+  /// [submissionProximityMeters] when [submissionEnabled] is `true`.
+  ///
   /// Pass `enabled: false` to suppress all alerts (e.g. when the driver
   /// has disabled weigh-station notifications in settings).
   void update({
@@ -90,21 +117,32 @@ class WeighStationMonitor {
     required double lng,
     required List<WeighStation> stations,
     bool enabled = true,
+    bool submissionEnabled = true,
   }) {
-    if (!enabled) return;
-
     for (final station in stations) {
+      final dist = _haversine(lat, lng, station.lat, station.lng);
+
+      // ── Crowdsourcing prompt (150-foot radius) ───────────────────────────
+      if (submissionEnabled &&
+          !_promptedIds.contains(station.id) &&
+          dist <= submissionProximityMeters) {
+        _promptedIds.add(station.id);
+        onSubmissionPrompt?.call(station);
+      }
+
+      // ── Proximity alert ──────────────────────────────────────────────────
+      if (!enabled) continue;
       if (_announcedIds.contains(station.id)) continue;
 
-      // Apply status-based filtering.
-      final shouldAlert = switch (station.status) {
-        WeighStationStatus.open => true,
+      final shouldAlert = switch (station.effectiveStatus) {
+        WeighStationStatus.openBypass => true,
+        WeighStationStatus.openGoingThrough => true,
+        WeighStationStatus.monitoring => true,
         WeighStationStatus.closed => false,
         WeighStationStatus.unknown => alertOnUnknown,
       };
       if (!shouldAlert) continue;
 
-      final dist = _haversine(lat, lng, station.lat, station.lng);
       if (dist <= thresholdMeters) {
         _announcedIds.add(station.id);
         onNearbyStation?.call(station, dist);
@@ -112,8 +150,12 @@ class WeighStationMonitor {
     }
   }
 
-  /// Reset all announced state (call when a new route or session starts).
-  void reset() => _announcedIds.clear();
+  /// Reset all announced / prompted state (call when a new route or session
+  /// starts).
+  void reset() {
+    _announcedIds.clear();
+    _promptedIds.clear();
+  }
 
   // ---------------------------------------------------------------------------
   // Geometry helper

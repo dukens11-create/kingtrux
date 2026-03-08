@@ -39,6 +39,7 @@ import 'widgets/kingtrux_logo.dart';
 import 'widgets/road_cameras_sheet.dart';
 import 'widgets/unified_search_bar.dart';
 import 'widgets/weigh_stations_sheet.dart';
+import 'widgets/weigh_station_report_dialog.dart';
 import 'account_screen.dart';
 import 'navigation_screen.dart';
 import 'paywall_screen.dart';
@@ -91,6 +92,10 @@ class _MapScreenState extends State<MapScreen> {
       context.read<AppState>().init();
       _loadMapPrefs();
       _startMapInitTimer();
+      // Wire the crowdsourcing prompt: when the driver is within 150 ft of a
+      // weigh station, show the status-report dialog.
+      context.read<AppState>().onWeighStationSubmissionPrompt =
+          _onWeighStationSubmissionPrompt;
     });
   }
 
@@ -674,7 +679,7 @@ class _MapScreenState extends State<MapScreen> {
             ].whereType<String>().join(' · '),
           ),
           icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueMagenta,
+            _weighStationMarkerHue(station.effectiveStatus),
           ),
           onTap: () => _onWeighStationMarkerTap(station),
         ),
@@ -700,6 +705,26 @@ class _MapScreenState extends State<MapScreen> {
         return BitmapDescriptor.hueGreen;
       case PoiType.roadsideAssistance:
         return BitmapDescriptor.hueRed;
+    }
+  }
+
+  /// Maps [WeighStationStatus] to the nearest Google Maps marker hue.
+  ///
+  /// - Green  (120°) → open bypass / going through
+  /// - Yellow  (60°) → monitoring
+  /// - Red     (0°)  → closed
+  /// - Rose  (330°)  → unknown / stale
+  double _weighStationMarkerHue(WeighStationStatus status) {
+    switch (status) {
+      case WeighStationStatus.openBypass:
+      case WeighStationStatus.openGoingThrough:
+        return BitmapDescriptor.hueGreen;
+      case WeighStationStatus.monitoring:
+        return BitmapDescriptor.hueYellow;
+      case WeighStationStatus.closed:
+        return BitmapDescriptor.hueRed;
+      case WeighStationStatus.unknown:
+        return BitmapDescriptor.hueRose;
     }
   }
 
@@ -904,6 +929,19 @@ class _MapScreenState extends State<MapScreen> {
       isScrollControlled: true,
       builder: (context) => const WeighStationsSheet(),
     );
+  }
+
+  /// Called by [AppState] when the driver enters the 150-foot proximity radius
+  /// of a weigh station.  Shows the status-report dialog.
+  Future<void> _onWeighStationSubmissionPrompt(WeighStation station) async {
+    if (!mounted) return;
+    final selected = await WeighStationReportDialog.show(context, station);
+    if (selected != null && mounted) {
+      await context.read<AppState>().submitWeighStationReport(
+            stationId: station.id,
+            status: selected,
+          );
+    }
   }
 
   void _onGoProPressed() {

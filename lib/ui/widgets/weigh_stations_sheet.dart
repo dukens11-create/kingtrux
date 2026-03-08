@@ -101,25 +101,33 @@ class _WeighStationsSheetState extends State<WeighStationsSheet> {
   }
 
   Color _statusColor(WeighStationStatus status, ColorScheme cs) {
-    switch (status) {
-      case WeighStationStatus.open:
-        return Colors.red;
-      case WeighStationStatus.closed:
-        return Colors.green;
-      case WeighStationStatus.unknown:
-        return cs.onSurfaceVariant;
-    }
+    return status.color;
   }
 
   IconData _statusIcon(WeighStationStatus status) {
     switch (status) {
-      case WeighStationStatus.open:
+      case WeighStationStatus.openBypass:
+        return Icons.directions_car_rounded;
+      case WeighStationStatus.openGoingThrough:
         return Icons.warning_amber_rounded;
+      case WeighStationStatus.monitoring:
+        return Icons.visibility_rounded;
       case WeighStationStatus.closed:
         return Icons.check_circle_rounded;
       case WeighStationStatus.unknown:
         return Icons.help_outline_rounded;
     }
+  }
+
+  /// Human-readable "updated X minutes ago" or "Last updated: …" label.
+  String? _lastUpdatedLabel(WeighStation station) {
+    final ts = station.statusUpdatedAt;
+    if (ts == null) return null;
+    final diff = DateTime.now().difference(ts);
+    if (diff.inMinutes < 1) return 'Updated just now';
+    if (diff.inMinutes < 60) return 'Updated ${diff.inMinutes} min ago';
+    if (diff.inHours < 24) return 'Updated ${diff.inHours} h ago';
+    return 'Updated ${diff.inDays} d ago';
   }
 
   // ---------------------------------------------------------------------------
@@ -381,9 +389,9 @@ class _WeighStationsSheetState extends State<WeighStationsSheet> {
       ),
       subtitle: subtitle.isNotEmpty ? Text(subtitle) : null,
       trailing: Icon(
-        _statusIcon(station.status),
+        _statusIcon(station.effectiveStatus),
         size: 18,
-        color: _statusColor(station.status, cs),
+        color: _statusColor(station.effectiveStatus, cs),
       ),
       onTap: () {
         HapticFeedback.selectionClick();
@@ -426,24 +434,25 @@ class _WeighStationsSheetState extends State<WeighStationsSheet> {
             Row(
               children: [
                 Icon(
-                  _statusIcon(station.status),
+                  _statusIcon(station.effectiveStatus),
                   size: 20,
-                  color: _statusColor(station.status, cs),
+                  color: _statusColor(station.effectiveStatus, cs),
                 ),
                 const SizedBox(width: AppTheme.spaceXS),
                 Text(
                   station.statusLabel,
                   style: tt.titleMedium?.copyWith(
-                    color: _statusColor(station.status, cs),
+                    color: _statusColor(station.effectiveStatus, cs),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (station.status == WeighStationStatus.unknown) ...[
+                if (station.effectiveStatus == WeighStationStatus.unknown) ...[
                   const SizedBox(width: AppTheme.spaceXS),
                   Tooltip(
                     message:
-                        'No real-time status available. '
-                        'Register a real-time provider to get live data.',
+                        'No recent crowdsourced report. '
+                        'Status is shown as Unknown when no report '
+                        'within the last 60 minutes exists.',
                     child: Icon(
                       Icons.info_outline_rounded,
                       size: 14,
@@ -453,6 +462,34 @@ class _WeighStationsSheetState extends State<WeighStationsSheet> {
                 ],
               ],
             ),
+
+            // Last-updated label
+            if (_lastUpdatedLabel(station) != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                _lastUpdatedLabel(station)!,
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ],
+
+            // Stale warning
+            if (station.isStale && station.statusUpdatedAt != null) ...[
+              const SizedBox(height: AppTheme.spaceXS),
+              Row(
+                children: [
+                  Icon(Icons.timer_off_outlined,
+                      size: 13, color: cs.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      'Report older than 60 min — displayed as Unknown.',
+                      style: tt.bodySmall
+                          ?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  ),
+                ],
+              ),
+            ],
 
             const SizedBox(height: AppTheme.spaceMD),
 
@@ -515,7 +552,7 @@ class _WeighStationsSheetState extends State<WeighStationsSheet> {
               ),
             ],
 
-            if (station.status == WeighStationStatus.unknown) ...[
+            if (station.effectiveStatus == WeighStationStatus.unknown) ...[
               const SizedBox(height: AppTheme.spaceSM),
               Container(
                 padding: const EdgeInsets.all(AppTheme.spaceXS),
@@ -534,9 +571,9 @@ class _WeighStationsSheetState extends State<WeighStationsSheet> {
                     const SizedBox(width: AppTheme.spaceXS),
                     Expanded(
                       child: Text(
-                        'Real-time status not available. '
-                        'Status-based alerts are suppressed; '
-                        'proximity alert may still fire.',
+                        'No fresh crowdsourced report. '
+                        'Drive past the station to report its status '
+                        'and help other drivers.',
                         style: tt.bodySmall
                             ?.copyWith(color: cs.onSurfaceVariant),
                       ),
