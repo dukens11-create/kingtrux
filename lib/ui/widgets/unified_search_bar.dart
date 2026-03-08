@@ -8,7 +8,6 @@ import '../../services/here_geocoding_service.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
 import 'poi_detail_sheet.dart';
-import 'weigh_station_detail_sheet.dart';
 
 /// Search category filter tabs used by [UnifiedSearchBar].
 enum _SearchCategory { all, destination, pois, cameras, weighStations, truck }
