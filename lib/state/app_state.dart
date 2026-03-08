@@ -60,7 +60,6 @@ import '../models/weigh_station.dart';
 import '../services/weigh_station_service.dart';
 import '../services/weigh_station_monitor.dart';
 import '../services/weigh_station_settings_service.dart';
-import '../services/firestore_weigh_station_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -99,8 +98,6 @@ class AppState extends ChangeNotifier {
   final WeighStationMonitor _weighStationMonitor = WeighStationMonitor();
   final WeighStationSettingsService _weighStationSettingsService =
       WeighStationSettingsService();
-  final FirestoreWeighStationService _firestoreWeighStationService =
-      FirestoreWeighStationService();
   final ThemeSettingsService _themeSettingsService = ThemeSettingsService();
   final TtsLanguageService _ttsLanguageService = TtsLanguageService();
   final DestinationPersistenceService _destinationPersistenceService =
@@ -625,7 +622,7 @@ class AppState extends ChangeNotifier {
     try {
       weighStationSettings = await _weighStationSettingsService.load();
       _weighStationMonitor.thresholdMeters =
-          weighStationSettings.alertThresholdMeters;
+          weighStationSettings.alertDistanceMeters;
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading weigh station settings: $e');
@@ -996,10 +993,6 @@ class AppState extends ChangeNotifier {
 
   /// Populates [weighStations] with weigh / inspection stations near the
   /// current location within [radiusKm] kilometres.
-  ///
-  /// After fetching the static baseline, overlays the most-recent Firestore
-  /// crowdsourced status for each station.  Stations with no fresh Firestore
-  /// report retain [WeighStationStatus.unknown].
   Future<void> loadWeighStations({double radiusKm = 300}) async {
     if (myLat == null || myLng == null) {
       throw Exception('Current location not set');
@@ -1010,13 +1003,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final raw = await _weighStationService.fetchStations(
+      weighStations = await _weighStationService.fetchStations(
         centerLat: myLat!,
         centerLng: myLng!,
         radiusKm: radiusKm,
       );
-      // Overlay Firestore crowdsourced statuses on top of the static baseline.
-      weighStations = await _applyFirestoreStatuses(raw);
     } catch (e) {
       weighStationError = e.toString().replaceFirst('Exception: ', '');
       weighStations = [];
@@ -1026,47 +1017,24 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Overlays the latest Firestore crowdsourced statuses onto [stations].
-  Future<List<WeighStation>> _applyFirestoreStatuses(
-    List<WeighStation> stations,
-  ) async {
-    final overrides =
-        await _firestoreWeighStationService.getLatestStatusPerStation();
-    if (overrides.isEmpty) return stations;
-    return stations.map((s) {
-      final ov = overrides[s.id];
-      if (ov == null) return s;
-      return s.copyWith(
-        status: ov.status,
-        statusUpdatedAt: ov.updatedAt,
-        source: 'Crowdsourced',
-      );
-    }).toList();
-  }
-
-  /// Submit a crowdsourced weigh-station status report to Firestore and
-  /// immediately update the local [weighStations] list.
+  /// Submit a driver-reported weigh-station status and update local state.
+  ///
+  /// Updates the in-memory [weighStations] list immediately so the UI reflects
+  /// the new status without a network round-trip.
   Future<void> submitWeighStationReport({
     required String stationId,
     required WeighStationStatus status,
   }) async {
-    // Update local state immediately for a snappy UI.
     final now = DateTime.now();
     weighStations = weighStations.map((s) {
       if (s.id != stationId) return s;
       return s.copyWith(
         status: status,
         statusUpdatedAt: now,
-        source: 'Crowdsourced',
+        source: 'Driver report',
       );
     }).toList();
     notifyListeners();
-
-    // Persist to Firestore in the background.
-    await _firestoreWeighStationService.submitReport(
-      stationId: stationId,
-      status: status,
-    );
   }
 
   /// Update the weigh-station alert settings and persist them.
@@ -1992,7 +1960,7 @@ class AppState extends ChangeNotifier {
       lat: pos.latitude,
       lng: pos.longitude,
       stations: weighStations,
-      enabled: weighStationSettings.alertsEnabled,
+      enabled: weighStationSettings.enableAlerts,
     );
     // Hazard alerts only fire during active navigation.
     if (isNavigating) {
