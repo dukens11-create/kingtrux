@@ -56,6 +56,10 @@ import '../services/destination_persistence_service.dart';
 import '../services/units_service.dart';
 import '../models/road_camera.dart';
 import '../services/road_camera_service.dart';
+import '../models/weigh_station.dart';
+import '../services/weigh_station_service.dart';
+import '../services/weigh_station_monitor.dart';
+import '../services/weigh_station_settings_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -90,6 +94,10 @@ class AppState extends ChangeNotifier {
   final RoadsideAssistanceService _roadsideAssistanceService =
       RoadsideAssistanceService();
   final RoadCameraService _roadCameraService = RoadCameraService();
+  final WeighStationService _weighStationService = WeighStationService();
+  final WeighStationMonitor _weighStationMonitor = WeighStationMonitor();
+  final WeighStationSettingsService _weighStationSettingsService =
+      WeighStationSettingsService();
   final ThemeSettingsService _themeSettingsService = ThemeSettingsService();
   final TtsLanguageService _ttsLanguageService = TtsLanguageService();
   final DestinationPersistenceService _destinationPersistenceService =
@@ -400,6 +408,22 @@ class AppState extends ChangeNotifier {
   /// Error message from the last [loadRoadCameras] call, or `null` on success.
   String? cameraError;
 
+  // ---------------------------------------------------------------------------
+  // Weigh station state
+  // ---------------------------------------------------------------------------
+
+  /// Weigh stations loaded via [loadWeighStations].
+  List<WeighStation> weighStations = [];
+
+  /// `true` while [loadWeighStations] is in progress.
+  bool isLoadingWeighStations = false;
+
+  /// Error message from the last [loadWeighStations] call, or `null` on success.
+  String? weighStationError;
+
+  /// Current weigh-station feature settings.
+  WeighStationSettings weighStationSettings = const WeighStationSettings();
+
   // Subscription / entitlement state
   /// `true` when the user has an active KINGTRUX Pro entitlement.
   bool isPro = false;
@@ -581,6 +605,14 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading metric units preference: $e');
+    }
+    try {
+      weighStationSettings = await _weighStationSettingsService.load();
+      _weighStationMonitor.thresholdMeters =
+          weighStationSettings.alertThresholdMeters;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading weigh station settings: $e');
     }
     try {
       await refreshMyLocation();
@@ -937,6 +969,50 @@ class AppState extends ChangeNotifier {
       isLoadingCameras = false;
       notifyListeners();
     }
+  }
+
+  /// Populates [weighStations] with weigh stations near the current location
+  /// within [radiusKm] kilometres.
+  ///
+  /// Stations are fetched from OpenStreetMap via the Overpass API, enriched
+  /// with status from the configured [WeighStationStatusProvider], and cached.
+  /// Demo stations are returned when the Overpass fetch fails or returns no
+  /// results so the UI is always functional.
+  Future<void> loadWeighStations({double radiusKm = 200}) async {
+    if (myLat == null || myLng == null) {
+      throw Exception('Current location not set');
+    }
+
+    isLoadingWeighStations = true;
+    weighStationError = null;
+    notifyListeners();
+
+    try {
+      weighStations = await _weighStationService.fetchStations(
+        centerLat: myLat!,
+        centerLng: myLng!,
+        radiusKm: radiusKm,
+      );
+    } catch (e) {
+      weighStationError = e.toString().replaceFirst('Exception: ', '');
+      weighStations = [];
+    } finally {
+      isLoadingWeighStations = false;
+      notifyListeners();
+    }
+  }
+
+  /// Update and persist weigh station settings.
+  ///
+  /// Also synchronises the [WeighStationMonitor] threshold so alerts reflect
+  /// the updated radius immediately.
+  void setWeighStationSettings(WeighStationSettings settings) {
+    weighStationSettings = settings;
+    _weighStationMonitor.thresholdMeters = settings.alertThresholdMeters;
+    _weighStationSettingsService.save(settings).catchError(
+      (Object e) => debugPrint('Error saving weigh station settings: $e'),
+    );
+    notifyListeners();
   }
 
   /// Clear route and destination
@@ -1602,6 +1678,36 @@ class AppState extends ChangeNotifier {
       ));
     };
 
+    _weighStationMonitor.onApproaching = (WeighStation station, double dist) {
+      final distKm = (dist / 1000).toStringAsFixed(1);
+      final String statusMsg;
+      final AlertSeverity severity;
+      switch (station.status) {
+        case WeighStationStatus.open:
+          statusMsg = '${station.name}: OPEN — proceed for inspection.';
+          severity = AlertSeverity.warning;
+        case WeighStationStatus.closed:
+          statusMsg = '${station.name}: CLOSED — bypass permitted.';
+          severity = AlertSeverity.info;
+        case WeighStationStatus.monitored:
+          statusMsg =
+              '${station.name}: MONITORED — portable scales may be present.';
+          severity = AlertSeverity.warning;
+        case WeighStationStatus.unknown:
+          statusMsg = 'Weigh station ahead: ${station.name}.';
+          severity = AlertSeverity.info;
+      }
+      addAlert(AlertEvent(
+        id: 'ws_nearby_${station.id}_${DateTime.now().millisecondsSinceEpoch}',
+        type: AlertType.weighStationAlert,
+        title: 'Weigh Station Ahead',
+        message: '$statusMsg ($distKm km away)',
+        severity: severity,
+        timestamp: DateTime.now(),
+        speakable: weighStationSettings.alertsEnabled,
+      ));
+    };
+
     _hazardMonitor.onHazardApproaching = (Hazard hazard, double dist) {
       final distMi = (dist / 1609.344).toStringAsFixed(1);
       switch (hazard.type) {
@@ -1795,6 +1901,7 @@ class AppState extends ChangeNotifier {
     _routeMonitor.reset();
     _scaleMonitor.reset();
     _hazardMonitor.reset();
+    _weighStationMonitor.reset();
     _activeHazards = [];
   }
 
@@ -1817,6 +1924,12 @@ class AppState extends ChangeNotifier {
       lat: pos.latitude,
       lng: pos.longitude,
       reports: scaleReports,
+    );
+    _weighStationMonitor.update(
+      lat: pos.latitude,
+      lng: pos.longitude,
+      stations: weighStations,
+      enabled: weighStationSettings.alertsEnabled,
     );
     // Hazard alerts only fire during active navigation.
     if (isNavigating) {

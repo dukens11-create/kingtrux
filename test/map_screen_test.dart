@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kingtrux/config.dart';
 import 'package:kingtrux/models/poi.dart';
 import 'package:kingtrux/models/road_camera.dart';
+import 'package:kingtrux/models/weigh_station.dart';
 import 'package:kingtrux/services/here_geocoding_service.dart';
 import 'package:kingtrux/services/map_preferences_service.dart';
 import 'package:kingtrux/state/app_state.dart';
@@ -225,6 +226,7 @@ void main() {
       void Function(GeocodedLocation)? onDestinationSelected,
       void Function(Poi)? onPoiSelected,
       void Function(RoadCamera)? onCameraSelected,
+      void Function(WeighStation)? onWeighStationSelected,
       VoidCallback? onTruckProfile,
       VoidCallback? onLayers,
       VoidCallback? onRoadCameras,
@@ -241,6 +243,7 @@ void main() {
               onDestinationSelected: onDestinationSelected ?? (_) {},
               onPoiSelected: onPoiSelected ?? (_) {},
               onCameraSelected: onCameraSelected ?? (_) {},
+              onWeighStationSelected: onWeighStationSelected ?? (_) {},
               onTruckProfile: onTruckProfile ?? () {},
               onLayers: onLayers ?? () {},
               onRoadCameras: onRoadCameras ?? () {},
@@ -292,6 +295,7 @@ void main() {
       expect(find.text('Destination'), findsOneWidget);
       expect(find.text('POIs'), findsOneWidget);
       expect(find.text('Cameras'), findsOneWidget);
+      expect(find.text('Weigh Stations'), findsOneWidget);
       expect(find.text('Truck'), findsOneWidget);
     });
 

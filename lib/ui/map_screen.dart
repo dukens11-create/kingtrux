@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/poi.dart';
 import '../models/road_camera.dart';
+import '../models/weigh_station.dart';
 import '../services/map_preferences_service.dart';
 import '../services/here_geocoding_service.dart';
 import '../state/app_state.dart';
@@ -37,6 +38,7 @@ import 'widgets/route_guidance_banner.dart';
 import 'widgets/kingtrux_logo.dart';
 import 'widgets/road_cameras_sheet.dart';
 import 'widgets/unified_search_bar.dart';
+import 'widgets/weigh_station_detail_sheet.dart';
 import 'account_screen.dart';
 import 'navigation_screen.dart';
 import 'paywall_screen.dart';
@@ -263,6 +265,7 @@ class _MapScreenState extends State<MapScreen> {
                     onDestinationSelected: _onUnifiedDestinationSelected,
                     onPoiSelected: _onPoiMarkerTap,
                     onCameraSelected: _onCameraMarkerTap,
+                    onWeighStationSelected: _onWeighStationMarkerTap,
                     onTruckProfile: _onTruckProfilePressed,
                     onLayers: _onLayersPressed,
                     onRoadCameras: _onRoadCamerasPressed,
@@ -654,6 +657,26 @@ class _MapScreenState extends State<MapScreen> {
       );
     }
 
+    // Weigh stations (shown when loaded and the showOnMap setting is enabled).
+    if (state.weighStationSettings.showOnMap) {
+      for (final station in state.weighStations) {
+        markers.add(
+          Marker(
+            markerId: MarkerId('ws_${station.id}'),
+            position: LatLng(station.lat, station.lng),
+            infoWindow: InfoWindow(
+              title: station.name,
+              snippet: _weighStationSnippet(station),
+            ),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              _weighStationMarkerHue(station.status),
+            ),
+            onTap: () => _onWeighStationMarkerTap(station),
+          ),
+        );
+      }
+    }
+
     return markers;
   }
 
@@ -674,6 +697,41 @@ class _MapScreenState extends State<MapScreen> {
       case PoiType.roadsideAssistance:
         return BitmapDescriptor.hueRed;
     }
+  }
+
+  /// Returns the marker hue for a weigh station based on its status.
+  ///
+  /// - Open: red (driver must stop)
+  /// - Closed: green (bypass permitted)
+  /// - Monitored: rose (extra caution)
+  /// - Unknown: blue (informational)
+  static double _weighStationMarkerHue(WeighStationStatus status) {
+    switch (status) {
+      case WeighStationStatus.open:
+        return BitmapDescriptor.hueRed;
+      case WeighStationStatus.closed:
+        return BitmapDescriptor.hueGreen;
+      case WeighStationStatus.monitored:
+        return BitmapDescriptor.hueRose;
+      case WeighStationStatus.unknown:
+        return BitmapDescriptor.hueBlue;
+    }
+  }
+
+  /// Short snippet shown in the map marker info window for [station].
+  static String _weighStationSnippet(WeighStation station) {
+    final status = switch (station.status) {
+      WeighStationStatus.open => 'OPEN',
+      WeighStationStatus.closed => 'CLOSED',
+      WeighStationStatus.monitored => 'MONITORED',
+      WeighStationStatus.unknown => 'Status unknown',
+    };
+    final parts = [
+      status,
+      station.direction,
+      station.stateOrProvince,
+    ].whereType<String>().toList();
+    return parts.join(' · ');
   }
 
   // ---------------------------------------------------------------------------
@@ -856,6 +914,16 @@ class _MapScreenState extends State<MapScreen> {
       context: context,
       isScrollControlled: true,
       builder: (context) => const RoadCamerasSheet(),
+    );
+  }
+
+  /// Tapping a weigh station marker opens the detail sheet for that station.
+  void _onWeighStationMarkerTap(WeighStation station) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => WeighStationDetailSheet(station: station),
     );
   }
 
