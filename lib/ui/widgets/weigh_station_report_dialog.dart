@@ -44,7 +44,10 @@ class WeighStationReportDialog extends StatelessWidget {
     return AlertDialog(
       title: Row(
         children: [
-          Icon(Icons.scale_rounded, color: cs.primary, size: 22),
+          Semantics(
+            label: 'Weigh station',
+            child: Icon(Icons.scale_rounded, color: cs.primary, size: 22),
+          ),
           const SizedBox(width: 8),
           const Expanded(
             child: Text(

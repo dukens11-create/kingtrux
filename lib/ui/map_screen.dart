@@ -713,8 +713,7 @@ class _MapScreenState extends State<MapScreen> {
   /// - Green  (120°) → open bypass / going through
   /// - Yellow  (60°) → monitoring
   /// - Red     (0°)  → closed
-  /// - Rose  (330°)  → unknown / stale
-  double _weighStationMarkerHue(WeighStationStatus status) {
+  /// - Rose  (330°)  → unknown / stale  double _weighStationMarkerHue(WeighStationStatus status) {
     switch (status) {
       case WeighStationStatus.openBypass:
       case WeighStationStatus.openGoingThrough:

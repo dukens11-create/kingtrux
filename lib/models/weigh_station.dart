@@ -74,7 +74,7 @@ extension WeighStationStatusX on WeighStationStatus {
       case WeighStationStatus.openGoingThrough:
         return Colors.green;
       case WeighStationStatus.monitoring:
-        return Colors.orange;
+        return Colors.amber;
       case WeighStationStatus.closed:
         return Colors.red;
       case WeighStationStatus.unknown:
