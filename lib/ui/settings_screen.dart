@@ -16,7 +16,7 @@ import 'widgets/theme_settings_sheet.dart';
 /// - Voice guidance settings
 /// - Map style / color theme
 /// - Distance units (metric / imperial)
-/// - Weigh Station alerts and map overlay
+/// - Weigh Station alerts
 /// - Send feedback
 /// - Privacy Policy & Terms of Service
 ///
@@ -45,7 +45,6 @@ class SettingsScreen extends StatelessWidget {
         builder: (context, state, _) {
           final cs = Theme.of(context).colorScheme;
           final tt = Theme.of(context).textTheme;
-          final ws = state.weighStationSettings;
           return ListView(
             children: [
               // ── Voice ─────────────────────────────────────────────────────
@@ -84,28 +83,6 @@ class SettingsScreen extends StatelessWidget {
               ),
 
               const Divider(),
-
-              // ── Weigh Stations ────────────────────────────────────────────
-              _SectionHeader(label: 'Weigh Stations', cs: cs, tt: tt),
-              SwitchListTile(
-                secondary: Icon(
-                  Icons.local_police_rounded,
-                  color: cs.primary,
-                ),
-                title: const Text('Show on Map'),
-                subtitle: const Text(
-                  'Display weigh station markers on the map',
-                ),
-                value: ws.showOnMap,
-                onChanged: (value) {
-                  HapticFeedback.selectionClick();
-                  state.setWeighStationSettings(
-                    ws.copyWith(showOnMap: value),
-                  );
-                },
-              ),
-
-              const Divider();
 
               // ── Appearance ────────────────────────────────────────────────
               _SectionHeader(label: 'Appearance', cs: cs, tt: tt),
