@@ -106,6 +106,38 @@ class Config {
   static const String feedbackUrl = 'https://kingtrux.com/feedback';
 
   // ---------------------------------------------------------------------------
+  // Google Elevation API key
+  //
+  // Enables road-elevation queries via the Google Elevation API:
+  //   https://developers.google.com/maps/documentation/elevation
+  //
+  // Enable the "Elevation API" in your Google Cloud project and pass the key:
+  //   flutter run --dart-define=GOOGLE_ELEVATION_API_KEY=your_key
+  //
+  // When not configured the ElevationService returns null so the UI can show
+  // a helpful "API key not configured" message instead of crashing.
+  //
+  // Free / open alternatives (no API key required):
+  //   • Open-Meteo Elevation  – https://open-meteo.com/en/docs/elevation-api
+  //   • SRTM / OpenTopoData   – https://www.opentopodata.org/
+  // To switch, replace the _googleElevationBaseUrl and response parsing in
+  // ElevationService whilst keeping the same public fetch() signature.
+  // ---------------------------------------------------------------------------
+
+  /// Google Elevation API key.
+  ///
+  /// Pass at build / run time:
+  ///   flutter run --dart-define=GOOGLE_ELEVATION_API_KEY=your_key
+  static const String googleElevationApiKey =
+      String.fromEnvironment('GOOGLE_ELEVATION_API_KEY', defaultValue: '');
+
+  /// Returns `true` when a Google Elevation API key has been provided.
+  ///
+  /// When `false` the [ElevationService] will throw an [ElevationException]
+  /// so the UI can surface an actionable error message.
+  static bool get elevationApiConfigured => googleElevationApiKey.isNotEmpty;
+
+  // ---------------------------------------------------------------------------
   // Road Cameras – 511 DOT API key
   //
   // USA  – Register for a free key at https://511ny.org/dev (also accepted by
