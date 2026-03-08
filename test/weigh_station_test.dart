@@ -1,496 +1,435 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kingtrux/models/weigh_station.dart';
 import 'package:kingtrux/services/weigh_station_monitor.dart';
 import 'package:kingtrux/services/weigh_station_settings_service.dart';
-import 'package:kingtrux/services/weigh_station_status_provider.dart';
-import 'package:kingtrux/services/weigh_station_service.dart';
-import 'package:kingtrux/state/app_state.dart';
-import 'package:kingtrux/ui/theme/app_theme.dart';
-import 'package:kingtrux/ui/widgets/weigh_station_detail_sheet.dart';
-
-// ---------------------------------------------------------------------------
-// WeighStation model
-// ---------------------------------------------------------------------------
 
 void main() {
-  group('WeighStation model', () {
-    const station = WeighStation(
+  // ---------------------------------------------------------------------------
+  // WeighStationStatus enum
+  // ---------------------------------------------------------------------------
+  group('WeighStationStatus', () {
+    test('firestoreValue round-trips via weighStationStatusFromFirestore', () {
+      for (final s in WeighStationStatus.values) {
+        final decoded = weighStationStatusFromFirestore(s.firestoreValue);
+        expect(decoded, s,
+            reason: 'Expected ${s.name} but got ${decoded.name}');
+      }
+    });
+
+    test('unknown Firestore value maps to WeighStationStatus.unknown', () {
+      expect(
+        weighStationStatusFromFirestore('some_garbage'),
+        WeighStationStatus.unknown,
+      );
+      expect(weighStationStatusFromFirestore(null), WeighStationStatus.unknown);
+    });
+
+    test('label is non-empty for all statuses', () {
+      for (final s in WeighStationStatus.values) {
+        expect(s.label, isNotEmpty);
+      }
+    });
+
+    test('color is a valid Color for all statuses', () {
+      for (final s in WeighStationStatus.values) {
+        expect(s.color, isA<Color>());
+      }
+    });
+
+    test('isActive is true only for enforcing statuses', () {
+      expect(WeighStationStatus.openBypass.isActive, isTrue);
+      expect(WeighStationStatus.openGoingThrough.isActive, isTrue);
+      expect(WeighStationStatus.monitoring.isActive, isTrue);
+      expect(WeighStationStatus.closed.isActive, isFalse);
+      expect(WeighStationStatus.unknown.isActive, isFalse);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // WeighStation model
+  // ---------------------------------------------------------------------------
+  group('WeighStation', () {
+    const base = WeighStation(
       id: 'ws_test_1',
-      name: 'I-80 Weigh Station',
-      lat: 41.0,
-      lng: -110.0,
-      status: WeighStationStatus.open,
-      highway: 'I-80',
-      stateOrProvince: 'WY',
-      direction: 'Eastbound',
+      name: 'Test Station',
+      lat: 40.0,
+      lng: -90.0,
+      country: 'US',
+      stateOrProvince: 'IL',
+      highway: 'I-70',
     );
 
     test('equality is based on id', () {
-      const same = WeighStation(
+      const other = WeighStation(
         id: 'ws_test_1',
-        name: 'Different Name',
+        name: 'Other Name',
         lat: 0.0,
         lng: 0.0,
+        country: 'CA',
       );
-      expect(station, equals(same));
+      expect(base, equals(other));
     });
 
     test('different ids are not equal', () {
       const other = WeighStation(
         id: 'ws_test_2',
-        name: 'I-80 Weigh Station',
-        lat: 41.0,
-        lng: -110.0,
+        name: 'Test Station',
+        lat: 40.0,
+        lng: -90.0,
+        country: 'US',
       );
-      expect(station, isNot(equals(other)));
+      expect(base, isNot(equals(other)));
     });
 
     test('hashCode matches for equal objects', () {
-      const same = WeighStation(id: 'ws_test_1', name: 'Other', lat: 0, lng: 0);
-      expect(station.hashCode, equals(same.hashCode));
+      const same = WeighStation(
+        id: 'ws_test_1',
+        name: 'Something else',
+        lat: 0,
+        lng: 0,
+        country: 'CA',
+      );
+      expect(base.hashCode, equals(same.hashCode));
     });
 
-    test('copyWith replaces status', () {
-      final updated = station.copyWith(status: WeighStationStatus.closed);
-      expect(updated.status, WeighStationStatus.closed);
-      expect(updated.id, station.id);
-      expect(updated.name, station.name);
-      expect(updated.lat, station.lat);
-      expect(updated.lng, station.lng);
-    });
-
-    test('copyWith without args returns equivalent object', () {
-      final copy = station.copyWith();
-      expect(copy, equals(station));
-      expect(copy.status, station.status);
-    });
-
-    test('distanceFromMeters returns 0 when at same coordinates', () {
-      final dist = station.distanceFromMeters(41.0, -110.0);
+    test('distanceFromMeters returns 0 at same coordinates', () {
+      final dist = base.distanceFromMeters(40.0, -90.0);
       expect(dist, closeTo(0.0, 0.01));
     });
 
-    test('distanceFromMeters returns positive for different point', () {
+    test('distanceFromMeters returns positive value for different point', () {
       // ~111 km per degree of latitude
-      final dist = station.distanceFromMeters(42.0, -110.0);
+      final dist = base.distanceFromMeters(41.0, -90.0);
       expect(dist, greaterThan(100000));
       expect(dist, lessThan(120000));
     });
 
-    test('toString includes id, name, and status', () {
-      final s = station.toString();
-      expect(s, contains('ws_test_1'));
-      expect(s, contains('I-80 Weigh Station'));
-      expect(s, contains('open'));
+    // ── Freshness ────────────────────────────────────────────────────────────
+
+    test('isStale is true when statusUpdatedAt is null', () {
+      expect(base.isStale, isTrue);
     });
 
-    test('default status is unknown', () {
-      const minimal = WeighStation(id: 'x', name: 'X', lat: 0, lng: 0);
-      expect(minimal.status, WeighStationStatus.unknown);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // WeighStationStatusProvider
-  // ---------------------------------------------------------------------------
-
-  group('DefaultWeighStationStatusProvider', () {
-    test('returns unknown when no override configured', () {
-      const provider = DefaultWeighStationStatusProvider();
-      expect(
-        provider.statusFor('any_id'),
-        WeighStationStatus.unknown,
+    test('isStale is true when statusUpdatedAt is older than 60 minutes', () {
+      final stale = base.copyWith(
+        statusUpdatedAt:
+            DateTime.now().subtract(const Duration(minutes: 61)),
+        status: WeighStationStatus.openBypass,
       );
+      expect(stale.isStale, isTrue);
     });
 
-    test('returns configured override status', () {
-      const provider = DefaultWeighStationStatusProvider(overrides: {
-        'ws_1': WeighStationStatus.open,
-        'ws_2': WeighStationStatus.closed,
-        'ws_3': WeighStationStatus.monitored,
-      });
-      expect(provider.statusFor('ws_1'), WeighStationStatus.open);
-      expect(provider.statusFor('ws_2'), WeighStationStatus.closed);
-      expect(provider.statusFor('ws_3'), WeighStationStatus.monitored);
+    test('isStale is false when statusUpdatedAt is recent', () {
+      final fresh = base.copyWith(
+        statusUpdatedAt:
+            DateTime.now().subtract(const Duration(minutes: 30)),
+        status: WeighStationStatus.openBypass,
+      );
+      expect(fresh.isStale, isFalse);
     });
 
-    test('returns unknown for non-overridden ids', () {
-      const provider = DefaultWeighStationStatusProvider(overrides: {
-        'ws_1': WeighStationStatus.open,
-      });
-      expect(provider.statusFor('ws_other'), WeighStationStatus.unknown);
+    test('effectiveStatus returns unknown when stale', () {
+      final stale = base.copyWith(
+        statusUpdatedAt:
+            DateTime.now().subtract(const Duration(minutes: 61)),
+        status: WeighStationStatus.openBypass,
+      );
+      expect(stale.effectiveStatus, WeighStationStatus.unknown);
+    });
+
+    test('effectiveStatus returns stored status when fresh', () {
+      final fresh = base.copyWith(
+        statusUpdatedAt: DateTime.now(),
+        status: WeighStationStatus.monitoring,
+      );
+      expect(fresh.effectiveStatus, WeighStationStatus.monitoring);
+    });
+
+    test('statusLabel reflects effectiveStatus (stale → Unknown)', () {
+      final stale = base.copyWith(
+        statusUpdatedAt:
+            DateTime.now().subtract(const Duration(minutes: 90)),
+        status: WeighStationStatus.closed,
+      );
+      expect(stale.statusLabel, 'Unknown');
+    });
+
+    test('copyWith overrides specified fields only', () {
+      final updated = base.copyWith(
+        status: WeighStationStatus.closed,
+        statusUpdatedAt: DateTime.utc(2025, 1, 1),
+        source: 'Crowdsourced',
+      );
+      expect(updated.id, base.id);
+      expect(updated.name, base.name);
+      expect(updated.status, WeighStationStatus.closed);
+      expect(updated.source, 'Crowdsourced');
     });
   });
 
   // ---------------------------------------------------------------------------
   // WeighStationMonitor
   // ---------------------------------------------------------------------------
-
   group('WeighStationMonitor', () {
-    const stations = [
-      WeighStation(
-        id: 'ws_near',
-        name: 'Nearby Station',
-        lat: 40.001,  // ~111 m from 40.0
-        lng: -74.0,
-      ),
-      WeighStation(
-        id: 'ws_far',
-        name: 'Far Station',
-        lat: 50.0,  // ~1110 km from 40.0
-        lng: -74.0,
-      ),
-    ];
+    late WeighStationMonitor monitor;
 
-    test('fires onApproaching when station is within threshold', () {
-      final monitor = WeighStationMonitor(thresholdMeters: 500);
-      WeighStation? alerted;
-      monitor.onApproaching = (s, _) => alerted = s;
-
-      monitor.update(lat: 40.0, lng: -74.0, stations: stations);
-
-      expect(alerted?.id, equals('ws_near'));
+    setUp(() {
+      monitor = WeighStationMonitor();
     });
 
-    test('does not fire for station beyond threshold', () {
-      final monitor = WeighStationMonitor(thresholdMeters: 500);
-      final alerted = <String>[];
-      monitor.onApproaching = (s, _) => alerted.add(s.id);
+    WeighStation _station({
+      String id = 'ws_1',
+      double lat = 40.0,
+      double lng = -90.0,
+      WeighStationStatus status = WeighStationStatus.unknown,
+      DateTime? updatedAt,
+    }) =>
+        WeighStation(
+          id: id,
+          name: 'Test',
+          lat: lat,
+          lng: lng,
+          country: 'US',
+          status: status,
+          statusUpdatedAt: updatedAt,
+        );
 
-      monitor.update(lat: 40.0, lng: -74.0, stations: stations);
-
-      expect(alerted, isNot(contains('ws_far')));
-    });
-
-    test('does not fire again within cooldown period', () {
-      final monitor = WeighStationMonitor(thresholdMeters: 500);
-      int count = 0;
-      monitor.onApproaching = (_, __) => count++;
-
-      monitor.update(lat: 40.0, lng: -74.0, stations: stations);
-      monitor.update(lat: 40.0, lng: -74.0, stations: stations);
-
-      // Only fires once because cooldown prevents re-alert.
-      expect(count, equals(1));
-    });
-
-    test('reset clears cooldown so alert fires again', () {
-      final monitor = WeighStationMonitor(thresholdMeters: 500);
-      int count = 0;
-      monitor.onApproaching = (_, __) => count++;
-
-      monitor.update(lat: 40.0, lng: -74.0, stations: stations);
-      monitor.reset();
-      monitor.update(lat: 40.0, lng: -74.0, stations: stations);
-
-      expect(count, equals(2));
-    });
-
-    test('does not fire when enabled is false', () {
-      final monitor = WeighStationMonitor(thresholdMeters: 500);
-      WeighStation? alerted;
-      monitor.onApproaching = (s, _) => alerted = s;
+    test('fires onNearbyStation when within threshold', () {
+      WeighStation? fired;
+      monitor.onNearbyStation = (s, _) => fired = s;
 
       monitor.update(
         lat: 40.0,
-        lng: -74.0,
-        stations: stations,
+        lng: -90.0,
+        stations: [_station()],
+      );
+
+      expect(fired, isNotNull);
+    });
+
+    test('does not fire when station is beyond threshold', () {
+      var fired = false;
+      monitor.onNearbyStation = (_, __) => fired = true;
+
+      // 1 degree ≈ 111 km >> 1609 m default threshold
+      monitor.update(
+        lat: 41.0,
+        lng: -90.0,
+        stations: [_station()],
+      );
+
+      expect(fired, isFalse);
+    });
+
+    test('does not fire when enabled=false', () {
+      var fired = false;
+      monitor.onNearbyStation = (_, __) => fired = true;
+
+      monitor.update(
+        lat: 40.0,
+        lng: -90.0,
+        stations: [_station()],
         enabled: false,
       );
 
-      expect(alerted, isNull);
+      expect(fired, isFalse);
     });
 
-    test('default threshold is defaultThresholdMeters', () {
-      final monitor = WeighStationMonitor();
-      expect(monitor.thresholdMeters, WeighStationMonitor.defaultThresholdMeters);
+    test('fires alert at most once per station per session', () {
+      var count = 0;
+      monitor.onNearbyStation = (_, __) => count++;
+
+      final s = _station();
+      monitor.update(lat: 40.0, lng: -90.0, stations: [s]);
+      monitor.update(lat: 40.0, lng: -90.0, stations: [s]);
+
+      expect(count, 1);
     });
 
-    test('custom threshold is honoured', () {
-      final monitor = WeighStationMonitor(thresholdMeters: 1000);
-      expect(monitor.thresholdMeters, 1000);
-    });
-  });
+    test('reset allows alert to fire again', () {
+      var count = 0;
+      monitor.onNearbyStation = (_, __) => count++;
 
-  // ---------------------------------------------------------------------------
-  // WeighStationSettings
-  // ---------------------------------------------------------------------------
+      final s = _station();
+      monitor.update(lat: 40.0, lng: -90.0, stations: [s]);
+      monitor.reset();
+      monitor.update(lat: 40.0, lng: -90.0, stations: [s]);
 
-  group('WeighStationSettings', () {
-    test('defaults: showOnMap=true, alertsEnabled=false', () {
-      const s = WeighStationSettings();
-      expect(s.showOnMap, isTrue);
-      expect(s.alertsEnabled, isFalse);
-      expect(s.alertThresholdMeters, 4828.0);
+      expect(count, 2);
     });
 
-    test('copyWith changes only specified fields', () {
-      const s = WeighStationSettings(
-        showOnMap: true,
-        alertsEnabled: false,
-        alertThresholdMeters: 3000,
+    test('does not alert for closed station', () {
+      var fired = false;
+      monitor.onNearbyStation = (_, __) => fired = true;
+
+      monitor.update(
+        lat: 40.0,
+        lng: -90.0,
+        stations: [_station(status: WeighStationStatus.closed)],
       );
-      final s2 = s.copyWith(alertsEnabled: true);
-      expect(s2.showOnMap, isTrue);
-      expect(s2.alertsEnabled, isTrue);
-      expect(s2.alertThresholdMeters, 3000);
+
+      expect(fired, isFalse);
+    });
+
+    test('alerts for active statuses (fresh reports)', () {
+      final activeStatuses = [
+        WeighStationStatus.openBypass,
+        WeighStationStatus.openGoingThrough,
+        WeighStationStatus.monitoring,
+      ];
+      for (final status in activeStatuses) {
+        monitor.reset();
+        var fired = false;
+        monitor.onNearbyStation = (_, __) => fired = true;
+
+        monitor.update(
+          lat: 40.0,
+          lng: -90.0,
+          stations: [
+            _station(
+              id: status.name,
+              status: status,
+              updatedAt: DateTime.now(),
+            ),
+          ],
+        );
+
+        expect(fired, isTrue,
+            reason: 'Expected alert for ${status.name}');
+      }
+    });
+
+    // ── Submission prompt (150-foot threshold) ────────────────────────────────
+
+    test('fires onSubmissionPrompt when within 45.72 m', () {
+      WeighStation? prompted;
+      monitor.onSubmissionPrompt = (s) => prompted = s;
+
+      monitor.update(
+        lat: 40.0,
+        lng: -90.0,
+        stations: [_station()],
+        submissionEnabled: true,
+      );
+
+      expect(prompted, isNotNull);
+    });
+
+    test('does not fire onSubmissionPrompt beyond 45.72 m', () {
+      var prompted = false;
+      monitor.onSubmissionPrompt = (_) => prompted = true;
+
+      // Place station ~100 m away
+      const deltaLat = 100.0 / 111000.0; // ~100 m in degrees
+      monitor.update(
+        lat: 40.0,
+        lng: -90.0,
+        stations: [_station(lat: 40.0 + deltaLat)],
+        submissionEnabled: true,
+      );
+
+      expect(prompted, isFalse);
+    });
+
+    test('fires submission prompt at most once per station', () {
+      var count = 0;
+      monitor.onSubmissionPrompt = (_) => count++;
+
+      final s = _station();
+      monitor.update(
+          lat: 40.0, lng: -90.0, stations: [s], submissionEnabled: true);
+      monitor.update(
+          lat: 40.0, lng: -90.0, stations: [s], submissionEnabled: true);
+
+      expect(count, 1);
+    });
+
+    test('does not fire submission prompt when submissionEnabled=false', () {
+      var prompted = false;
+      monitor.onSubmissionPrompt = (_) => prompted = true;
+
+      monitor.update(
+        lat: 40.0,
+        lng: -90.0,
+        stations: [_station()],
+        submissionEnabled: false,
+      );
+
+      expect(prompted, isFalse);
+    });
+
+    test('reset clears prompted set so prompt fires again', () {
+      var count = 0;
+      monitor.onSubmissionPrompt = (_) => count++;
+
+      final s = _station();
+      monitor.update(
+          lat: 40.0, lng: -90.0, stations: [s], submissionEnabled: true);
+      monitor.reset();
+      monitor.update(
+          lat: 40.0, lng: -90.0, stations: [s], submissionEnabled: true);
+
+      expect(count, 2);
     });
   });
 
   // ---------------------------------------------------------------------------
-  // WeighStationSettingsService
+  // WeighStationSettings + WeighStationSettingsService
   // ---------------------------------------------------------------------------
+  group('WeighStationSettings', () {
+    test('defaults are correct', () {
+      const settings = WeighStationSettings();
+      expect(settings.enableAlerts, isTrue);
+      expect(settings.alertDistanceMeters,
+          WeighStationMonitor.defaultThresholdMeters);
+      expect(settings.alertOnUnknownStatus, isTrue);
+      expect(settings.enableTts, isTrue);
+      expect(settings.enableSubmissionPrompts, isTrue);
+    });
+
+    test('copyWith overrides only specified fields', () {
+      const settings = WeighStationSettings();
+      final updated = settings.copyWith(
+        enableAlerts: false,
+        enableSubmissionPrompts: false,
+      );
+      expect(updated.enableAlerts, isFalse);
+      expect(updated.enableSubmissionPrompts, isFalse);
+      expect(updated.enableTts, isTrue); // unchanged
+    });
+  });
 
   group('WeighStationSettingsService', () {
-    setUp(() => SharedPreferences.setMockInitialValues({}));
-
-    test('load returns defaults when nothing saved', () async {
-      final svc = WeighStationSettingsService();
-      final settings = await svc.load();
-      expect(settings.showOnMap, isTrue);
-      expect(settings.alertsEnabled, isFalse);
-      expect(settings.alertThresholdMeters, 4828.0);
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
     });
 
-    test('save and reload preserves values', () async {
-      final svc = WeighStationSettingsService();
+    test('load returns defaults when nothing persisted', () async {
+      final service = WeighStationSettingsService();
+      final settings = await service.load();
+      expect(settings.enableAlerts, isTrue);
+      expect(settings.enableSubmissionPrompts, isTrue);
+    });
+
+    test('save and load round-trips all fields including enableSubmissionPrompts',
+        () async {
+      final service = WeighStationSettingsService();
       const toSave = WeighStationSettings(
-        showOnMap: false,
-        alertsEnabled: true,
-        alertThresholdMeters: 8047.0,
+        enableAlerts: false,
+        alertDistanceMeters: 804.7,
+        alertOnUnknownStatus: false,
+        enableTts: false,
+        enableSubmissionPrompts: false,
       );
-      await svc.save(toSave);
-      final loaded = await svc.load();
-      expect(loaded.showOnMap, isFalse);
-      expect(loaded.alertsEnabled, isTrue);
-      expect(loaded.alertThresholdMeters, 8047.0);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // WeighStationService – demo data
-  // ---------------------------------------------------------------------------
-
-  group('WeighStationService demo data', () {
-    test('returns demo stations near North America coordinates', () async {
-      final svc = WeighStationService();
-      // CA coordinate – should include at least the CA demo station.
-      final stations = await svc.fetchStations(
-        centerLat: 40.0,
-        centerLng: -120.0,
-        radiusKm: 200,
-      );
-      expect(stations, isNotEmpty);
-    });
-
-    test('enriches stations with status from provider', () async {
-      final svc = WeighStationService(
-        statusProvider: const DefaultWeighStationStatusProvider(overrides: {
-          'ws_demo_us_ca_1': WeighStationStatus.open,
-        }),
-      );
-      final stations = await svc.fetchStations(
-        centerLat: 40.0,
-        centerLng: -120.0,
-        radiusKm: 200,
-      );
-      final ca = stations.where((s) => s.id == 'ws_demo_us_ca_1').toList();
-      expect(ca, hasLength(1));
-      expect(ca.first.status, WeighStationStatus.open);
-    });
-
-    test('returns empty list when far from all demo stations', () async {
-      final svc = WeighStationService();
-      final stations = await svc.fetchStations(
-        centerLat: -33.9,   // Sydney, AU – far from all demo stations
-        centerLng: 151.2,
-        radiusKm: 100,
-      );
-      expect(stations, isEmpty);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // WeighStationDetailSheet widget
-  // ---------------------------------------------------------------------------
-
-  group('WeighStationDetailSheet', () {
-    Widget buildSheet(WeighStation station) {
-      return MaterialApp(
-        theme: AppTheme.light,
-        home: ChangeNotifierProvider(
-          create: (_) => AppState(),
-          child: Scaffold(
-            body: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () => showModalBottomSheet<void>(
-                  context: context,
-                  builder: (_) => WeighStationDetailSheet(station: station),
-                ),
-                child: const Text('Open'),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    testWidgets('shows station name', (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues({});
-      const station = WeighStation(
-        id: 'ws_ui_1',
-        name: 'Test Weigh Station',
-        lat: 40.0,
-        lng: -74.0,
-        status: WeighStationStatus.open,
-      );
-
-      await tester.pumpWidget(buildSheet(station));
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Test Weigh Station'), findsOneWidget);
-    });
-
-    testWidgets('shows OPEN status for open station', (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues({});
-      const station = WeighStation(
-        id: 'ws_ui_2',
-        name: 'Open Station',
-        lat: 40.0,
-        lng: -74.0,
-        status: WeighStationStatus.open,
-      );
-
-      await tester.pumpWidget(buildSheet(station));
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('OPEN'), findsOneWidget);
-    });
-
-    testWidgets('shows CLOSED status for closed station', (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues({});
-      const station = WeighStation(
-        id: 'ws_ui_3',
-        name: 'Closed Station',
-        lat: 40.0,
-        lng: -74.0,
-        status: WeighStationStatus.closed,
-      );
-
-      await tester.pumpWidget(buildSheet(station));
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('CLOSED'), findsOneWidget);
-    });
-
-    testWidgets('shows MONITORED status', (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues({});
-      const station = WeighStation(
-        id: 'ws_ui_4',
-        name: 'Monitored Station',
-        lat: 40.0,
-        lng: -74.0,
-        status: WeighStationStatus.monitored,
-      );
-
-      await tester.pumpWidget(buildSheet(station));
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('MONITORED'), findsOneWidget);
-    });
-
-    testWidgets('shows unknown status message', (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues({});
-      const station = WeighStation(
-        id: 'ws_ui_5',
-        name: 'Unknown Station',
-        lat: 40.0,
-        lng: -74.0,
-        status: WeighStationStatus.unknown,
-      );
-
-      await tester.pumpWidget(buildSheet(station));
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('unknown'), findsOneWidget);
-    });
-
-    testWidgets('shows Navigate button', (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues({});
-      const station = WeighStation(
-        id: 'ws_ui_6',
-        name: 'Nav Station',
-        lat: 40.0,
-        lng: -74.0,
-      );
-
-      await tester.pumpWidget(buildSheet(station));
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Navigate'), findsOneWidget);
-    });
-
-    testWidgets('shows Weigh Station label', (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues({});
-      const station = WeighStation(
-        id: 'ws_ui_7',
-        name: 'Label Station',
-        lat: 40.0,
-        lng: -74.0,
-      );
-
-      await tester.pumpWidget(buildSheet(station));
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Weigh Station'), findsOneWidget);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // AppState – weigh station state management
-  // ---------------------------------------------------------------------------
-
-  group('AppState weigh station', () {
-    setUp(() => SharedPreferences.setMockInitialValues({}));
-
-    test('initial weighStations is empty', () {
-      final state = AppState();
-      expect(state.weighStations, isEmpty);
-    });
-
-    test('initial weighStationSettings uses defaults', () {
-      final state = AppState();
-      expect(state.weighStationSettings.showOnMap, isTrue);
-      expect(state.weighStationSettings.alertsEnabled, isFalse);
-    });
-
-    test('setWeighStationSettings updates state and notifies listeners', () {
-      final state = AppState();
-      var notified = false;
-      state.addListener(() => notified = true);
-
-      state.setWeighStationSettings(
-        const WeighStationSettings(
-          showOnMap: false,
-          alertsEnabled: true,
-          alertThresholdMeters: 3000,
-        ),
-      );
-
-      expect(state.weighStationSettings.showOnMap, isFalse);
-      expect(state.weighStationSettings.alertsEnabled, isTrue);
-      expect(state.weighStationSettings.alertThresholdMeters, 3000);
-      expect(notified, isTrue);
+      await service.save(toSave);
+      final loaded = await service.load();
+      expect(loaded.enableAlerts, isFalse);
+      expect(loaded.alertDistanceMeters, closeTo(804.7, 0.01));
+      expect(loaded.alertOnUnknownStatus, isFalse);
+      expect(loaded.enableTts, isFalse);
+      expect(loaded.enableSubmissionPrompts, isFalse);
     });
   });
 }

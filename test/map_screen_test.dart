@@ -230,6 +230,7 @@ void main() {
       VoidCallback? onTruckProfile,
       VoidCallback? onLayers,
       VoidCallback? onRoadCameras,
+      VoidCallback? onWeighStations,
       VoidCallback? onPoiBrowser,
       VoidCallback? onSetDestinationByMap,
     }) {
@@ -247,6 +248,7 @@ void main() {
               onTruckProfile: onTruckProfile ?? () {},
               onLayers: onLayers ?? () {},
               onRoadCameras: onRoadCameras ?? () {},
+              onWeighStations: onWeighStations ?? () {},
               onPoiBrowser: onPoiBrowser ?? () {},
               onSetDestinationByMap: onSetDestinationByMap ?? () {},
             ),
@@ -295,7 +297,7 @@ void main() {
       expect(find.text('Destination'), findsOneWidget);
       expect(find.text('POIs'), findsOneWidget);
       expect(find.text('Cameras'), findsOneWidget);
-      expect(find.text('Weigh Stations'), findsOneWidget);
+      expect(find.text('Scales'), findsOneWidget);
       expect(find.text('Truck'), findsOneWidget);
     });
 

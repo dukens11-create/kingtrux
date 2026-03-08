@@ -38,7 +38,8 @@ import 'widgets/route_guidance_banner.dart';
 import 'widgets/kingtrux_logo.dart';
 import 'widgets/road_cameras_sheet.dart';
 import 'widgets/unified_search_bar.dart';
-import 'widgets/weigh_station_detail_sheet.dart';
+import 'widgets/weigh_stations_sheet.dart';
+import 'widgets/weigh_station_report_dialog.dart';
 import 'account_screen.dart';
 import 'navigation_screen.dart';
 import 'paywall_screen.dart';
@@ -91,6 +92,10 @@ class _MapScreenState extends State<MapScreen> {
       context.read<AppState>().init();
       _loadMapPrefs();
       _startMapInitTimer();
+      // Wire the crowdsourcing prompt: when the driver is within 150 ft of a
+      // weigh station, show the status-report dialog.
+      context.read<AppState>().onWeighStationSubmissionPrompt =
+          _onWeighStationSubmissionPrompt;
     });
   }
 
@@ -195,6 +200,7 @@ class _MapScreenState extends State<MapScreen> {
           onLayers: _onLayersPressed,
           onPoiBrowser: _onPoiBrowserPressed,
           onRoadCameras: _onRoadCamerasPressed,
+          onWeighStations: _onWeighStationsPressed,
           onTruckProfile: _onTruckProfilePressed,
           onTripPlanner: _onTripPlannerPressed,
           onGetHelp: _onGetHelpPressed,
@@ -269,6 +275,7 @@ class _MapScreenState extends State<MapScreen> {
                     onTruckProfile: _onTruckProfilePressed,
                     onLayers: _onLayersPressed,
                     onRoadCameras: _onRoadCamerasPressed,
+                    onWeighStations: _onWeighStationsPressed,
                     onPoiBrowser: _onPoiBrowserPressed,
                     onSetDestinationByMap: _onSetDestinationPressed,
                   ),
@@ -657,24 +664,26 @@ class _MapScreenState extends State<MapScreen> {
       );
     }
 
-    // Weigh stations (shown when loaded and the showOnMap setting is enabled).
-    if (state.weighStationSettings.showOnMap) {
-      for (final station in state.weighStations) {
-        markers.add(
-          Marker(
-            markerId: MarkerId('ws_${station.id}'),
-            position: LatLng(station.lat, station.lng),
-            infoWindow: InfoWindow(
-              title: station.name,
-              snippet: _weighStationSnippet(station),
-            ),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              _weighStationMarkerHue(station.status),
-            ),
-            onTap: () => _onWeighStationMarkerTap(station),
+    // Weigh stations (shown when loaded via the Weigh Stations sheet).
+    for (final station in state.weighStations) {
+      markers.add(
+        Marker(
+          markerId: MarkerId('weigh_${station.id}'),
+          position: LatLng(station.lat, station.lng),
+          infoWindow: InfoWindow(
+            title: station.name,
+            snippet: [
+              station.highway,
+              station.direction,
+              station.statusLabel,
+            ].whereType<String>().join(' · '),
           ),
-        );
-      }
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            _weighStationMarkerHue(station.effectiveStatus),
+          ),
+          onTap: () => _onWeighStationMarkerTap(station),
+        ),
+      );
     }
 
     return markers;
@@ -699,39 +708,24 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  /// Returns the marker hue for a weigh station based on its status.
+  /// Maps [WeighStationStatus] to the nearest Google Maps marker hue.
   ///
-  /// - Open: red (driver must stop)
-  /// - Closed: green (bypass permitted)
-  /// - Monitored: rose (extra caution)
-  /// - Unknown: blue (informational)
-  static double _weighStationMarkerHue(WeighStationStatus status) {
+  /// - Green  (120°) → open bypass / going through
+  /// - Yellow  (60°) → monitoring
+  /// - Red     (0°)  → closed
+  /// - Rose  (330°)  → unknown / stale
+  double _weighStationMarkerHue(WeighStationStatus status) {
     switch (status) {
-      case WeighStationStatus.open:
-        return BitmapDescriptor.hueRed;
-      case WeighStationStatus.closed:
+      case WeighStationStatus.openBypass:
+      case WeighStationStatus.openGoingThrough:
         return BitmapDescriptor.hueGreen;
-      case WeighStationStatus.monitored:
-        return BitmapDescriptor.hueRose;
+      case WeighStationStatus.monitoring:
+        return BitmapDescriptor.hueYellow;
+      case WeighStationStatus.closed:
+        return BitmapDescriptor.hueRed;
       case WeighStationStatus.unknown:
-        return BitmapDescriptor.hueBlue;
+        return BitmapDescriptor.hueRose;
     }
-  }
-
-  /// Short snippet shown in the map marker info window for [station].
-  static String _weighStationSnippet(WeighStation station) {
-    final status = switch (station.status) {
-      WeighStationStatus.open => 'OPEN',
-      WeighStationStatus.closed => 'CLOSED',
-      WeighStationStatus.monitored => 'MONITORED',
-      WeighStationStatus.unknown => 'Status unknown',
-    };
-    final parts = [
-      status,
-      station.direction,
-      station.stateOrProvince,
-    ].whereType<String>().toList();
-    return parts.join(' · ');
   }
 
   // ---------------------------------------------------------------------------
@@ -917,14 +911,37 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  /// Tapping a weigh station marker opens the detail sheet for that station.
+  void _onWeighStationsPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const WeighStationsSheet(),
+    );
+  }
+
+  /// Tapping a weigh-station marker opens the Weigh Stations sheet so the
+  /// driver can see station details.
   void _onWeighStationMarkerTap(WeighStation station) {
     HapticFeedback.selectionClick();
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => WeighStationDetailSheet(station: station),
+      builder: (context) => const WeighStationsSheet(),
     );
+  }
+
+  /// Called by [AppState] when the driver enters the 150-foot proximity radius
+  /// of a weigh station.  Shows the status-report dialog.
+  Future<void> _onWeighStationSubmissionPrompt(WeighStation station) async {
+    if (!mounted) return;
+    final selected = await WeighStationReportDialog.show(context, station);
+    if (selected != null && mounted) {
+      await context.read<AppState>().submitWeighStationReport(
+            stationId: station.id,
+            status: selected,
+          );
+    }
   }
 
   void _onGoProPressed() {
@@ -1094,6 +1111,7 @@ class _MapToolbar extends StatelessWidget {
     required this.onLayers,
     required this.onPoiBrowser,
     required this.onRoadCameras,
+    required this.onWeighStations,
     required this.onTruckProfile,
     required this.onTripPlanner,
     required this.onGetHelp,
@@ -1110,6 +1128,7 @@ class _MapToolbar extends StatelessWidget {
   final VoidCallback onLayers;
   final VoidCallback onPoiBrowser;
   final VoidCallback onRoadCameras;
+  final VoidCallback onWeighStations;
   final VoidCallback onTruckProfile;
   final VoidCallback onTripPlanner;
   final VoidCallback onGetHelp;
@@ -1147,6 +1166,11 @@ class _MapToolbar extends StatelessWidget {
             icon: Icons.videocam_rounded,
             label: 'Cameras',
             onPressed: onRoadCameras,
+          ),
+          _ToolbarButton(
+            icon: Icons.scale_rounded,
+            label: 'Scales',
+            onPressed: onWeighStations,
           ),
           _ToolbarButton(
             icon: Icons.local_shipping_rounded,

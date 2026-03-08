@@ -467,7 +467,127 @@ Then pass it to the build step:
 flutter build apk --dart-define=ROAD_CAMERA_511_API_KEY=${{ secrets.ROAD_CAMERA_511_API_KEY }}
 ```
 
-## In-App Subscriptions (RevenueCat)
+---
+
+## Weigh Stations
+
+KINGTRUX displays commercial-vehicle weigh / inspection stations for the
+USA and Canada, with proximity alerts that warn drivers before they reach
+a station.
+
+### Feature overview
+
+| Capability | Details |
+|---|---|
+| **Map markers** | Magenta scale pins appear on the main map after loading |
+| **Station list panel** | Bottom sheet sorted by distance from the driver |
+| **Detail card** | Tap a station tile to open an inline detail card with status, highway, hours, facilities, and distance from driver |
+| **Search integration** | Typing "weigh station" or a station name in the unified search bar returns results; also available as a dedicated "Scales" category chip |
+| **Proximity alerts** | Configurable distance alert (default ~1 mi) during active navigation; fires for Open and Unknown-status stations |
+| **Status semantics** | Open = enforcing; Closed = bypass; Unknown = no real-time data (alert still fires optionally) |
+| **Settings** | Enable/disable alerts, configure distance (0.5 / 1 / 2 / 5 mi), toggle unknown-status alerts, toggle TTS |
+| **Baseline dataset** | ~80 pre-loaded North American stations — no API key required |
+
+### Status semantics
+
+| Status | Behaviour |
+|---|---|
+| **Open** | Station is actively enforcing. Alert fires. Shown in red. |
+| **Closed** | Station bypass lanes are open. No alert. Shown in green. |
+| **Unknown** | No real-time data available. Alert fires if "Alert on Unknown Status" is enabled (default). Shown in grey. |
+
+### Settings
+
+Open the app → **Settings → Weigh Station Alerts**:
+
+| Setting | Description |
+|---|---|
+| Enable Proximity Alerts | Master on/off for all weigh station notifications |
+| Alert Distance | How far ahead to warn (~0.5 mi, ~1 mi, ~2 mi, ~5 mi) |
+| Alert on Unknown Status | Warn even when enforcement status is unavailable |
+| Speak Alerts | Announce approaching stations via text-to-speech |
+
+### Pluggable provider architecture
+
+Weigh station data is loaded through an extensible **provider** system defined
+in `lib/services/weigh_station_service.dart`.
+
+#### Adding a real-time provider
+
+1. Create a class that extends `WeighStationProvider`:
+
+```dart
+class MyRealtimeProvider extends WeighStationProvider {
+  MyRealtimeProvider({required this.apiKey});
+  final String apiKey;
+
+  @override
+  Future<List<WeighStation>> fetch(
+    double centerLat,
+    double centerLng,
+    double radiusKm,
+  ) async {
+    // Call your real-time status API here and map the response to
+    // List<WeighStation> objects with real WeighStationStatus values.
+    // See lib/models/weigh_station.dart for the model definition.
+    return [];
+  }
+}
+```
+
+2. Register it at app startup (e.g. in `lib/app.dart` or `lib/main.dart`):
+
+```dart
+final weighStationService = WeighStationService();
+weighStationService.registerProvider(
+  MyRealtimeProvider(apiKey: Config.myRealtimeApiKey),
+);
+```
+
+3. The service merges results from all providers, de-duplicating by `id`.
+
+#### Known real-time sources to integrate
+
+| Source | URL | Notes |
+|---|---|---|
+| **NORPASS** | https://www.norpassonline.com/ | North American overweight/oversize, bypass eligibility |
+| **PrePass** | https://prepass.com/ | US weigh-station bypass (requires trucking account) |
+| **State DOT 511** | Various | Many states publish enforcement-status feeds via 511 APIs |
+| **Individual state portals** | Various | CA, TX, FL, WA etc. publish open-data feeds |
+
+#### Adding an API key
+
+1. Add a constant to `lib/config.dart` following the `roadCamera511ApiKey` pattern:
+
+```dart
+static const String weighStationApiKey =
+    String.fromEnvironment('WEIGH_STATION_API_KEY');
+static bool get weighStationApiConfigured =>
+    weighStationApiKey.isNotEmpty;
+```
+
+2. Pass the key at build / run time:
+
+```bash
+flutter run --dart-define=WEIGH_STATION_API_KEY=your_key
+```
+
+3. Check `Config.weighStationApiConfigured` before registering the real-time
+   provider so you degrade gracefully to the static baseline without a key.
+
+### Expanding the baseline dataset
+
+The static baseline is defined in `lib/services/weigh_station_service.dart`
+as the `_baseline` list of `WeighStation` constants.  To add new stations:
+
+1. Open `lib/services/weigh_station_service.dart`.
+2. Add entries to the `_baseline` list following the existing pattern.
+3. Set `status: WeighStationStatus.unknown` for baseline entries (no live data).
+4. Commit the updated file — no API key or build flag is required.
+
+---
+
+
 
 KINGTRUX Pro is gated behind a subscription paywall powered by [RevenueCat](https://www.revenuecat.com/).
 

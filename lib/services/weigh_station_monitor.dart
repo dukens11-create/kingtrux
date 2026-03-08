@@ -1,102 +1,164 @@
 import 'dart:math' as math;
 import '../models/weigh_station.dart';
 
-/// Callback fired when the driver is approaching a weigh station.
+/// Callback fired when the driver approaches a weigh station for an alert.
 typedef WeighStationAlertCallback = void Function(
   WeighStation station,
   double distanceMeters,
 );
 
-/// Monitors the driver's position against a list of [WeighStation] objects
-/// and fires [onApproaching] when the driver comes within
-/// [thresholdMeters] of a station.
+/// Callback fired when the driver is within the crowdsourcing submission
+/// radius of a station.  The UI should show a prompt for the driver to
+/// report the current status.
+typedef WeighStationSubmissionCallback = void Function(
+  WeighStation station,
+);
+
+// =============================================================================
+// WeighStationMonitor
+// =============================================================================
+
+/// Monitors driver proximity to weigh stations and fires
+/// [onNearbyStation] when the driver comes within [thresholdMeters] of a
+/// station that has not already been announced in this session.
 ///
-/// **Spam prevention**: each station-alert fires at most once per session
-/// (tracked by station id).  Call [reset] to clear state when a new trip
-/// starts or when the station list is replaced.
+/// Additionally fires [onSubmissionPrompt] when the driver is within
+/// [submissionProximityMeters] (150 ft ≈ 45.72 m) of a station for which
+/// a crowdsourcing prompt has not yet been shown this session.
 ///
-/// Position updates are supplied by the caller; this service has no GPS
+/// Alert behaviour by status:
+/// - [WeighStationStatus.openBypass]       – alert fires (active enforcement).
+/// - [WeighStationStatus.openGoingThrough] – alert fires (active enforcement).
+/// - [WeighStationStatus.monitoring]       – alert fires.
+/// - [WeighStationStatus.closed]           – no alert.
+/// - [WeighStationStatus.unknown]          – alert fires when [alertOnUnknown]
+///   is `true` (default).
+///
+/// Spam prevention: each alert fires at most once per session.
+/// Call [reset] when a new route or navigation session starts.
+///
+/// Position updates are supplied by the caller; this monitor has no GPS
 /// subscription of its own.
 class WeighStationMonitor {
   // ---------------------------------------------------------------------------
-  // Threshold
+  // Thresholds
   // ---------------------------------------------------------------------------
 
-  /// Default proximity threshold in metres (~3 miles / ~5 km).
-  static const double defaultThresholdMeters = 4828.0;
+  /// Default proximity threshold in metres (~1 mile) for the alert banner.
+  static const double defaultThresholdMeters = 1609.3;
 
-  /// Minimum seconds between re-alerts for the same station.
-  static const int cooldownSeconds = 300;
+  /// Radius in metres at which the crowdsourcing submission prompt appears.
+  ///
+  /// 150 feet = 45.72 metres, per requirements spec.
+  static const double submissionProximityMeters = 45.72;
+
+  // ---------------------------------------------------------------------------
+  // Callbacks
+  // ---------------------------------------------------------------------------
+
+  /// Called when the driver approaches a qualifying weigh station.
+  WeighStationAlertCallback? onNearbyStation;
+
+  /// Called when the driver is within [submissionProximityMeters] of a station
+  /// and has not yet been prompted to submit a status report this session.
+  WeighStationSubmissionCallback? onSubmissionPrompt;
 
   // ---------------------------------------------------------------------------
   // Configuration
   // ---------------------------------------------------------------------------
 
-  /// Distance in metres at which an alert is emitted for approaching stations.
+  /// Distance in metres at which the proximity alert fires.
   ///
-  /// Configurable so the settings UI can expose this as a preference.
+  /// Configurable by the driver via [WeighStationSettings.alertDistanceMeters].
   double thresholdMeters;
 
-  // ---------------------------------------------------------------------------
-  // Callback
-  // ---------------------------------------------------------------------------
-
-  /// Called when the driver approaches a weigh station whose cooldown has
-  /// expired.
-  WeighStationAlertCallback? onApproaching;
+  /// Whether to fire alerts for stations with [WeighStationStatus.unknown]
+  /// effective status.
+  ///
+  /// When `true` (default) the driver is notified even when the enforcement
+  /// status cannot be determined.  When `false`, alerts only fire for
+  /// explicitly active stations.
+  bool alertOnUnknown;
 
   // ---------------------------------------------------------------------------
   // Internal state
   // ---------------------------------------------------------------------------
 
-  /// Tracks when each station was last announced, keyed by [WeighStation.id].
-  final Map<String, DateTime> _lastAlertTimes = {};
+  /// Station IDs for which the alert has already been announced this session.
+  final Set<String> _announcedIds = {};
+
+  /// Station IDs for which the submission prompt has already been shown.
+  final Set<String> _promptedIds = {};
 
   // ---------------------------------------------------------------------------
   // Constructor
   // ---------------------------------------------------------------------------
 
-  WeighStationMonitor({double? thresholdMeters})
-      : thresholdMeters = thresholdMeters ?? defaultThresholdMeters;
+  WeighStationMonitor({
+    this.thresholdMeters = defaultThresholdMeters,
+    this.alertOnUnknown = true,
+  });
 
   // ---------------------------------------------------------------------------
   // Public API
   // ---------------------------------------------------------------------------
 
-  /// Evaluate the driver position against [stations], firing [onApproaching]
-  /// for any station within [thresholdMeters] whose cooldown has expired.
+  /// Evaluate the driver position against [stations] and fire
+  /// [onNearbyStation] for any qualifying station within [thresholdMeters]
+  /// that has not yet been announced this session.
   ///
-  /// Set [enabled] to `false` to suppress all alerts without resetting
-  /// cooldown state (mirrors the user's "Weigh Station Alerts" toggle).
+  /// Also fires [onSubmissionPrompt] for stations within
+  /// [submissionProximityMeters] when [submissionEnabled] is `true`.
+  ///
+  /// Pass `enabled: false` to suppress all alerts (e.g. when the driver
+  /// has disabled weigh-station notifications in settings).
   void update({
     required double lat,
     required double lng,
     required List<WeighStation> stations,
     bool enabled = true,
+    bool submissionEnabled = true,
   }) {
-    if (!enabled) return;
-    final now = DateTime.now();
     for (final station in stations) {
-      final last = _lastAlertTimes[station.id];
-      if (last != null &&
-          now.difference(last).inSeconds < cooldownSeconds) {
-        continue;
-      }
       final dist = _haversine(lat, lng, station.lat, station.lng);
+
+      // ── Crowdsourcing prompt (150-foot radius) ───────────────────────────
+      if (submissionEnabled &&
+          !_promptedIds.contains(station.id) &&
+          dist <= submissionProximityMeters) {
+        _promptedIds.add(station.id);
+        onSubmissionPrompt?.call(station);
+      }
+
+      // ── Proximity alert ──────────────────────────────────────────────────
+      if (!enabled) continue;
+      if (_announcedIds.contains(station.id)) continue;
+
+      final shouldAlert = switch (station.effectiveStatus) {
+        WeighStationStatus.openBypass => true,
+        WeighStationStatus.openGoingThrough => true,
+        WeighStationStatus.monitoring => true,
+        WeighStationStatus.closed => false,
+        WeighStationStatus.unknown => alertOnUnknown,
+      };
+      if (!shouldAlert) continue;
+
       if (dist <= thresholdMeters) {
-        _lastAlertTimes[station.id] = now;
-        onApproaching?.call(station, dist);
+        _announcedIds.add(station.id);
+        onNearbyStation?.call(station, dist);
       }
     }
   }
 
-  /// Reset all cooldown state (call when a new trip or session starts).
+  /// Reset all announced / prompted state (call when a new route or session
+  /// starts).
   void reset() {
-    _lastAlertTimes.clear();
+    _announcedIds.clear();
+    _promptedIds.clear();
   }
 
   // ---------------------------------------------------------------------------
-  // Geometry helpers
+  // Geometry helper
   // ---------------------------------------------------------------------------
 
   double _haversine(double lat1, double lng1, double lat2, double lng2) {
@@ -110,5 +172,5 @@ class WeighStationMonitor {
     return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
-  static double _sq(double x) => x * x;
+  double _sq(double x) => x * x;
 }

@@ -14,8 +14,8 @@ import 'weigh_station_detail_sheet.dart';
 enum _SearchCategory { all, destination, pois, cameras, weighStations, truck }
 
 /// A unified, floating search bar that lets the driver search across all
-/// Kingtrux features — destinations, POIs, road cameras, and truck shortcuts
-/// — without blocking or covering map tiles.
+/// Kingtrux features — destinations, POIs, road cameras, weigh stations, and
+/// truck shortcuts — without blocking or covering map tiles.
 ///
 /// **Collapsed**: renders a tappable pill ("Search destinations, POIs,
 /// cameras…") that replaces the former "Where to?" CTA bar.
@@ -34,6 +34,7 @@ class UnifiedSearchBar extends StatefulWidget {
     required this.onTruckProfile,
     required this.onLayers,
     required this.onRoadCameras,
+    required this.onWeighStations,
     required this.onPoiBrowser,
     required this.onSetDestinationByMap,
   });
@@ -58,6 +59,9 @@ class UnifiedSearchBar extends StatefulWidget {
 
   /// Called when the user taps the "Road Cameras" quick-action / "All cameras".
   final VoidCallback onRoadCameras;
+
+  /// Called when the user taps the "Weigh Stations" quick-action.
+  final VoidCallback onWeighStations;
 
   /// Called when the user taps "Browse all POIs".
   final VoidCallback onPoiBrowser;
@@ -178,8 +182,13 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
         .where(
           (s) =>
               s.name.toLowerCase().contains(q) ||
+              (s.highway?.toLowerCase().contains(q) ?? false) ||
               (s.stateOrProvince?.toLowerCase().contains(q) ?? false) ||
-              (s.highway?.toLowerCase().contains(q) ?? false),
+              // Allow generic "weigh station" related queries to show all stations.
+              const {
+                'weigh', 'weighstation', 'station', 'scale', 'scales',
+                'inspection', 'checkpoint',
+              }.contains(q),
         )
         .take(8)
         .toList();
@@ -224,7 +233,7 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
               const SizedBox(width: AppTheme.spaceSM),
               Expanded(
                 child: Text(
-                  'Search destinations, POIs, cameras…',
+                  'Search destinations, POIs, cameras, weigh stations…',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -388,7 +397,7 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
       case _SearchCategory.cameras:
         return 'Cameras';
       case _SearchCategory.weighStations:
-        return 'Weigh Stations';
+        return 'Scales';
       case _SearchCategory.truck:
         return 'Truck';
     }
@@ -405,7 +414,7 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
       case _SearchCategory.cameras:
         return Icons.videocam_rounded;
       case _SearchCategory.weighStations:
-        return Icons.local_police_rounded;
+        return Icons.scale_rounded;
       case _SearchCategory.truck:
         return Icons.local_shipping_rounded;
     }
@@ -475,25 +484,31 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
         );
 
       case _SearchCategory.weighStations:
-        final stations = _filteredWeighStations(state.weighStations);
+        final stations =
+            _filteredWeighStations(state.weighStations);
         if (stations.isNotEmpty) {
           results.addAll(
             stations.map(
-              (s) => _WeighStationResultTile(
-                station: s,
+              (station) => _WeighStationResultTile(
+                station: station,
                 onTap: () {
-                  widget.onWeighStationSelected(s);
+                  widget.onWeighStationSelected(station);
                   _close();
                 },
               ),
             ),
           );
         }
-        if (stations.isEmpty) {
-          results.add(
-            _EmptyTile(query: _controller.text.trim()),
-          );
-        }
+        results.add(
+          _ActionTile(
+            icon: Icons.open_in_new_rounded,
+            label: 'Open weigh stations sheet',
+            onTap: () {
+              widget.onWeighStations();
+              _close();
+            },
+          ),
+        );
 
       case _SearchCategory.truck:
         results.addAll(_buildTruckSection());
@@ -538,15 +553,16 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
         }
 
         // Weigh stations
-        final stations = _filteredWeighStations(state.weighStations);
-        if (stations.isNotEmpty) {
+        final weighStations =
+            _filteredWeighStations(state.weighStations);
+        if (weighStations.isNotEmpty) {
           results.add(const _GroupHeader(label: 'Weigh Stations'));
           results.addAll(
-            stations.take(3).map(
-                  (s) => _WeighStationResultTile(
-                    station: s,
+            weighStations.take(3).map(
+                  (station) => _WeighStationResultTile(
+                    station: station,
                     onTap: () {
-                      widget.onWeighStationSelected(s);
+                      widget.onWeighStationSelected(station);
                       _close();
                     },
                   ),
@@ -623,6 +639,14 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
         label: 'Road Cameras',
         onTap: () {
           widget.onRoadCameras();
+          _close();
+        },
+      ),
+      _ActionTile(
+        icon: Icons.scale_rounded,
+        label: 'Weigh Stations',
+        onTap: () {
+          widget.onWeighStations();
           _close();
         },
       ),
@@ -810,7 +834,7 @@ class _CameraResultTile extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// _WeighStationResultTile
+// _WeighStationResultTile – result for a weigh/inspection station
 // ---------------------------------------------------------------------------
 
 class _WeighStationResultTile extends StatelessWidget {
@@ -825,36 +849,24 @@ class _WeighStationResultTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final statusLabel = switch (station.status) {
-      WeighStationStatus.open => 'OPEN',
-      WeighStationStatus.closed => 'CLOSED',
-      WeighStationStatus.monitored => 'MONITORED',
-      WeighStationStatus.unknown => 'Status unknown',
-    };
-    final statusColor = switch (station.status) {
-      WeighStationStatus.open => cs.error,
-      WeighStationStatus.closed => cs.primary,
-      WeighStationStatus.monitored => cs.tertiary,
-      WeighStationStatus.unknown => cs.onSurfaceVariant,
-    };
-    final detail = [
-      station.highway,
-      station.stateOrProvince,
-      station.direction,
-    ].whereType<String>().join(' · ');
+    final subtitle = [
+      if (station.stateOrProvince != null)
+        '${station.country} · ${station.stateOrProvince}',
+      if (station.highway != null) station.highway!,
+      station.statusLabel,
+    ].join(' · ');
+
     return ListTile(
       dense: true,
-      leading: Icon(Icons.local_police_rounded, color: statusColor, size: 20),
+      leading: Icon(Icons.scale_rounded, color: cs.secondary, size: 20),
       title: Text(
         station.name,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        detail.isEmpty ? statusLabel : '$statusLabel · $detail',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: statusColor,
-            ),
+        subtitle,
+        style: Theme.of(context).textTheme.bodySmall,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
