@@ -56,6 +56,10 @@ import '../services/destination_persistence_service.dart';
 import '../services/units_service.dart';
 import '../models/road_camera.dart';
 import '../services/road_camera_service.dart';
+import '../models/weigh_station.dart';
+import '../services/weigh_station_service.dart';
+import '../services/weigh_station_monitor.dart';
+import '../services/weigh_station_settings_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -90,6 +94,10 @@ class AppState extends ChangeNotifier {
   final RoadsideAssistanceService _roadsideAssistanceService =
       RoadsideAssistanceService();
   final RoadCameraService _roadCameraService = RoadCameraService();
+  final WeighStationService _weighStationService = WeighStationService();
+  final WeighStationMonitor _weighStationMonitor = WeighStationMonitor();
+  final WeighStationSettingsService _weighStationSettingsService =
+      WeighStationSettingsService();
   final ThemeSettingsService _themeSettingsService = ThemeSettingsService();
   final TtsLanguageService _ttsLanguageService = TtsLanguageService();
   final DestinationPersistenceService _destinationPersistenceService =
@@ -400,6 +408,22 @@ class AppState extends ChangeNotifier {
   /// Error message from the last [loadRoadCameras] call, or `null` on success.
   String? cameraError;
 
+  // ---------------------------------------------------------------------------
+  // Weigh station state
+  // ---------------------------------------------------------------------------
+
+  /// Weigh stations loaded via [loadWeighStations].
+  List<WeighStation> weighStations = [];
+
+  /// `true` while [loadWeighStations] is in progress.
+  bool isLoadingWeighStations = false;
+
+  /// Error message from the last [loadWeighStations] call, or `null` on success.
+  String? weighStationError;
+
+  /// Driver-configurable weigh-station alert settings.
+  WeighStationSettings weighStationSettings = const WeighStationSettings();
+
   // Subscription / entitlement state
   /// `true` when the user has an active KINGTRUX Pro entitlement.
   bool isPro = false;
@@ -545,6 +569,12 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading hazard settings: $e');
+    }
+    try {
+      weighStationSettings = await _weighStationSettingsService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading weigh station settings: $e');
     }
     try {
       enabledTruckStopBrands = await _truckStopBrandSettingsService.load();
@@ -937,6 +967,46 @@ class AppState extends ChangeNotifier {
       isLoadingCameras = false;
       notifyListeners();
     }
+  }
+
+  /// Populates [weighStations] with weigh / inspection stations near the
+  /// current location within [radiusKm] kilometres.
+  ///
+  /// The built-in static baseline is always available; register a real-time
+  /// provider on [_weighStationService] to add live enforcement-status data.
+  Future<void> loadWeighStations({double radiusKm = 300}) async {
+    if (myLat == null || myLng == null) {
+      throw Exception('Current location not set');
+    }
+
+    isLoadingWeighStations = true;
+    weighStationError = null;
+    notifyListeners();
+
+    try {
+      weighStations = await _weighStationService.fetchStations(
+        centerLat: myLat!,
+        centerLng: myLng!,
+        radiusKm: radiusKm,
+      );
+    } catch (e) {
+      weighStationError = e.toString().replaceFirst('Exception: ', '');
+      weighStations = [];
+    } finally {
+      isLoadingWeighStations = false;
+      notifyListeners();
+    }
+  }
+
+  /// Update the weigh-station alert settings and persist them.
+  void setWeighStationSettings(WeighStationSettings settings) {
+    weighStationSettings = settings;
+    _weighStationMonitor.thresholdMeters = settings.alertDistanceMeters;
+    _weighStationMonitor.alertOnUnknown = settings.alertOnUnknownStatus;
+    notifyListeners();
+    _weighStationSettingsService.save(settings).catchError(
+      (Object e) => debugPrint('Error saving weigh station settings: $e'),
+    );
   }
 
   /// Clear route and destination
@@ -1602,6 +1672,28 @@ class AppState extends ChangeNotifier {
       ));
     };
 
+    _weighStationMonitor.thresholdMeters = weighStationSettings.alertDistanceMeters;
+    _weighStationMonitor.alertOnUnknown = weighStationSettings.alertOnUnknownStatus;
+    _weighStationMonitor.onNearbyStation = (WeighStation station, double dist) {
+      final distMi = (dist / 1609.344).toStringAsFixed(1);
+      final distKm = (dist / 1000).toStringAsFixed(1);
+      final distLabel = useMetricUnits ? '$distKm km' : '$distMi mi';
+      final statusLabel = station.status == WeighStationStatus.open
+          ? 'Open (enforcing)'
+          : 'Status unknown';
+      addAlert(AlertEvent(
+        id: 'weigh_station_${station.id}_${DateTime.now().millisecondsSinceEpoch}',
+        type: AlertType.weighStationAlert,
+        title: 'Weigh Station Ahead',
+        message: '${station.name} — $statusLabel, $distLabel away.',
+        severity: station.status == WeighStationStatus.open
+            ? AlertSeverity.warning
+            : AlertSeverity.info,
+        timestamp: DateTime.now(),
+        speakable: weighStationSettings.enableTts,
+      ));
+    };
+
     _hazardMonitor.onHazardApproaching = (Hazard hazard, double dist) {
       final distMi = (dist / 1609.344).toStringAsFixed(1);
       switch (hazard.type) {
@@ -1795,6 +1887,7 @@ class AppState extends ChangeNotifier {
     _routeMonitor.reset();
     _scaleMonitor.reset();
     _hazardMonitor.reset();
+    _weighStationMonitor.reset();
     _activeHazards = [];
   }
 
@@ -1842,6 +1935,13 @@ class AppState extends ChangeNotifier {
         enableTunnel: hs.enableTunnelWarnings,
       );
     }
+    // Weigh station proximity alerts fire whenever a route is active.
+    _weighStationMonitor.update(
+      lat: pos.latitude,
+      lng: pos.longitude,
+      stations: weighStations,
+      enabled: weighStationSettings.enableAlerts,
+    );
   }
 
   /// Human-readable label for a [ScaleStatus].

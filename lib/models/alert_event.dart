@@ -32,6 +32,7 @@ enum AlertType {
   narrowBridgeHazard,
   truckRolloverHazard,
   tunnelHazard,
+  weighStationAlert,
   generic,
   ttsLanguageUnsupported,
 }
