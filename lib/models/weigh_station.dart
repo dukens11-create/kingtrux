@@ -1,18 +1,108 @@
 import 'dart:math' as math;
+import 'package:flutter/material.dart' show Color, Colors;
 
 // =============================================================================
 // WeighStation
 // =============================================================================
 
+/// Freshness window in minutes.  If the most-recent crowdsourced report is
+/// older than this threshold the displayed status reverts to "Stale/Unknown".
+const int kWeighStationFreshnessMinutes = 60;
+
 /// Operational status of a weigh / inspection station.
 ///
-/// - [open]     – the station is actively enforcing (trucks must stop).
-/// - [closed]   – the station bypass lanes are open (trucks may pass).
-/// - [unknown]  – no real-time status information is available.
+/// - [openBypass]       – Station is staffed but trucks are cleared to bypass.
+/// - [openGoingThrough] – Station is open and trucks must stop / pull through.
+/// - [monitoring]       – Station is actively watching (enforcement uncertain).
+/// - [closed]           – Station is closed / no enforcement.
+/// - [unknown]          – No recent crowdsourced report available (or stale).
 enum WeighStationStatus {
-  open,
+  /// Green – trucks are bypassing (PrePass / transponder cleared).
+  openBypass,
+
+  /// Green – trucks must pull through for inspection.
+  openGoingThrough,
+
+  /// Yellow – officers are present but enforcement status unclear.
+  monitoring,
+
+  /// Red – station is closed; trucks may pass freely.
   closed,
+
+  /// Grey – no recent crowdsourced data (or data is stale).
   unknown,
+}
+
+/// Serialisation helpers for [WeighStationStatus].
+extension WeighStationStatusX on WeighStationStatus {
+  /// Returns the canonical string stored in Firestore.
+  String get firestoreValue {
+    switch (this) {
+      case WeighStationStatus.openBypass:
+        return 'open_bypass';
+      case WeighStationStatus.openGoingThrough:
+        return 'open_going_through';
+      case WeighStationStatus.monitoring:
+        return 'monitoring';
+      case WeighStationStatus.closed:
+        return 'closed';
+      case WeighStationStatus.unknown:
+        return 'unknown';
+    }
+  }
+
+  /// Human-readable label shown in UI.
+  String get label {
+    switch (this) {
+      case WeighStationStatus.openBypass:
+        return 'Open (Bypass)';
+      case WeighStationStatus.openGoingThrough:
+        return 'Open (Going Through)';
+      case WeighStationStatus.monitoring:
+        return 'Monitoring';
+      case WeighStationStatus.closed:
+        return 'Closed';
+      case WeighStationStatus.unknown:
+        return 'Unknown';
+    }
+  }
+
+  /// Map status → display color per requirements spec.
+  Color get color {
+    switch (this) {
+      case WeighStationStatus.openBypass:
+      case WeighStationStatus.openGoingThrough:
+        return Colors.green;
+      case WeighStationStatus.monitoring:
+        return Colors.amber;
+      case WeighStationStatus.closed:
+        return Colors.red;
+      case WeighStationStatus.unknown:
+        return Colors.grey;
+    }
+  }
+
+  /// Returns true for statuses that indicate active enforcement.
+  bool get isActive =>
+      this == WeighStationStatus.openBypass ||
+      this == WeighStationStatus.openGoingThrough ||
+      this == WeighStationStatus.monitoring;
+}
+
+/// Deserialise a Firestore string value to [WeighStationStatus].
+WeighStationStatus weighStationStatusFromFirestore(String? value) {
+  switch (value) {
+    case 'open_bypass':
+      return WeighStationStatus.openBypass;
+    case 'open_going_through':
+      return WeighStationStatus.openGoingThrough;
+    case 'monitoring':
+      return WeighStationStatus.monitoring;
+    case 'closed':
+      return WeighStationStatus.closed;
+    default:
+      return WeighStationStatus.unknown;
+  }
 }
 
 /// A single weigh / commercial-vehicle inspection station.
@@ -20,8 +110,8 @@ enum WeighStationStatus {
 /// Weigh stations are staffed facilities where commercial vehicles are required
 /// to stop for weight checks and safety inspections.  The [status] field
 /// reflects whether the station is currently open (enforcing) or closed
-/// (bypass).  When a real-time provider is unavailable the status defaults to
-/// [WeighStationStatus.unknown].
+/// (bypass).  When no recent crowdsourced report is available the status
+/// defaults to [WeighStationStatus.unknown].
 class WeighStation {
   const WeighStation({
     required this.id,
@@ -68,20 +158,38 @@ class WeighStation {
 
   /// Real-time (or last-known) operational status.
   ///
-  /// Defaults to [WeighStationStatus.unknown] when no status provider is
-  /// configured.
+  /// Defaults to [WeighStationStatus.unknown] when no crowdsourced report
+  /// is available or when the most-recent report is older than
+  /// [kWeighStationFreshnessMinutes] minutes.
   final WeighStationStatus status;
 
-  /// Timestamp of the most recent status update from the provider, or `null`
-  /// when status has never been updated.
+  /// Timestamp of the most recent crowdsourced status report, or `null`
+  /// when no report has ever been submitted.
   final DateTime? statusUpdatedAt;
 
-  /// Name of the data provider (e.g. `'Static baseline'`, `'NORPASS'`).
+  /// Name of the data provider (e.g. `'Static baseline'`, `'Firestore'`).
   final String? source;
 
   // ---------------------------------------------------------------------------
   // Derived helpers
   // ---------------------------------------------------------------------------
+
+  /// Whether [statusUpdatedAt] is older than [kWeighStationFreshnessMinutes]
+  /// minutes (or has never been set).  When `true` the status should be
+  /// displayed as stale/unknown.
+  bool get isStale {
+    if (statusUpdatedAt == null) return true;
+    return DateTime.now().difference(statusUpdatedAt!).inMinutes >=
+        kWeighStationFreshnessMinutes;
+  }
+
+  /// The effective status after applying freshness rules.  Returns
+  /// [WeighStationStatus.unknown] when the last report is stale.
+  WeighStationStatus get effectiveStatus =>
+      isStale ? WeighStationStatus.unknown : status;
+
+  /// Human-readable status label (accounts for freshness).
+  String get statusLabel => effectiveStatus.label;
 
   /// Haversine distance (metres) from this station to the given coordinates.
   double distanceFromMeters(double userLat, double userLng) {
@@ -95,16 +203,27 @@ class WeighStation {
     return 2 * earthRadius * math.asin(math.sqrt(a.toDouble()));
   }
 
-  /// Human-readable status label.
-  String get statusLabel {
-    switch (status) {
-      case WeighStationStatus.open:
-        return 'Open';
-      case WeighStationStatus.closed:
-        return 'Closed';
-      case WeighStationStatus.unknown:
-        return 'Unknown';
-    }
+  /// Returns a copy of this station with the given fields overridden.
+  WeighStation copyWith({
+    WeighStationStatus? status,
+    DateTime? statusUpdatedAt,
+    String? source,
+  }) {
+    return WeighStation(
+      id: id,
+      name: name,
+      lat: lat,
+      lng: lng,
+      country: country,
+      stateOrProvince: stateOrProvince,
+      highway: highway,
+      direction: direction,
+      facilities: facilities,
+      hours: hours,
+      status: status ?? this.status,
+      statusUpdatedAt: statusUpdatedAt ?? this.statusUpdatedAt,
+      source: source ?? this.source,
+    );
   }
 
   static double _toRad(double degrees) => degrees * math.pi / 180.0;

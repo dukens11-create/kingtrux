@@ -208,6 +208,27 @@ class SettingsScreen extends StatelessWidget {
                     );
                   },
                 ),
+
+                // Crowdsourcing prompts
+                SwitchListTile(
+                  secondary: Icon(
+                    Icons.groups_rounded,
+                    color: cs.primary,
+                  ),
+                  title: const Text('Status Submission Prompts'),
+                  subtitle: const Text(
+                    'Ask to report station status when within 150 ft',
+                  ),
+                  value:
+                      state.weighStationSettings.enableSubmissionPrompts,
+                  onChanged: (value) {
+                    HapticFeedback.selectionClick();
+                    state.setWeighStationSettings(
+                      state.weighStationSettings
+                          .copyWith(enableSubmissionPrompts: value),
+                    );
+                  },
+                ),
               ],
 
               const Divider(),

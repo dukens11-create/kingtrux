@@ -12,6 +12,7 @@ class WeighStationSettings {
     this.alertDistanceMeters = WeighStationMonitor.defaultThresholdMeters,
     this.alertOnUnknownStatus = true,
     this.enableTts = true,
+    this.enableSubmissionPrompts = true,
   });
 
   /// Whether proximity alerts are enabled at all.
@@ -25,12 +26,15 @@ class WeighStationSettings {
 
   /// Whether to alert when station status is [WeighStationStatus.unknown].
   ///
-  /// When `false`, alerts only fire for stations explicitly marked
-  /// [WeighStationStatus.open].
+  /// When `false`, alerts only fire for stations explicitly marked as active.
   final bool alertOnUnknownStatus;
 
   /// Whether the proximity alert should also be spoken aloud via TTS.
   final bool enableTts;
+
+  /// Whether to show a crowdsourcing prompt when the driver is within
+  /// [WeighStationMonitor.submissionProximityMeters] of a station.
+  final bool enableSubmissionPrompts;
 
   /// Return a copy with specified fields overridden.
   WeighStationSettings copyWith({
@@ -38,12 +42,15 @@ class WeighStationSettings {
     double? alertDistanceMeters,
     bool? alertOnUnknownStatus,
     bool? enableTts,
+    bool? enableSubmissionPrompts,
   }) {
     return WeighStationSettings(
       enableAlerts: enableAlerts ?? this.enableAlerts,
       alertDistanceMeters: alertDistanceMeters ?? this.alertDistanceMeters,
       alertOnUnknownStatus: alertOnUnknownStatus ?? this.alertOnUnknownStatus,
       enableTts: enableTts ?? this.enableTts,
+      enableSubmissionPrompts:
+          enableSubmissionPrompts ?? this.enableSubmissionPrompts,
     );
   }
 }
@@ -58,6 +65,7 @@ class WeighStationSettingsService {
   static const _keyDistance = 'weigh_station_alert_distance';
   static const _keyUnknown = 'weigh_station_alert_on_unknown';
   static const _keyTts = 'weigh_station_enable_tts';
+  static const _keySubmissionPrompts = 'weigh_station_enable_submission_prompts';
 
   /// Load persisted settings.
   ///
@@ -72,6 +80,8 @@ class WeighStationSettingsService {
             WeighStationMonitor.defaultThresholdMeters,
         alertOnUnknownStatus: prefs.getBool(_keyUnknown) ?? true,
         enableTts: prefs.getBool(_keyTts) ?? true,
+        enableSubmissionPrompts:
+            prefs.getBool(_keySubmissionPrompts) ?? true,
       );
     } catch (_) {
       return const WeighStationSettings();
@@ -85,5 +95,7 @@ class WeighStationSettingsService {
     await prefs.setDouble(_keyDistance, settings.alertDistanceMeters);
     await prefs.setBool(_keyUnknown, settings.alertOnUnknownStatus);
     await prefs.setBool(_keyTts, settings.enableTts);
+    await prefs.setBool(
+        _keySubmissionPrompts, settings.enableSubmissionPrompts);
   }
 }
