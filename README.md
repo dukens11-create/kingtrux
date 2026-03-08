@@ -161,9 +161,41 @@ flutter run \
   --dart-define=HERE_NAVIGATE_ACCESS_KEY_SECRET=your_here_navigate_secret \
   --dart-define=OPENWEATHER_API_KEY=your_openweather_api_key \
   --dart-define=ROAD_CAMERA_511_API_KEY=your_511_api_key \
+  --dart-define=GOOGLE_ELEVATION_API_KEY=your_elevation_api_key \
   --dart-define=REVENUECAT_IOS_API_KEY=appl_xxx \
   --dart-define=REVENUECAT_ANDROID_API_KEY=goog_xxx
 ```
+
+#### Road Elevation API Key Setup
+
+KINGTRUX uses the [Google Elevation API](https://developers.google.com/maps/documentation/elevation)
+to provide real-time road elevation data.
+
+**Steps to enable:**
+
+1. Open [Google Cloud Console → APIs & Services](https://console.cloud.google.com/apis/library).
+2. Search for **Elevation API** and click **Enable**.
+3. Create (or reuse) an API key under **Credentials**.
+4. Restrict the key to the **Elevation API** only for security.
+5. Pass the key at build / run time:
+
+```bash
+flutter run --dart-define=GOOGLE_ELEVATION_API_KEY=your_elevation_api_key
+```
+
+> **Note:** Without the key the app still runs normally; the Road Elevation
+> tile in the Admin Area displays a "not configured" error message.
+
+**Free / open-source alternatives (no API key required):**
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| Open-Meteo | https://open-meteo.com/en/docs/elevation-api | No key; 10 000 req/day |
+| OpenTopoData (SRTM) | https://www.opentopodata.org/ | No key; 1 req/sec |
+
+To use an alternative, replace `_baseUrl` and `_parseResponse` in
+`lib/services/elevation_service.dart` while keeping the same public
+`fetchElevation()` / `fetchMultiple()` signature.
 
 #### Google Maps Platform Configuration
 
