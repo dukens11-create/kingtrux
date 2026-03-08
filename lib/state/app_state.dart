@@ -623,6 +623,14 @@ class AppState extends ChangeNotifier {
       debugPrint('Error loading metric units preference: $e');
     }
     try {
+      weighStationSettings = await _weighStationSettingsService.load();
+      _weighStationMonitor.thresholdMeters =
+          weighStationSettings.alertThresholdMeters;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading weigh station settings: $e');
+    }
+    try {
       await refreshMyLocation();
     } catch (e) {
       debugPrint('Error initializing location: $e');
@@ -671,6 +679,13 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       } catch (e) {
         debugPrint('Error fetching weather: $e');
+      }
+
+      // Auto-load weigh stations when the "Show on Map" setting is enabled.
+      if (weighStationSettings.showOnMap) {
+        loadWeighStations().catchError(
+          (Object e) => debugPrint('Error loading weigh stations: $e'),
+        );
       }
     } catch (e) {
       debugPrint('Error refreshing location: $e');
@@ -1972,6 +1987,12 @@ class AppState extends ChangeNotifier {
       lat: pos.latitude,
       lng: pos.longitude,
       reports: scaleReports,
+    );
+    _weighStationMonitor.update(
+      lat: pos.latitude,
+      lng: pos.longitude,
+      stations: weighStations,
+      enabled: weighStationSettings.alertsEnabled,
     );
     // Hazard alerts only fire during active navigation.
     if (isNavigating) {

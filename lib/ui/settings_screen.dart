@@ -16,6 +16,7 @@ import 'widgets/theme_settings_sheet.dart';
 /// - Voice guidance settings
 /// - Map style / color theme
 /// - Distance units (metric / imperial)
+/// - Weigh Station alerts and map overlay
 /// - Send feedback
 /// - Privacy Policy & Terms of Service
 ///
@@ -44,6 +45,7 @@ class SettingsScreen extends StatelessWidget {
         builder: (context, state, _) {
           final cs = Theme.of(context).colorScheme;
           final tt = Theme.of(context).textTheme;
+          final ws = state.weighStationSettings;
           return ListView(
             children: [
               // ── Voice ─────────────────────────────────────────────────────
@@ -80,6 +82,69 @@ class SettingsScreen extends StatelessWidget {
                   },
                 ),
               ),
+
+              const Divider(),
+
+              // ── Weigh Stations ────────────────────────────────────────────
+              _SectionHeader(label: 'Weigh Stations', cs: cs, tt: tt),
+              SwitchListTile(
+                secondary: Icon(
+                  Icons.local_police_rounded,
+                  color: cs.primary,
+                ),
+                title: const Text('Show on Map'),
+                subtitle: const Text(
+                  'Display weigh station markers on the map',
+                ),
+                value: ws.showOnMap,
+                onChanged: (value) {
+                  HapticFeedback.selectionClick();
+                  state.setWeighStationSettings(
+                    ws.copyWith(showOnMap: value),
+                  );
+                },
+              ),
+              SwitchListTile(
+                secondary: Icon(
+                  Icons.notifications_active_rounded,
+                  color: cs.primary,
+                ),
+                title: const Text('Proximity Alerts'),
+                subtitle: const Text(
+                  'Alert when approaching a weigh station',
+                ),
+                value: ws.alertsEnabled,
+                onChanged: (value) {
+                  HapticFeedback.selectionClick();
+                  state.setWeighStationSettings(
+                    ws.copyWith(alertsEnabled: value),
+                  );
+                },
+              ),
+              if (ws.alertsEnabled)
+                ListTile(
+                  leading: Icon(
+                    Icons.social_distance_rounded,
+                    color: cs.primary,
+                  ),
+                  title: const Text('Alert Distance'),
+                  subtitle: Text(
+                    _formatThreshold(ws.alertThresholdMeters,
+                        state.useMetricUnits),
+                  ),
+                  trailing: DropdownButton<double>(
+                    value: _nearestOption(ws.alertThresholdMeters),
+                    underline: const SizedBox.shrink(),
+                    items: _thresholdOptions(state.useMetricUnits),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      HapticFeedback.selectionClick();
+                      state.setWeighStationSettings(
+                        ws.copyWith(alertThresholdMeters: value),
+                      );
+                    },
+                  ),
+                ),
 
               const Divider(),
 
