@@ -104,49 +104,8 @@ class SettingsScreen extends StatelessWidget {
                   );
                 },
               ),
-              SwitchListTile(
-                secondary: Icon(
-                  Icons.notifications_active_rounded,
-                  color: cs.primary,
-                ),
-                title: const Text('Proximity Alerts'),
-                subtitle: const Text(
-                  'Alert when approaching a weigh station',
-                ),
-                value: ws.alertsEnabled,
-                onChanged: (value) {
-                  HapticFeedback.selectionClick();
-                  state.setWeighStationSettings(
-                    ws.copyWith(alertsEnabled: value),
-                  );
-                },
-              ),
-              if (ws.alertsEnabled)
-                ListTile(
-                  leading: Icon(
-                    Icons.social_distance_rounded,
-                    color: cs.primary,
-                  ),
-                  title: const Text('Alert Distance'),
-                  subtitle: Text(
-                    _formatThreshold(ws.alertThresholdMeters,
-                        state.useMetricUnits),
-                  ),
-                  trailing: DropdownButton<double>(
-                    value: _nearestOption(ws.alertThresholdMeters),
-                    underline: const SizedBox.shrink(),
-                    items: _thresholdOptions(state.useMetricUnits),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      HapticFeedback.selectionClick();
-                      state.setWeighStationSettings(
-                        ws.copyWith(alertThresholdMeters: value),
-                      );
-                    },
-                  ),
-                ),
 
-              const Divider(),
+              const Divider();
 
               // ── Appearance ────────────────────────────────────────────────
               _SectionHeader(label: 'Appearance', cs: cs, tt: tt),
