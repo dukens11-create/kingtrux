@@ -3,17 +3,18 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/poi.dart';
 import '../../models/road_camera.dart';
+import '../../models/weigh_station.dart';
 import '../../services/here_geocoding_service.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
 import 'poi_detail_sheet.dart';
 
 /// Search category filter tabs used by [UnifiedSearchBar].
-enum _SearchCategory { all, destination, pois, cameras, truck }
+enum _SearchCategory { all, destination, pois, cameras, weighStations, truck }
 
 /// A unified, floating search bar that lets the driver search across all
-/// Kingtrux features — destinations, POIs, road cameras, and truck shortcuts
-/// — without blocking or covering map tiles.
+/// Kingtrux features — destinations, POIs, road cameras, weigh stations, and
+/// truck shortcuts — without blocking or covering map tiles.
 ///
 /// **Collapsed**: renders a tappable pill ("Search destinations, POIs,
 /// cameras…") that replaces the former "Where to?" CTA bar.
@@ -28,9 +29,11 @@ class UnifiedSearchBar extends StatefulWidget {
     required this.onDestinationSelected,
     required this.onPoiSelected,
     required this.onCameraSelected,
+    required this.onWeighStationSelected,
     required this.onTruckProfile,
     required this.onLayers,
     required this.onRoadCameras,
+    required this.onWeighStations,
     required this.onPoiBrowser,
     required this.onSetDestinationByMap,
   });
@@ -44,6 +47,9 @@ class UnifiedSearchBar extends StatefulWidget {
   /// Called when the user taps a camera result tile.
   final void Function(RoadCamera camera) onCameraSelected;
 
+  /// Called when the user taps a weigh station result tile.
+  final void Function(WeighStation station) onWeighStationSelected;
+
   /// Called when the user taps the "Truck Profile" quick-action.
   final VoidCallback onTruckProfile;
 
@@ -52,6 +58,9 @@ class UnifiedSearchBar extends StatefulWidget {
 
   /// Called when the user taps the "Road Cameras" quick-action / "All cameras".
   final VoidCallback onRoadCameras;
+
+  /// Called when the user taps the "Weigh Stations" quick-action.
+  final VoidCallback onWeighStations;
 
   /// Called when the user taps "Browse all POIs".
   final VoidCallback onPoiBrowser;
@@ -165,6 +174,25 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
         .toList();
   }
 
+  List<WeighStation> _filteredWeighStations(List<WeighStation> stations) {
+    final q = _controller.text.trim().toLowerCase();
+    if (q.isEmpty) return stations.take(5).toList();
+    return stations
+        .where(
+          (s) =>
+              s.name.toLowerCase().contains(q) ||
+              (s.highway?.toLowerCase().contains(q) ?? false) ||
+              (s.stateOrProvince?.toLowerCase().contains(q) ?? false) ||
+              // Allow generic "weigh station" related queries to show all stations.
+              const {
+                'weigh', 'weighstation', 'station', 'scale', 'scales',
+                'inspection', 'checkpoint',
+              }.contains(q),
+        )
+        .take(8)
+        .toList();
+  }
+
   // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
@@ -204,7 +232,7 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
               const SizedBox(width: AppTheme.spaceSM),
               Expanded(
                 child: Text(
-                  'Search destinations, POIs, cameras…',
+                  'Search destinations, POIs, cameras, weigh stations…',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -344,6 +372,8 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
         return 'Search POIs…';
       case _SearchCategory.cameras:
         return 'Search cameras…';
+      case _SearchCategory.weighStations:
+        return 'Search weigh stations…';
       case _SearchCategory.truck:
         return 'Truck & route options…';
       case _SearchCategory.all:
@@ -365,6 +395,8 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
         return 'POIs';
       case _SearchCategory.cameras:
         return 'Cameras';
+      case _SearchCategory.weighStations:
+        return 'Scales';
       case _SearchCategory.truck:
         return 'Truck';
     }
@@ -380,6 +412,8 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
         return Icons.local_gas_station_rounded;
       case _SearchCategory.cameras:
         return Icons.videocam_rounded;
+      case _SearchCategory.weighStations:
+        return Icons.scale_rounded;
       case _SearchCategory.truck:
         return Icons.local_shipping_rounded;
     }
@@ -448,6 +482,33 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
           ),
         );
 
+      case _SearchCategory.weighStations:
+        final stations =
+            _filteredWeighStations(state.weighStations);
+        if (stations.isNotEmpty) {
+          results.addAll(
+            stations.map(
+              (station) => _WeighStationResultTile(
+                station: station,
+                onTap: () {
+                  widget.onWeighStationSelected(station);
+                  _close();
+                },
+              ),
+            ),
+          );
+        }
+        results.add(
+          _ActionTile(
+            icon: Icons.open_in_new_rounded,
+            label: 'Open weigh stations sheet',
+            onTap: () {
+              widget.onWeighStations();
+              _close();
+            },
+          ),
+        );
+
       case _SearchCategory.truck:
         results.addAll(_buildTruckSection());
 
@@ -483,6 +544,24 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
                     camera: cam,
                     onTap: () {
                       widget.onCameraSelected(cam);
+                      _close();
+                    },
+                  ),
+                ),
+          );
+        }
+
+        // Weigh stations
+        final weighStations =
+            _filteredWeighStations(state.weighStations);
+        if (weighStations.isNotEmpty) {
+          results.add(const _GroupHeader(label: 'Weigh Stations'));
+          results.addAll(
+            weighStations.take(3).map(
+                  (station) => _WeighStationResultTile(
+                    station: station,
+                    onTap: () {
+                      widget.onWeighStationSelected(station);
                       _close();
                     },
                   ),
@@ -559,6 +638,14 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
         label: 'Road Cameras',
         onTap: () {
           widget.onRoadCameras();
+          _close();
+        },
+      ),
+      _ActionTile(
+        icon: Icons.scale_rounded,
+        label: 'Weigh Stations',
+        onTap: () {
+          widget.onWeighStations();
           _close();
         },
       ),
@@ -736,6 +823,48 @@ class _CameraResultTile extends StatelessWidget {
         [camera.stateOrProvince, camera.direction]
             .whereType<String>()
             .join(' · '),
+        style: Theme.of(context).textTheme.bodySmall,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _WeighStationResultTile – result for a weigh/inspection station
+// ---------------------------------------------------------------------------
+
+class _WeighStationResultTile extends StatelessWidget {
+  const _WeighStationResultTile({
+    required this.station,
+    required this.onTap,
+  });
+
+  final WeighStation station;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final subtitle = [
+      if (station.stateOrProvince != null)
+        '${station.country} · ${station.stateOrProvince}',
+      if (station.highway != null) station.highway!,
+      station.statusLabel,
+    ].join(' · ');
+
+    return ListTile(
+      dense: true,
+      leading: Icon(Icons.scale_rounded, color: cs.secondary, size: 20),
+      title: Text(
+        station.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        subtitle,
         style: Theme.of(context).textTheme.bodySmall,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,

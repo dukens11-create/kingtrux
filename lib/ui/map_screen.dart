@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/poi.dart';
 import '../models/road_camera.dart';
+import '../models/weigh_station.dart';
 import '../services/map_preferences_service.dart';
 import '../services/here_geocoding_service.dart';
 import '../state/app_state.dart';
@@ -37,6 +38,7 @@ import 'widgets/route_guidance_banner.dart';
 import 'widgets/kingtrux_logo.dart';
 import 'widgets/road_cameras_sheet.dart';
 import 'widgets/unified_search_bar.dart';
+import 'widgets/weigh_stations_sheet.dart';
 import 'account_screen.dart';
 import 'navigation_screen.dart';
 import 'paywall_screen.dart';
@@ -193,6 +195,7 @@ class _MapScreenState extends State<MapScreen> {
           onLayers: _onLayersPressed,
           onPoiBrowser: _onPoiBrowserPressed,
           onRoadCameras: _onRoadCamerasPressed,
+          onWeighStations: _onWeighStationsPressed,
           onTruckProfile: _onTruckProfilePressed,
           onTripPlanner: _onTripPlannerPressed,
           onGetHelp: _onGetHelpPressed,
@@ -263,9 +266,11 @@ class _MapScreenState extends State<MapScreen> {
                     onDestinationSelected: _onUnifiedDestinationSelected,
                     onPoiSelected: _onPoiMarkerTap,
                     onCameraSelected: _onCameraMarkerTap,
+                    onWeighStationSelected: _onWeighStationMarkerTap,
                     onTruckProfile: _onTruckProfilePressed,
                     onLayers: _onLayersPressed,
                     onRoadCameras: _onRoadCamerasPressed,
+                    onWeighStations: _onWeighStationsPressed,
                     onPoiBrowser: _onPoiBrowserPressed,
                     onSetDestinationByMap: _onSetDestinationPressed,
                   ),
@@ -654,6 +659,28 @@ class _MapScreenState extends State<MapScreen> {
       );
     }
 
+    // Weigh stations (shown when loaded via the Weigh Stations sheet).
+    for (final station in state.weighStations) {
+      markers.add(
+        Marker(
+          markerId: MarkerId('weigh_${station.id}'),
+          position: LatLng(station.lat, station.lng),
+          infoWindow: InfoWindow(
+            title: station.name,
+            snippet: [
+              station.highway,
+              station.direction,
+              station.statusLabel,
+            ].whereType<String>().join(' · '),
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueMagenta,
+          ),
+          onTap: () => _onWeighStationMarkerTap(station),
+        ),
+      );
+    }
+
     return markers;
   }
 
@@ -859,6 +886,26 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onWeighStationsPressed() {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const WeighStationsSheet(),
+    );
+  }
+
+  /// Tapping a weigh-station marker opens the Weigh Stations sheet so the
+  /// driver can see station details.
+  void _onWeighStationMarkerTap(WeighStation station) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const WeighStationsSheet(),
+    );
+  }
+
   void _onGoProPressed() {
     HapticFeedback.selectionClick();
     Navigator.push<void>(
@@ -1026,6 +1073,7 @@ class _MapToolbar extends StatelessWidget {
     required this.onLayers,
     required this.onPoiBrowser,
     required this.onRoadCameras,
+    required this.onWeighStations,
     required this.onTruckProfile,
     required this.onTripPlanner,
     required this.onGetHelp,
@@ -1042,6 +1090,7 @@ class _MapToolbar extends StatelessWidget {
   final VoidCallback onLayers;
   final VoidCallback onPoiBrowser;
   final VoidCallback onRoadCameras;
+  final VoidCallback onWeighStations;
   final VoidCallback onTruckProfile;
   final VoidCallback onTripPlanner;
   final VoidCallback onGetHelp;
@@ -1079,6 +1128,11 @@ class _MapToolbar extends StatelessWidget {
             icon: Icons.videocam_rounded,
             label: 'Cameras',
             onPressed: onRoadCameras,
+          ),
+          _ToolbarButton(
+            icon: Icons.scale_rounded,
+            label: 'Scales',
+            onPressed: onWeighStations,
           ),
           _ToolbarButton(
             icon: Icons.local_shipping_rounded,

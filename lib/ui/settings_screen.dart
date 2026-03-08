@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config.dart';
+import '../services/weigh_station_settings_service.dart';
+import '../services/weigh_station_monitor.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
 import 'widgets/voice_settings_sheet.dart';
@@ -22,6 +24,14 @@ import 'widgets/theme_settings_sheet.dart';
 /// with your real endpoints before publishing.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
+
+  // Distance constants (metres) used for alert-distance presets.
+  // Derived from _metersPerMile to ensure consistency.
+  static const double _metersPerMile = 1609.344;
+  static const double _feetPerMile = 5280.0;
+  static const double _halfMileMeters = _metersPerMile * 0.5; // ~804.7 m
+  static const double _twoMilesMeters = _metersPerMile * 2.0; // ~3218.7 m
+  static const double _fiveMilesMeters = _metersPerMile * 5.0; // ~8046.7 m
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +102,116 @@ class SettingsScreen extends StatelessWidget {
 
               const Divider(),
 
+              // ── Weigh Station Alerts ──────────────────────────────────────
+              _SectionHeader(label: 'Weigh Station Alerts', cs: cs, tt: tt),
+
+              // Master enable / disable
+              SwitchListTile(
+                secondary: Icon(Icons.scale_rounded, color: cs.primary),
+                title: const Text('Enable Proximity Alerts'),
+                subtitle: const Text(
+                  'Notify when approaching a weigh / inspection station',
+                ),
+                value: state.weighStationSettings.enableAlerts,
+                onChanged: (value) {
+                  HapticFeedback.selectionClick();
+                  state.setWeighStationSettings(
+                    state.weighStationSettings
+                        .copyWith(enableAlerts: value),
+                  );
+                },
+              ),
+
+              // Alert distance (only shown when alerts enabled)
+              if (state.weighStationSettings.enableAlerts) ...[
+                ListTile(
+                  leading: Icon(
+                    Icons.social_distance_rounded,
+                    color: cs.primary,
+                  ),
+                  title: const Text('Alert Distance'),
+                  subtitle: Text(
+                    _alertDistanceLabel(
+                      state.weighStationSettings.alertDistanceMeters,
+                    ),
+                  ),
+                  trailing: DropdownButton<double>(
+                    value: _nearestPreset(
+                      state.weighStationSettings.alertDistanceMeters,
+                    ),
+                    underline: const SizedBox(),
+                    items: const [
+                      DropdownMenuItem(
+                        value: _halfMileMeters,
+                        child: Text('~0.5 mi'),
+                      ),
+                      DropdownMenuItem(
+                        value: WeighStationMonitor.defaultThresholdMeters,
+                        child: Text('~1 mi'),
+                      ),
+                      DropdownMenuItem(
+                        value: _twoMilesMeters,
+                        child: Text('~2 mi'),
+                      ),
+                      DropdownMenuItem(
+                        value: _fiveMilesMeters,
+                        child: Text('~5 mi'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      HapticFeedback.selectionClick();
+                      state.setWeighStationSettings(
+                        state.weighStationSettings
+                            .copyWith(alertDistanceMeters: value),
+                      );
+                    },
+                  ),
+                ),
+
+                // Alert when status unknown
+                SwitchListTile(
+                  secondary: Icon(
+                    Icons.help_outline_rounded,
+                    color: cs.primary,
+                  ),
+                  title: const Text('Alert on Unknown Status'),
+                  subtitle: const Text(
+                    'Notify even when enforcement status is unavailable',
+                  ),
+                  value: state.weighStationSettings.alertOnUnknownStatus,
+                  onChanged: (value) {
+                    HapticFeedback.selectionClick();
+                    state.setWeighStationSettings(
+                      state.weighStationSettings
+                          .copyWith(alertOnUnknownStatus: value),
+                    );
+                  },
+                ),
+
+                // TTS
+                SwitchListTile(
+                  secondary: Icon(
+                    Icons.volume_up_rounded,
+                    color: cs.primary,
+                  ),
+                  title: const Text('Speak Alerts'),
+                  subtitle: const Text(
+                    'Announce weigh stations aloud via text-to-speech',
+                  ),
+                  value: state.weighStationSettings.enableTts,
+                  onChanged: (value) {
+                    HapticFeedback.selectionClick();
+                    state.setWeighStationSettings(
+                      state.weighStationSettings
+                          .copyWith(enableTts: value),
+                    );
+                  },
+                ),
+              ],
+
+              const Divider(),
+
               // ── Feedback & support ────────────────────────────────────────
               _SectionHeader(label: 'Support', cs: cs, tt: tt),
               ListTile(
@@ -145,6 +265,27 @@ class SettingsScreen extends StatelessWidget {
         );
       }
     }
+  }
+
+  /// Human-readable alert distance label.
+  static String _alertDistanceLabel(double meters) {
+    final mi = meters / _metersPerMile;
+    final km = meters / 1000;
+    if (mi < 1) return '${(mi * _feetPerMile).round()} ft  (${km.toStringAsFixed(1)} km)';
+    return '${mi.toStringAsFixed(1)} mi  (${km.toStringAsFixed(1)} km)';
+  }
+
+  /// Snap [meters] to the nearest preset distance option.
+  static double _nearestPreset(double meters) {
+    const presets = [
+      _halfMileMeters,
+      WeighStationMonitor.defaultThresholdMeters,
+      _twoMilesMeters,
+      _fiveMilesMeters,
+    ];
+    return presets.reduce(
+      (a, b) => (a - meters).abs() < (b - meters).abs() ? a : b,
+    );
   }
 }
 
