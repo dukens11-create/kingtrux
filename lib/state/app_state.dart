@@ -625,7 +625,7 @@ class AppState extends ChangeNotifier {
     try {
       weighStationSettings = await _weighStationSettingsService.load();
       _weighStationMonitor.thresholdMeters =
-          weighStationSettings.alertThresholdMeters;
+          weighStationSettings.alertDistanceMeters;
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading weigh station settings: $e');
@@ -1987,12 +1987,6 @@ class AppState extends ChangeNotifier {
       lat: pos.latitude,
       lng: pos.longitude,
       reports: scaleReports,
-    );
-    _weighStationMonitor.update(
-      lat: pos.latitude,
-      lng: pos.longitude,
-      stations: weighStations,
-      enabled: weighStationSettings.alertsEnabled,
     );
     // Hazard alerts only fire during active navigation.
     if (isNavigating) {

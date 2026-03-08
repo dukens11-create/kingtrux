@@ -8,12 +8,16 @@ import 'weigh_station_monitor.dart';
 /// Driver-configurable settings for the weigh-station feature.
 class WeighStationSettings {
   const WeighStationSettings({
-    this.enableAlerts = true,
+    this.showOnMap = false,
+    this.enableAlerts = false,
     this.alertDistanceMeters = WeighStationMonitor.defaultThresholdMeters,
     this.alertOnUnknownStatus = true,
     this.enableTts = true,
     this.enableSubmissionPrompts = true,
   });
+
+  /// Whether weigh station markers are displayed on the map.
+  final bool showOnMap;
 
   /// Whether proximity alerts are enabled at all.
   final bool enableAlerts;
@@ -38,6 +42,7 @@ class WeighStationSettings {
 
   /// Return a copy with specified fields overridden.
   WeighStationSettings copyWith({
+    bool? showOnMap,
     bool? enableAlerts,
     double? alertDistanceMeters,
     bool? alertOnUnknownStatus,
@@ -45,6 +50,7 @@ class WeighStationSettings {
     bool? enableSubmissionPrompts,
   }) {
     return WeighStationSettings(
+      showOnMap: showOnMap ?? this.showOnMap,
       enableAlerts: enableAlerts ?? this.enableAlerts,
       alertDistanceMeters: alertDistanceMeters ?? this.alertDistanceMeters,
       alertOnUnknownStatus: alertOnUnknownStatus ?? this.alertOnUnknownStatus,
@@ -61,6 +67,7 @@ class WeighStationSettings {
 
 /// Persists [WeighStationSettings] to device storage via [SharedPreferences].
 class WeighStationSettingsService {
+  static const _keyShowOnMap = 'weigh_station_show_on_map';
   static const _keyEnable = 'weigh_station_enable_alerts';
   static const _keyDistance = 'weigh_station_alert_distance';
   static const _keyUnknown = 'weigh_station_alert_on_unknown';
@@ -75,7 +82,8 @@ class WeighStationSettingsService {
     try {
       final prefs = await SharedPreferences.getInstance();
       return WeighStationSettings(
-        enableAlerts: prefs.getBool(_keyEnable) ?? true,
+        showOnMap: prefs.getBool(_keyShowOnMap) ?? false,
+        enableAlerts: prefs.getBool(_keyEnable) ?? false,
         alertDistanceMeters: prefs.getDouble(_keyDistance) ??
             WeighStationMonitor.defaultThresholdMeters,
         alertOnUnknownStatus: prefs.getBool(_keyUnknown) ?? true,
@@ -91,6 +99,7 @@ class WeighStationSettingsService {
   /// Persist [settings] to device storage.
   Future<void> save(WeighStationSettings settings) async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyShowOnMap, settings.showOnMap);
     await prefs.setBool(_keyEnable, settings.enableAlerts);
     await prefs.setDouble(_keyDistance, settings.alertDistanceMeters);
     await prefs.setBool(_keyUnknown, settings.alertOnUnknownStatus);

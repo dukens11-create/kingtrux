@@ -381,7 +381,8 @@ void main() {
   group('WeighStationSettings', () {
     test('defaults are correct', () {
       const settings = WeighStationSettings();
-      expect(settings.enableAlerts, isTrue);
+      expect(settings.showOnMap, isFalse);
+      expect(settings.enableAlerts, isFalse);
       expect(settings.alertDistanceMeters,
           WeighStationMonitor.defaultThresholdMeters);
       expect(settings.alertOnUnknownStatus, isTrue);
@@ -392,10 +393,12 @@ void main() {
     test('copyWith overrides only specified fields', () {
       const settings = WeighStationSettings();
       final updated = settings.copyWith(
-        enableAlerts: false,
+        showOnMap: true,
+        enableAlerts: true,
         enableSubmissionPrompts: false,
       );
-      expect(updated.enableAlerts, isFalse);
+      expect(updated.showOnMap, isTrue);
+      expect(updated.enableAlerts, isTrue);
       expect(updated.enableSubmissionPrompts, isFalse);
       expect(updated.enableTts, isTrue); // unchanged
     });
@@ -409,7 +412,8 @@ void main() {
     test('load returns defaults when nothing persisted', () async {
       final service = WeighStationSettingsService();
       final settings = await service.load();
-      expect(settings.enableAlerts, isTrue);
+      expect(settings.showOnMap, isFalse);
+      expect(settings.enableAlerts, isFalse);
       expect(settings.enableSubmissionPrompts, isTrue);
     });
 
@@ -417,6 +421,7 @@ void main() {
         () async {
       final service = WeighStationSettingsService();
       const toSave = WeighStationSettings(
+        showOnMap: true,
         enableAlerts: false,
         alertDistanceMeters: 804.7,
         alertOnUnknownStatus: false,
@@ -425,6 +430,7 @@ void main() {
       );
       await service.save(toSave);
       final loaded = await service.load();
+      expect(loaded.showOnMap, isTrue);
       expect(loaded.enableAlerts, isFalse);
       expect(loaded.alertDistanceMeters, closeTo(804.7, 0.01));
       expect(loaded.alertOnUnknownStatus, isFalse);
