@@ -25,6 +25,14 @@ import 'widgets/theme_settings_sheet.dart';
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
+  // Distance constants (metres) used for alert-distance presets.
+  // Derived from _metersPerMile to ensure consistency.
+  static const double _metersPerMile = 1609.344;
+  static const double _feetPerMile = 5280.0;
+  static const double _halfMileMeters = _metersPerMile * 0.5; // ~804.7 m
+  static const double _twoMilesMeters = _metersPerMile * 2.0; // ~3218.7 m
+  static const double _fiveMilesMeters = _metersPerMile * 5.0; // ~8046.7 m
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -134,7 +142,7 @@ class SettingsScreen extends StatelessWidget {
                     underline: const SizedBox(),
                     items: const [
                       DropdownMenuItem(
-                        value: 804.7,
+                        value: _halfMileMeters,
                         child: Text('~0.5 mi'),
                       ),
                       DropdownMenuItem(
@@ -142,11 +150,11 @@ class SettingsScreen extends StatelessWidget {
                         child: Text('~1 mi'),
                       ),
                       DropdownMenuItem(
-                        value: 3218.7,
+                        value: _twoMilesMeters,
                         child: Text('~2 mi'),
                       ),
                       DropdownMenuItem(
-                        value: 8046.7,
+                        value: _fiveMilesMeters,
                         child: Text('~5 mi'),
                       ),
                     ],
@@ -261,15 +269,20 @@ class SettingsScreen extends StatelessWidget {
 
   /// Human-readable alert distance label.
   static String _alertDistanceLabel(double meters) {
-    final mi = meters / 1609.344;
+    final mi = meters / _metersPerMile;
     final km = meters / 1000;
-    if (mi < 1) return '${(mi * 5280).round()} ft  (${km.toStringAsFixed(1)} km)';
+    if (mi < 1) return '${(mi * _feetPerMile).round()} ft  (${km.toStringAsFixed(1)} km)';
     return '${mi.toStringAsFixed(1)} mi  (${km.toStringAsFixed(1)} km)';
   }
 
   /// Snap [meters] to the nearest preset distance option.
   static double _nearestPreset(double meters) {
-    const presets = [804.7, WeighStationMonitor.defaultThresholdMeters, 3218.7, 8046.7];
+    const presets = [
+      _halfMileMeters,
+      WeighStationMonitor.defaultThresholdMeters,
+      _twoMilesMeters,
+      _fiveMilesMeters,
+    ];
     return presets.reduce(
       (a, b) => (a - meters).abs() < (b - meters).abs() ? a : b,
     );

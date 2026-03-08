@@ -19,7 +19,8 @@ class WeighStationSettings {
 
   /// Distance in metres at which the proximity alert fires.
   ///
-  /// Preset values are 804 m (~0.5 mi), 1609 m (~1 mi), and 3219 m (~2 mi).
+  /// Preset values are 804.7 m (~0.5 mi), 1609.3 m (~1 mi),
+  /// 3218.7 m (~2 mi), and 8046.7 m (~5 mi).
   final double alertDistanceMeters;
 
   /// Whether to alert when station status is [WeighStationStatus.unknown].

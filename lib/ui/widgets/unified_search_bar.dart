@@ -183,7 +183,11 @@ class _UnifiedSearchBarState extends State<UnifiedSearchBar> {
               s.name.toLowerCase().contains(q) ||
               (s.highway?.toLowerCase().contains(q) ?? false) ||
               (s.stateOrProvince?.toLowerCase().contains(q) ?? false) ||
-              'weigh station'.contains(q),
+              // Allow generic "weigh station" related queries to show all stations.
+              const {
+                'weigh', 'weighstation', 'station', 'scale', 'scales',
+                'inspection', 'checkpoint',
+              }.contains(q),
         )
         .take(8)
         .toList();
