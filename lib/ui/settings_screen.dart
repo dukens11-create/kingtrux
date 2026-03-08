@@ -101,8 +101,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 title: const Text('Proximity Alerts'),
                 subtitle: const Text(
-                  'Alert when approaching a weigh station.\n'
-                  'Off by default until notifications are enabled.',
+                  'Alert when approaching a weigh station',
                 ),
                 value: ws.alertsEnabled,
                 onChanged: (value) {

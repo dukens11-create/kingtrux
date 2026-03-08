@@ -57,7 +57,6 @@ class WeighStationSettingsService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyShowOnMap, settings.showOnMap);
     await prefs.setBool(_keyAlertsEnabled, settings.alertsEnabled);
-    await prefs.setDouble(
-        _keyThreshold, settings.alertThresholdMeters);
+    await prefs.setDouble(_keyThreshold, settings.alertThresholdMeters);
   }
 }

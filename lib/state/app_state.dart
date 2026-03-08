@@ -664,6 +664,13 @@ class AppState extends ChangeNotifier {
       } catch (e) {
         debugPrint('Error fetching weather: $e');
       }
+
+      // Auto-load weigh stations when the "Show on Map" setting is enabled.
+      if (weighStationSettings.showOnMap) {
+        loadWeighStations().catchError(
+          (Object e) => debugPrint('Error loading weigh stations: $e'),
+        );
+      }
     } catch (e) {
       debugPrint('Error refreshing location: $e');
       locationError = e.toString().replaceFirst('Exception: ', '');
@@ -1005,13 +1012,25 @@ class AppState extends ChangeNotifier {
   /// Update and persist weigh station settings.
   ///
   /// Also synchronises the [WeighStationMonitor] threshold so alerts reflect
-  /// the updated radius immediately.
+  /// the updated radius immediately.  When [showOnMap] is turned on and no
+  /// stations have been loaded yet, triggers an immediate load.
   void setWeighStationSettings(WeighStationSettings settings) {
+    final wasShowingOnMap = weighStationSettings.showOnMap;
     weighStationSettings = settings;
     _weighStationMonitor.thresholdMeters = settings.alertThresholdMeters;
     _weighStationSettingsService.save(settings).catchError(
       (Object e) => debugPrint('Error saving weigh station settings: $e'),
     );
+    // Auto-load when the user enables the map overlay for the first time.
+    if (!wasShowingOnMap &&
+        settings.showOnMap &&
+        weighStations.isEmpty &&
+        myLat != null &&
+        myLng != null) {
+      loadWeighStations().catchError(
+        (Object e) => debugPrint('Error loading weigh stations: $e'),
+      );
+    }
     notifyListeners();
   }
 
@@ -1704,7 +1723,7 @@ class AppState extends ChangeNotifier {
         message: '$statusMsg ($distKm km away)',
         severity: severity,
         timestamp: DateTime.now(),
-        speakable: weighStationSettings.alertsEnabled,
+        speakable: true,
       ));
     };
 
