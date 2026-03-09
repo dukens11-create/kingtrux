@@ -106,65 +106,6 @@ class Config {
   static const String feedbackUrl = 'https://kingtrux.com/feedback';
 
   // ---------------------------------------------------------------------------
-  // Google Elevation API key
-  //
-  // Enables road-elevation queries via the Google Elevation API:
-  //   https://developers.google.com/maps/documentation/elevation
-  //
-  // Enable the "Elevation API" in your Google Cloud project and pass the key:
-  //   flutter run --dart-define=GOOGLE_ELEVATION_API_KEY=your_key
-  //
-  // When not configured the ElevationService returns null so the UI can show
-  // a helpful "API key not configured" message instead of crashing.
-  //
-  // Free / open alternatives (no API key required):
-  //   • Open-Meteo Elevation  – https://open-meteo.com/en/docs/elevation-api
-  //   • SRTM / OpenTopoData   – https://www.opentopodata.org/
-  // To switch, replace the _googleElevationBaseUrl and response parsing in
-  // ElevationService whilst keeping the same public fetch() signature.
-  // ---------------------------------------------------------------------------
-
-  /// Google Elevation API key.
-  ///
-  /// Pass at build / run time:
-  ///   flutter run --dart-define=GOOGLE_ELEVATION_API_KEY=your_key
-  static const String googleElevationApiKey =
-      String.fromEnvironment('GOOGLE_ELEVATION_API_KEY', defaultValue: '');
-
-  /// Returns `true` when a Google Elevation API key has been provided.
-  ///
-  /// When `false` the [ElevationService] will throw an [ElevationException]
-  /// so the UI can surface an actionable error message.
-  static bool get elevationApiConfigured => googleElevationApiKey.isNotEmpty;
-
-  // ---------------------------------------------------------------------------
-  // Road Cameras – 511 DOT API key
-  //
-  // USA  – Register for a free key at https://511ny.org/dev (also accepted by
-  //        many other state 511 portals that share the same platform).
-  //        Pass via: flutter run --dart-define=ROAD_CAMERA_511_API_KEY=<key>
-  //
-  // Canada – The DriveBC open-data feed (British Columbia) does NOT require a
-  //          key.  Other provincial feeds may require separate registration.
-  //
-  // When no key is configured the app falls back to a set of demo cameras so
-  // the Road Cameras feature remains fully functional without registration.
-  // ---------------------------------------------------------------------------
-
-  /// 511 DOT API key for USA road camera feeds.
-  ///
-  /// Pass at build / run time:
-  ///   flutter run --dart-define=ROAD_CAMERA_511_API_KEY=your_key
-  static const String roadCamera511ApiKey =
-      String.fromEnvironment('ROAD_CAMERA_511_API_KEY', defaultValue: '');
-
-  /// Returns `true` when a 511 API key has been provided.
-  ///
-  /// When `false` the [RoadCameraService] serves demo cameras so the Road
-  /// Cameras screen is always usable.
-  static bool get roadCameraApiConfigured => roadCamera511ApiKey.isNotEmpty;
-
-  // ---------------------------------------------------------------------------
   // Admin access
   // Comma-separated list of email addresses that are treated as app admins.
   // Pass at build/run time:
@@ -187,22 +128,4 @@ class Config {
           .map((e) => e.trim().toLowerCase())
           .where((e) => e.isNotEmpty)
           .toSet();
-
-  // ---------------------------------------------------------------------------
-  // Firebase
-  // ---------------------------------------------------------------------------
-  // Set at build time via --dart-define=FIREBASE_ENABLED=true.
-  // Defaults to false so that builds succeed even when google-services.json
-  // is absent (e.g. fork PRs without access to repository secrets).
-  // ---------------------------------------------------------------------------
-
-  /// Whether Firebase is enabled for this build.
-  ///
-  /// Pass at build/run time:
-  ///   flutter build apk --dart-define=FIREBASE_ENABLED=true
-  ///
-  /// When false, Firebase.initializeApp is skipped and all Firestore-backed
-  /// features gracefully no-op.
-  static const bool firebaseEnabled =
-      bool.fromEnvironment('FIREBASE_ENABLED', defaultValue: false);
 }

@@ -1,18 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kingtrux/config.dart';
-import 'package:kingtrux/models/poi.dart';
-import 'package:kingtrux/models/road_camera.dart';
-import 'package:kingtrux/models/weigh_station.dart';
-import 'package:kingtrux/services/here_geocoding_service.dart';
 import 'package:kingtrux/services/map_preferences_service.dart';
-import 'package:kingtrux/state/app_state.dart';
 import 'package:kingtrux/ui/widgets/where_to_sheet.dart';
 import 'package:kingtrux/ui/widgets/onboarding_overlay.dart';
-import 'package:kingtrux/ui/widgets/unified_search_bar.dart';
 import 'package:kingtrux/ui/theme/app_theme.dart';
 
 /// Duration used for animation settle waits in widget tests.
@@ -133,7 +126,7 @@ void main() {
       );
       await tester.pump(_animationDuration);
 
-      expect(find.text('Unified Search Bar'), findsOneWidget);
+      expect(find.text('"Where to?"'), findsOneWidget);
       expect(find.text('POI Layers'), findsOneWidget);
       expect(find.text('Set Destination'), findsOneWidget);
     });
@@ -211,148 +204,6 @@ void main() {
       expect(find.textContaining('API key'), findsOneWidget);
       expect(find.textContaining('network connection'), findsOneWidget);
       expect(find.textContaining('Google Play Services'), findsOneWidget);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // UnifiedSearchBar
-  // ---------------------------------------------------------------------------
-  group('UnifiedSearchBar', () {
-    setUp(() {
-      SharedPreferences.setMockInitialValues({});
-    });
-
-    Widget buildBar({
-      void Function(GeocodedLocation)? onDestinationSelected,
-      void Function(Poi)? onPoiSelected,
-      void Function(RoadCamera)? onCameraSelected,
-      void Function(WeighStation)? onWeighStationSelected,
-      VoidCallback? onTruckProfile,
-      VoidCallback? onLayers,
-      VoidCallback? onRoadCameras,
-      VoidCallback? onWeighStations,
-      VoidCallback? onPoiBrowser,
-      VoidCallback? onSetDestinationByMap,
-    }) {
-      return MaterialApp(
-        theme: AppTheme.light,
-        home: ChangeNotifierProvider(
-          // Fresh AppState with no init() call so no network requests occur.
-          create: (_) => AppState(),
-          child: Scaffold(
-            body: UnifiedSearchBar(
-              onDestinationSelected: onDestinationSelected ?? (_) {},
-              onPoiSelected: onPoiSelected ?? (_) {},
-              onCameraSelected: onCameraSelected ?? (_) {},
-              onWeighStationSelected: onWeighStationSelected ?? (_) {},
-              onTruckProfile: onTruckProfile ?? () {},
-              onLayers: onLayers ?? () {},
-              onRoadCameras: onRoadCameras ?? () {},
-              onWeighStations: onWeighStations ?? () {},
-              onPoiBrowser: onPoiBrowser ?? () {},
-              onSetDestinationByMap: onSetDestinationByMap ?? () {},
-            ),
-          ),
-        ),
-      );
-    }
-
-    testWidgets('renders collapsed bar initially', (WidgetTester tester) async {
-      await tester.pumpWidget(buildBar());
-
-      expect(find.byKey(const Key('unified_search_collapsed')), findsOneWidget);
-      expect(find.byKey(const Key('unified_search_expanded')), findsNothing);
-    });
-
-    testWidgets('collapsed bar shows search placeholder text',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildBar());
-
-      expect(
-        find.textContaining('Search destinations'),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('tapping collapsed bar expands the search panel',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildBar());
-
-      await tester.tap(find.byKey(const Key('unified_search_collapsed')));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('unified_search_expanded')), findsOneWidget);
-      expect(find.byKey(const Key('unified_search_collapsed')), findsNothing);
-    });
-
-    testWidgets('expanded bar shows search field and all category chips',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildBar());
-
-      await tester.tap(find.byKey(const Key('unified_search_collapsed')));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('unified_search_field')), findsOneWidget);
-      expect(find.text('All'), findsOneWidget);
-      expect(find.text('Destination'), findsOneWidget);
-      expect(find.text('POIs'), findsOneWidget);
-      expect(find.text('Cameras'), findsOneWidget);
-      expect(find.text('Scales'), findsOneWidget);
-      expect(find.text('Truck'), findsOneWidget);
-    });
-
-    testWidgets('close button collapses the expanded panel',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildBar());
-
-      await tester.tap(find.byKey(const Key('unified_search_collapsed')));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('unified_search_expanded')), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('unified_search_close')));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('unified_search_collapsed')), findsOneWidget);
-      expect(find.byKey(const Key('unified_search_expanded')), findsNothing);
-    });
-
-    testWidgets('onTruckProfile callback fires from Truck category shortcuts',
-        (WidgetTester tester) async {
-      var truckCalled = false;
-      await tester.pumpWidget(buildBar(onTruckProfile: () => truckCalled = true));
-
-      await tester.tap(find.byKey(const Key('unified_search_collapsed')));
-      await tester.pumpAndSettle();
-
-      // Switch to Truck category
-      await tester.tap(find.text('Truck'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Truck Profile'));
-      await tester.pumpAndSettle();
-
-      expect(truckCalled, isTrue);
-    });
-
-    testWidgets('onSetDestinationByMap fires from Destination shortcuts',
-        (WidgetTester tester) async {
-      var mapCalled = false;
-      await tester.pumpWidget(
-        buildBar(onSetDestinationByMap: () => mapCalled = true),
-      );
-
-      await tester.tap(find.byKey(const Key('unified_search_collapsed')));
-      await tester.pumpAndSettle();
-
-      // Switch to Destination category
-      await tester.tap(find.text('Destination'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Set destination by map tap'));
-      await tester.pumpAndSettle();
-
-      expect(mapCalled, isTrue);
     });
   });
 }

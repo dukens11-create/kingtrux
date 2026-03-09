@@ -9,10 +9,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/poi.dart';
-import '../models/road_camera.dart';
-import '../models/weigh_station.dart';
 import '../services/map_preferences_service.dart';
-import '../services/here_geocoding_service.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
 import 'theme/dark_map_style.dart';
@@ -29,17 +26,13 @@ import 'widgets/theme_settings_sheet.dart';
 import 'widgets/road_sign_alert_settings_sheet.dart';
 import 'widgets/alert_banner.dart';
 import 'widgets/maneuver_banner.dart';
-import 'widgets/navigation_utils.dart';
 import 'widgets/steps_list_sheet.dart';
 import 'widgets/trip_planner_sheet.dart';
 import 'widgets/speed_display.dart';
 import 'widgets/compass_indicator.dart';
+import 'widgets/where_to_sheet.dart';
 import 'widgets/route_guidance_banner.dart';
 import 'widgets/kingtrux_logo.dart';
-import 'widgets/road_cameras_sheet.dart';
-import 'widgets/unified_search_bar.dart';
-import 'widgets/weigh_stations_sheet.dart';
-import 'widgets/weigh_station_report_dialog.dart';
 import 'account_screen.dart';
 import 'navigation_screen.dart';
 import 'paywall_screen.dart';
@@ -92,10 +85,6 @@ class _MapScreenState extends State<MapScreen> {
       context.read<AppState>().init();
       _loadMapPrefs();
       _startMapInitTimer();
-      // Wire the crowdsourcing prompt: when the driver is within 150 ft of a
-      // weigh station, show the status-report dialog.
-      context.read<AppState>().onWeighStationSubmissionPrompt =
-          _onWeighStationSubmissionPrompt;
     });
   }
 
@@ -199,8 +188,6 @@ class _MapScreenState extends State<MapScreen> {
           onRecenter: _onMyLocationPressed,
           onLayers: _onLayersPressed,
           onPoiBrowser: _onPoiBrowserPressed,
-          onRoadCameras: _onRoadCamerasPressed,
-          onWeighStations: _onWeighStationsPressed,
           onTruckProfile: _onTruckProfilePressed,
           onTripPlanner: _onTripPlannerPressed,
           onGetHelp: _onGetHelpPressed,
@@ -260,25 +247,14 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-              // ── Unified search bar (floats below AppBar, never covers map) ──
+              // ── "Where to?" CTA bar ─────────────────────────────────────
               // Hidden when tap-to-set destination mode is active.
               if (!_settingDestination)
                 Positioned(
                   top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceXS,
                   left: AppTheme.spaceMD,
                   right: AppTheme.spaceMD,
-                  child: UnifiedSearchBar(
-                    onDestinationSelected: _onUnifiedDestinationSelected,
-                    onPoiSelected: _onPoiMarkerTap,
-                    onCameraSelected: _onCameraMarkerTap,
-                    onWeighStationSelected: _onWeighStationMarkerTap,
-                    onTruckProfile: _onTruckProfilePressed,
-                    onLayers: _onLayersPressed,
-                    onRoadCameras: _onRoadCamerasPressed,
-                    onWeighStations: _onWeighStationsPressed,
-                    onPoiBrowser: _onPoiBrowserPressed,
-                    onSetDestinationByMap: _onSetDestinationPressed,
-                  ),
+                  child: _WhereToCta(onTap: _onWhereToCTAPressed),
                 ),
 
               // ── Map overlay buttons (right side) ─────────────────────────
@@ -600,26 +576,13 @@ class _MapScreenState extends State<MapScreen> {
       if (!state.enabledPoiLayers.contains(poi.type)) continue;
       // Respect per-brand filter for truck stop POIs.
       if (!state.isTruckStopBrandVisible(poi)) continue;
-      final label = PoiDetailSheet.poiLabel(poi.type);
-      final String snippet;
-      if (state.myLat != null && state.myLng != null) {
-        final meters = Geolocator.distanceBetween(
-          state.myLat!,
-          state.myLng!,
-          poi.lat,
-          poi.lng,
-        );
-        snippet = '$label · ${formatPoiDistance(meters)}';
-      } else {
-        snippet = label;
-      }
       markers.add(
         Marker(
           markerId: MarkerId('poi_${poi.id}'),
           position: LatLng(poi.lat, poi.lng),
           infoWindow: InfoWindow(
             title: poi.name,
-            snippet: snippet,
+            snippet: PoiDetailSheet.poiLabel(poi.type),
           ),
           icon: BitmapDescriptor.defaultMarkerWithHue(_getPoiColor(poi.type)),
           onTap: () => _onPoiMarkerTap(poi),
@@ -643,49 +606,6 @@ class _MapScreenState extends State<MapScreen> {
       );
     }
 
-    // Road cameras (shown when loaded via the Cameras sheet).
-    for (final camera in state.roadCameras) {
-      markers.add(
-        Marker(
-          markerId: MarkerId('camera_${camera.id}'),
-          position: LatLng(camera.lat, camera.lng),
-          infoWindow: InfoWindow(
-            title: camera.name,
-            snippet: [
-              camera.stateOrProvince,
-              camera.direction,
-            ].whereType<String>().join(' · '),
-          ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueCyan,
-          ),
-          onTap: () => _onCameraMarkerTap(camera),
-        ),
-      );
-    }
-
-    // Weigh stations (shown when loaded via the Weigh Stations sheet).
-    for (final station in state.weighStations) {
-      markers.add(
-        Marker(
-          markerId: MarkerId('weigh_${station.id}'),
-          position: LatLng(station.lat, station.lng),
-          infoWindow: InfoWindow(
-            title: station.name,
-            snippet: [
-              station.highway,
-              station.direction,
-              station.statusLabel,
-            ].whereType<String>().join(' · '),
-          ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            _weighStationMarkerHue(station.effectiveStatus),
-          ),
-          onTap: () => _onWeighStationMarkerTap(station),
-        ),
-      );
-    }
-
     return markers;
   }
 
@@ -705,26 +625,6 @@ class _MapScreenState extends State<MapScreen> {
         return BitmapDescriptor.hueGreen;
       case PoiType.roadsideAssistance:
         return BitmapDescriptor.hueRed;
-    }
-  }
-
-  /// Maps [WeighStationStatus] to the nearest Google Maps marker hue.
-  ///
-  /// - Green  (120°) → open bypass / going through
-  /// - Yellow  (60°) → monitoring
-  /// - Red     (0°)  → closed
-  /// - Rose  (330°)  → unknown / stale
-  double _weighStationMarkerHue(WeighStationStatus status) {
-    switch (status) {
-      case WeighStationStatus.openBypass:
-      case WeighStationStatus.openGoingThrough:
-        return BitmapDescriptor.hueGreen;
-      case WeighStationStatus.monitoring:
-        return BitmapDescriptor.hueYellow;
-      case WeighStationStatus.closed:
-        return BitmapDescriptor.hueRed;
-      case WeighStationStatus.unknown:
-        return BitmapDescriptor.hueRose;
     }
   }
 
@@ -865,15 +765,6 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  void _onRoadCamerasPressed() {
-    HapticFeedback.selectionClick();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => const RoadCamerasSheet(),
-    );
-  }
-
   void _onGetHelpPressed() {
     HapticFeedback.heavyImpact();
     showModalBottomSheet<void>(
@@ -898,50 +789,6 @@ class _MapScreenState extends State<MapScreen> {
       context: context,
       builder: (context) => PoiDetailSheet(poi: poi),
     );
-  }
-
-  /// Tapping a camera marker opens the Road Cameras sheet so the driver can
-  /// see the full camera list and tap the specific camera to open its feed.
-  void _onCameraMarkerTap(RoadCamera camera) {
-    HapticFeedback.selectionClick();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => const RoadCamerasSheet(),
-    );
-  }
-
-  void _onWeighStationsPressed() {
-    HapticFeedback.selectionClick();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => const WeighStationsSheet(),
-    );
-  }
-
-  /// Tapping a weigh-station marker opens the Weigh Stations sheet so the
-  /// driver can see station details.
-  void _onWeighStationMarkerTap(WeighStation station) {
-    HapticFeedback.selectionClick();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => const WeighStationsSheet(),
-    );
-  }
-
-  /// Called by [AppState] when the driver enters the 150-foot proximity radius
-  /// of a weigh station.  Shows the status-report dialog.
-  Future<void> _onWeighStationSubmissionPrompt(WeighStation station) async {
-    if (!mounted) return;
-    final selected = await WeighStationReportDialog.show(context, station);
-    if (selected != null && mounted) {
-      await context.read<AppState>().submitWeighStationReport(
-            stationId: station.id,
-            status: selected,
-          );
-    }
   }
 
   void _onGoProPressed() {
@@ -972,18 +819,14 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Unified search bar – destination selected callback
+  // "Where to?" CTA
   // ---------------------------------------------------------------------------
-
-  /// Called when the driver picks a geocoded address from [UnifiedSearchBar].
-  /// Sets the destination in app state and builds the truck route.
-  Future<void> _onUnifiedDestinationSelected(GeocodedLocation location) async {
-    final state = context.read<AppState>();
-    state.setDestination(location.lat, location.lng);
-    try {
-      await state.buildTruckRoute();
-    } catch (_) {
-      // Errors are surfaced via AppState.routeError / SnackBar in _setDestinationAt.
+  Future<void> _onWhereToCTAPressed() async {
+    HapticFeedback.selectionClick();
+    final result = await showWhereToSheet(context);
+    // If the user chose "Use Map", activate tap-to-set mode.
+    if (result == 'long_press' && mounted) {
+      setState(() => _settingDestination = true);
     }
   }
 
@@ -1110,8 +953,6 @@ class _MapToolbar extends StatelessWidget {
     required this.onRecenter,
     required this.onLayers,
     required this.onPoiBrowser,
-    required this.onRoadCameras,
-    required this.onWeighStations,
     required this.onTruckProfile,
     required this.onTripPlanner,
     required this.onGetHelp,
@@ -1127,8 +968,6 @@ class _MapToolbar extends StatelessWidget {
   final VoidCallback onRecenter;
   final VoidCallback onLayers;
   final VoidCallback onPoiBrowser;
-  final VoidCallback onRoadCameras;
-  final VoidCallback onWeighStations;
   final VoidCallback onTruckProfile;
   final VoidCallback onTripPlanner;
   final VoidCallback onGetHelp;
@@ -1161,16 +1000,6 @@ class _MapToolbar extends StatelessWidget {
             icon: Icons.place_rounded,
             label: 'POIs',
             onPressed: onPoiBrowser,
-          ),
-          _ToolbarButton(
-            icon: Icons.videocam_rounded,
-            label: 'Cameras',
-            onPressed: onRoadCameras,
-          ),
-          _ToolbarButton(
-            icon: Icons.scale_rounded,
-            label: 'Scales',
-            onPressed: onWeighStations,
           ),
           _ToolbarButton(
             icon: Icons.local_shipping_rounded,
@@ -1455,6 +1284,54 @@ class _LoadingBadge extends StatelessWidget {
             const SizedBox(width: AppTheme.spaceSM),
             Text(label, style: Theme.of(context).textTheme.bodySmall),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// "Where to?" CTA bar
+// ---------------------------------------------------------------------------
+
+/// A tappable search-bar–style CTA that opens the [WhereToSheet].
+class _WhereToCta extends StatelessWidget {
+  const _WhereToCta({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      key: const Key('where_to_cta'),
+      elevation: AppTheme.elevationSheet,
+      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+      color: cs.surface,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spaceMD,
+            vertical: AppTheme.spaceSM + 2,
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.search_rounded, color: cs.primary, size: 22),
+              const SizedBox(width: AppTheme.spaceSM),
+              Expanded(
+                child: Text(
+                  'Where to?',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios_rounded,
+                  size: 14, color: cs.onSurfaceVariant),
+            ],
+          ),
         ),
       ),
     );

@@ -31,10 +31,6 @@ A Flutter-based mobile application for truck drivers with advanced routing, POI 
 - **Points of Interest (POI) discovery** via OpenStreetMap Overpass API
   - Fuel stations
   - Rest areas
-- **Road Cameras** — aggregated USA & Canada DOT traffic camera feeds
-  - Search, filter by country, and view camera snapshots / streams
-  - Camera locations shown as map markers with distance from current position
-  - Demo data when no API key is configured; live 511 / DriveBC feeds when keys are set
 - **Real-time weather updates** at current location using OpenWeather API
 - **Interactive map interface** with route visualization
 - **Location-based services** with comprehensive permission handling
@@ -96,9 +92,6 @@ You'll need to obtain API keys from:
    - Free tier available
 5. **RevenueCat**: https://app.revenuecat.com/
    - Free tier available; needed for in-app subscriptions
-6. **511 DOT API** _(optional, Road Cameras feature)_: https://511ny.org/dev
-   - Free registration; enables live USA road camera feeds
-   - Canada's DriveBC feed works without any key
 
 ### API Key Management Best Practices
 
@@ -160,42 +153,9 @@ flutter run \
   --dart-define=HERE_NAVIGATE_ACCESS_KEY_ID=your_here_navigate_id \
   --dart-define=HERE_NAVIGATE_ACCESS_KEY_SECRET=your_here_navigate_secret \
   --dart-define=OPENWEATHER_API_KEY=your_openweather_api_key \
-  --dart-define=ROAD_CAMERA_511_API_KEY=your_511_api_key \
-  --dart-define=GOOGLE_ELEVATION_API_KEY=your_elevation_api_key \
   --dart-define=REVENUECAT_IOS_API_KEY=appl_xxx \
   --dart-define=REVENUECAT_ANDROID_API_KEY=goog_xxx
 ```
-
-#### Road Elevation API Key Setup
-
-KINGTRUX uses the [Google Elevation API](https://developers.google.com/maps/documentation/elevation)
-to provide real-time road elevation data.
-
-**Steps to enable:**
-
-1. Open [Google Cloud Console → APIs & Services](https://console.cloud.google.com/apis/library).
-2. Search for **Elevation API** and click **Enable**.
-3. Create (or reuse) an API key under **Credentials**.
-4. Restrict the key to the **Elevation API** only for security.
-5. Pass the key at build / run time:
-
-```bash
-flutter run --dart-define=GOOGLE_ELEVATION_API_KEY=your_elevation_api_key
-```
-
-> **Note:** Without the key the app still runs normally; the Road Elevation
-> tile in the Admin Area displays a "not configured" error message.
-
-**Free / open-source alternatives (no API key required):**
-
-| Service | URL | Notes |
-|---------|-----|-------|
-| Open-Meteo | https://open-meteo.com/en/docs/elevation-api | No key; 10 000 req/day |
-| OpenTopoData (SRTM) | https://www.opentopodata.org/ | No key; 1 req/sec |
-
-To use an alternative, replace `_baseUrl` and `_parseResponse` in
-`lib/services/elevation_service.dart` while keeping the same public
-`fetchElevation()` / `fetchMultiple()` signature.
 
 #### Google Maps Platform Configuration
 
@@ -392,202 +352,7 @@ Store or TestFlight — it is only produced for internal/testing distribution.
 | `REVENUECAT_IOS_API_KEY` | RevenueCat iOS public SDK key (`appl_…`) |
 | `GOOGLE_SERVICE_INFO_PLIST` | Base64-encoded `GoogleService-Info.plist` for Firebase |
 
-## Road Cameras
-
-KINGTRUX aggregates publicly available road / traffic camera feeds from USA and
-Canada Departments of Transportation (DOT) via the **511 feed standard** and
-the **DriveBC open-data API** (British Columbia).
-
-### Feature overview
-
-| Capability | Details |
-|---|---|
-| **Map markers** | Cyan camera pins appear on the main map after loading |
-| **Camera list panel** | Bottom sheet sorted by distance from the driver |
-| **Search & filter** | Free-text search + country filter (USA / Canada) |
-| **Snapshot viewer** | Tap a camera tile to open the DOT snapshot image in the browser |
-| **Live stream** | When the data source provides a stream URL (HLS/MJPEG) it is opened instead |
-| **Distance display** | Shows distance in miles or km (follows the app-wide units setting) |
-| **Demo data** | When no API key is configured the feature runs with sample camera locations |
-
-### Getting a 511 API key (USA)
-
-1. Visit **https://511ny.org/dev** and register for a free API key.
-   - The 511NY platform key works with many north-eastern states.
-2. For Washington State (WSDOT) visit **https://wsdot.wa.gov/traffic/api/**.
-3. Pass the key at build / run time:
-
-```bash
-flutter run --dart-define=ROAD_CAMERA_511_API_KEY=your_511_key
-```
-
-### Canada – DriveBC (British Columbia)
-
-The DriveBC API is completely open and **does not require a key**.
-Cameras in British Columbia are returned automatically whenever the Road
-Cameras sheet is opened.
-
-For other Canadian provinces (Ontario, Québec, Alberta, …) you will need to
-register with the provincial 511 or MTO portal individually and add a matching
-`_fetch<Province>Cameras` method in `lib/services/road_camera_service.dart`
-following the same pattern as the existing methods.
-
-### Expanding to additional US states
-
-Each DOT feed uses the same 511-compatible JSON format.  To add a state:
-
-1. Open `lib/services/road_camera_service.dart`.
-2. Copy the `_fetch511NyCameras` method and rename it (e.g., `_fetch511PaCameras`).
-3. Update the `Uri.https(...)` host and any state-specific fields.
-4. Call the new method inside `fetchCameras()` alongside the existing calls.
-5. Add the state code to the `stateOrProvince` field so the filter chips work.
-
-### Expanding globally
-
-To add cameras outside North America:
-
-1. Create a `_fetch<Country>Cameras(double lat, double lng, double radiusKm)` method.
-2. Map the feed's JSON to `RoadCamera` objects (see `lib/models/road_camera.dart`).
-3. Call it inside `fetchCameras()` and combine the results.
-4. If the feed requires authentication, add a constant to `lib/config.dart`
-   following the `roadCamera511ApiKey` pattern and inject it via `--dart-define`.
-
-### CI / CD
-
-Add the key to your GitHub Actions repository secrets
-(**Settings → Secrets and variables → Actions**):
-
-| Secret name | Value |
-|---|---|
-| `ROAD_CAMERA_511_API_KEY` | Your 511 DOT API key |
-
-Then pass it to the build step:
-
-```yaml
-flutter build apk --dart-define=ROAD_CAMERA_511_API_KEY=${{ secrets.ROAD_CAMERA_511_API_KEY }}
-```
-
----
-
-## Weigh Stations
-
-KINGTRUX displays commercial-vehicle weigh / inspection stations for the
-USA and Canada, with proximity alerts that warn drivers before they reach
-a station.
-
-### Feature overview
-
-| Capability | Details |
-|---|---|
-| **Map markers** | Magenta scale pins appear on the main map after loading |
-| **Station list panel** | Bottom sheet sorted by distance from the driver |
-| **Detail card** | Tap a station tile to open an inline detail card with status, highway, hours, facilities, and distance from driver |
-| **Search integration** | Typing "weigh station" or a station name in the unified search bar returns results; also available as a dedicated "Scales" category chip |
-| **Proximity alerts** | Configurable distance alert (default ~1 mi) during active navigation; fires for Open and Unknown-status stations |
-| **Status semantics** | Open = enforcing; Closed = bypass; Unknown = no real-time data (alert still fires optionally) |
-| **Settings** | Enable/disable alerts, configure distance (0.5 / 1 / 2 / 5 mi), toggle unknown-status alerts, toggle TTS |
-| **Baseline dataset** | ~80 pre-loaded North American stations — no API key required |
-
-### Status semantics
-
-| Status | Behaviour |
-|---|---|
-| **Open** | Station is actively enforcing. Alert fires. Shown in red. |
-| **Closed** | Station bypass lanes are open. No alert. Shown in green. |
-| **Unknown** | No real-time data available. Alert fires if "Alert on Unknown Status" is enabled (default). Shown in grey. |
-
-### Settings
-
-Open the app → **Settings → Weigh Station Alerts**:
-
-| Setting | Description |
-|---|---|
-| Enable Proximity Alerts | Master on/off for all weigh station notifications |
-| Alert Distance | How far ahead to warn (~0.5 mi, ~1 mi, ~2 mi, ~5 mi) |
-| Alert on Unknown Status | Warn even when enforcement status is unavailable |
-| Speak Alerts | Announce approaching stations via text-to-speech |
-
-### Pluggable provider architecture
-
-Weigh station data is loaded through an extensible **provider** system defined
-in `lib/services/weigh_station_service.dart`.
-
-#### Adding a real-time provider
-
-1. Create a class that extends `WeighStationProvider`:
-
-```dart
-class MyRealtimeProvider extends WeighStationProvider {
-  MyRealtimeProvider({required this.apiKey});
-  final String apiKey;
-
-  @override
-  Future<List<WeighStation>> fetch(
-    double centerLat,
-    double centerLng,
-    double radiusKm,
-  ) async {
-    // Call your real-time status API here and map the response to
-    // List<WeighStation> objects with real WeighStationStatus values.
-    // See lib/models/weigh_station.dart for the model definition.
-    return [];
-  }
-}
-```
-
-2. Register it at app startup (e.g. in `lib/app.dart` or `lib/main.dart`):
-
-```dart
-final weighStationService = WeighStationService();
-weighStationService.registerProvider(
-  MyRealtimeProvider(apiKey: Config.myRealtimeApiKey),
-);
-```
-
-3. The service merges results from all providers, de-duplicating by `id`.
-
-#### Known real-time sources to integrate
-
-| Source | URL | Notes |
-|---|---|---|
-| **NORPASS** | https://www.norpassonline.com/ | North American overweight/oversize, bypass eligibility |
-| **PrePass** | https://prepass.com/ | US weigh-station bypass (requires trucking account) |
-| **State DOT 511** | Various | Many states publish enforcement-status feeds via 511 APIs |
-| **Individual state portals** | Various | CA, TX, FL, WA etc. publish open-data feeds |
-
-#### Adding an API key
-
-1. Add a constant to `lib/config.dart` following the `roadCamera511ApiKey` pattern:
-
-```dart
-static const String weighStationApiKey =
-    String.fromEnvironment('WEIGH_STATION_API_KEY');
-static bool get weighStationApiConfigured =>
-    weighStationApiKey.isNotEmpty;
-```
-
-2. Pass the key at build / run time:
-
-```bash
-flutter run --dart-define=WEIGH_STATION_API_KEY=your_key
-```
-
-3. Check `Config.weighStationApiConfigured` before registering the real-time
-   provider so you degrade gracefully to the static baseline without a key.
-
-### Expanding the baseline dataset
-
-The static baseline is defined in `lib/services/weigh_station_service.dart`
-as the `_baseline` list of `WeighStation` constants.  To add new stations:
-
-1. Open `lib/services/weigh_station_service.dart`.
-2. Add entries to the `_baseline` list following the existing pattern.
-3. Set `status: WeighStationStatus.unknown` for baseline entries (no live data).
-4. Commit the updated file — no API key or build flag is required.
-
----
-
-
+## In-App Subscriptions (RevenueCat)
 
 KINGTRUX Pro is gated behind a subscription paywall powered by [RevenueCat](https://www.revenuecat.com/).
 
@@ -789,7 +554,7 @@ Add the following GitHub repository secrets (Settings → Secrets → Actions):
 
 | Secret name | Value |
 |---|---|
-| `ANDROID_GOOGLE_SERVICES_JSON` | Base64-encoded contents of `google-services.json` |
+| `GOOGLE_SERVICES_JSON` | Base64-encoded contents of `google-services.json` |
 | `GOOGLE_SERVICE_INFO_PLIST` | Base64-encoded contents of `GoogleService-Info.plist` |
 | `WEB_FIREBASE_API_KEY` | Firebase Web API key (from Firebase Console → Project settings → Your apps → Web app) |
 
@@ -799,14 +564,9 @@ Then add injection steps to your CI workflows **before** the build step:
 ```yaml
 - name: Inject google-services.json
   env:
-    ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+    GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
   run: |
-    if [ -z "$ANDROID_GOOGLE_SERVICES_JSON" ]; then
-      echo "::error::Secret ANDROID_GOOGLE_SERVICES_JSON is not set."
-      exit 1
-    fi
-    mkdir -p android/app
-    echo "$ANDROID_GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+    echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
 ```
 
 **iOS** (`ci.yml`):
