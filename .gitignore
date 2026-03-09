@@ -45,6 +45,7 @@ app.*.map.json
 
 # Firebase Android config — never commit the real file; use google-services.json.sample as a template
 android/app/google-services.json
+android/app/src/release/google-services.json
 
 # Firebase iOS config — never commit the real file; use GoogleService-Info.plist.sample as a template
 ios/Runner/GoogleService-Info.plist
