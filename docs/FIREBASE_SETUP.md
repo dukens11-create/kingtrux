@@ -156,7 +156,55 @@ ID to each status report without requiring the driver to create an account.
 
 ---
 
-## 6. Building Without Firebase Config Files
+## 6. Injecting `google-services.json` in CI (GitHub Actions)
+
+`google-services.json` must **never** be committed to the repository.  CI
+workflows inject it at build time from a GitHub Actions secret.
+
+### Creating the secret
+
+1. In the Firebase Console → **Project Settings** → **Your apps** → Android app,
+   download `google-services.json`.
+2. Base64-encode it locally (no line wrapping):
+   ```bash
+   # macOS
+   base64 -i android/app/google-services.json | tr -d '\n'
+   # Linux
+   base64 -w 0 android/app/google-services.json
+   ```
+3. In the GitHub repository, go to **Settings → Secrets and variables → Actions**.
+4. Click **New repository secret**.
+5. Name: `ANDROID_GOOGLE_SERVICES_JSON`  
+   Value: the base64 string from step 2.
+6. Click **Add secret**.
+
+> **Note:** The build workflow (`android-build.yml`) and the CI workflow (`ci.yml`)
+> will both **fail with a clear error** if this secret is absent.  This prevents
+> silent, confusing Gradle failures deep inside the build.
+
+### What the workflow does
+
+Before every Android build step the workflow runs:
+
+```yaml
+- name: Inject google-services.json
+  env:
+    ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+  run: |
+    if [ -z "$ANDROID_GOOGLE_SERVICES_JSON" ]; then
+      echo "::error::Secret ANDROID_GOOGLE_SERVICES_JSON is not set."
+      exit 1
+    fi
+    mkdir -p android/app
+    echo "$ANDROID_GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+```
+
+The file is written to `android/app/google-services.json` at runtime and is
+never stored in Git (it is listed in `.gitignore`).
+
+---
+
+## 7. Building Without Firebase Config Files (Local Only)
 
 The app is designed to build and run gracefully without `google-services.json`
 or `GoogleService-Info.plist` — it falls back to showing station status as
@@ -173,7 +221,7 @@ without Firebase on Android, comment out the plugin line in
 
 ---
 
-## 7. Firestore Collection & Document Schema
+## 8. Firestore Collection & Document Schema
 
 | Collection              | Field       | Type      | Description                              |
 |-------------------------|-------------|-----------|------------------------------------------|
@@ -184,7 +232,7 @@ without Firebase on Android, comment out the plugin line in
 
 ---
 
-## 8. Local Development Without Real Config
+## 9. Local Development Without Real Config
 
 For unit tests and CI pipelines that do not have a real Firebase project, the
 `FirestoreWeighStationService` catches all Firestore exceptions and returns
@@ -206,7 +254,8 @@ Then set `FIRESTORE_EMULATOR_HOST=localhost:8080` before running Flutter tests.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Build fails with "Google Services plugin requires…" | Missing `google-services.json` | Add the file or comment out the plugin |
+| CI fails with "Secret ANDROID_GOOGLE_SERVICES_JSON is not set" | Secret not added to repo | Follow §6 to create the `ANDROID_GOOGLE_SERVICES_JSON` secret |
+| Build fails with "Google Services plugin requires…" | Missing `google-services.json` locally | Download from Firebase Console and place at `android/app/google-services.json` |
 | Status always shows Unknown | Firestore rules deny reads, or Auth not enabled | Check rules and Anonymous Auth |
 | Reports not persisted | Anonymous Auth disabled | Enable in Firebase Console → Authentication |
 | Wrong platform config | `firebase_options.dart` out of date | Run `flutterfire configure` again |
