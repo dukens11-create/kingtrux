@@ -60,6 +60,36 @@ flutterfire configure --project=kingtrux-387ae
 This regenerates `lib/firebase_options.dart` with the correct credentials for
 every registered platform.
 
+> **Security note:** `lib/firebase_options.dart` is committed to the repository
+> with placeholder values (`YOUR_ANDROID_FIREBASE_API_KEY`,
+> `YOUR_IOS_FIREBASE_API_KEY`, `YOUR_WEB_FIREBASE_API_KEY`) instead of real
+> API keys.  Real keys must never be committed in source code.
+>
+> **CI injection:** GitHub Actions workflows replace these placeholders at build
+> time using the `ANDROID_FIREBASE_API_KEY`, `IOS_FIREBASE_API_KEY`, and
+> `WEB_FIREBASE_API_KEY` repository secrets (see *Injecting secrets in CI*
+> in `README.md` for details).
+>
+> **Local development:** After running `flutterfire configure`, immediately
+> move the generated file out of the repo (or revert it with
+> `git checkout lib/firebase_options.dart`) and use `--dart-define` flags or a
+> local `.env` file to supply the keys without committing them.
+>
+> **Key rotation & restriction:** Firebase API keys for client apps cannot be
+> fully hidden — they are ultimately embedded in the binary.  The correct
+> security posture is to **restrict** each key rather than relying solely on
+> secrecy:
+> 1. Open [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials).
+> 2. Select the API key, then under **Application restrictions** set
+>    *Android apps* / *iOS apps* / *HTTP referrers* as appropriate for each
+>    platform key.
+> 3. Under **API restrictions**, limit each key to only the Firebase/Google APIs
+>    it needs (e.g., Firebase, Cloud Firestore, Identity Platform).
+>
+> If a key has already been exposed (e.g., committed to a public repository),
+> also delete and regenerate it in the Firebase Console → Project settings →
+> Your apps, and update the corresponding GitHub Secret.
+
 ---
 
 ## 3. Enable Cloud Firestore
