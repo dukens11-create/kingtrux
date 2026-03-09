@@ -789,7 +789,7 @@ Add the following GitHub repository secrets (Settings → Secrets → Actions):
 
 | Secret name | Value |
 |---|---|
-| `GOOGLE_SERVICES_JSON` | Base64-encoded contents of `google-services.json` |
+| `ANDROID_GOOGLE_SERVICES_JSON` | Base64-encoded contents of `google-services.json` |
 | `GOOGLE_SERVICE_INFO_PLIST` | Base64-encoded contents of `GoogleService-Info.plist` |
 | `WEB_FIREBASE_API_KEY` | Firebase Web API key (from Firebase Console → Project settings → Your apps → Web app) |
 
@@ -799,9 +799,14 @@ Then add injection steps to your CI workflows **before** the build step:
 ```yaml
 - name: Inject google-services.json
   env:
-    GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+    ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
   run: |
-    echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+    if [ -z "$ANDROID_GOOGLE_SERVICES_JSON" ]; then
+      echo "::error::Secret ANDROID_GOOGLE_SERVICES_JSON is not set."
+      exit 1
+    fi
+    mkdir -p android/app
+    echo "$ANDROID_GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
 ```
 
 **iOS** (`ci.yml`):
