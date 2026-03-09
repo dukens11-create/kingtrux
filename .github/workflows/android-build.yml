@@ -46,8 +46,9 @@ jobs:
           missing=0
           if [ -z "$GOOGLE_SERVICES_JSON" ]; then
             echo "ERROR: GOOGLE_SERVICES_JSON secret is not set."
-            echo "       Add the base64-encoded google-services.json as a repository secret."
-            echo "       Encode it with: base64 -w 0 android/app/google-services.json"
+            echo "       Download google-services.json from Firebase Console (Project settings → Your apps → Android → com.kingtrux.app)."
+            echo "       Base64-encode it and add as a repository secret:"
+            echo "         base64 -w 0 google-services.json"
             missing=1
           fi
           if [ -z "$GOOGLE_MAPS_ANDROID_API_KEY" ]; then
