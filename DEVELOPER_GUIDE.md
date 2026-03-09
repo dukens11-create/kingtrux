@@ -116,12 +116,13 @@ flutter run \
 ### Android
 The Google Maps Android API key is injected at **two** points:
 
-1. **AndroidManifest.xml** (used by the native Google Maps SDK):  
-   The source file contains the placeholder `YOUR_GOOGLE_MAPS_API_KEY_HERE`.  
+1. **`android/app/build.gradle`** (`manifestPlaceholders.googleMapsApiKey`, used by the native SDK):
+   The source file contains the placeholder `YOUR_GOOGLE_MAPS_ANDROID_API_KEY`.
    The CI workflow replaces it with the real key via `sed` before the build.
+   Set `GOOGLE_MAPS_ANDROID_API_KEY` as a GitHub repository secret (see [CI setup](#github-actions-ci-setup)).
 
-2. **Dart `--dart-define`** (used for runtime diagnostics):  
-   The key is also passed as `--dart-define=GOOGLE_MAPS_ANDROID_API_KEY=<key>`.  
+2. **Dart `--dart-define`** (used for runtime diagnostics):
+   The key is also passed as `--dart-define=GOOGLE_MAPS_ANDROID_API_KEY=<key>`.
    If omitted, the app shows a `_MapsApiKeyWarningBanner` overlay explaining the issue.
 
 **Step-by-step (first-time setup):**
@@ -162,9 +163,9 @@ The iOS Google Maps SDK reads the key from `Info.plist` (via `GMSServices.provid
 2. Locate (or add) the `GMSApiKey` entry:
    ```xml
    <key>GMSApiKey</key>
-   <string>YOUR_GOOGLE_MAPS_API_KEY_HERE</string>
+   <string>YOUR_GOOGLE_MAPS_IOS_API_KEY</string>
    ```
-3. Replace `YOUR_GOOGLE_MAPS_API_KEY_HERE` with your real **iOS** Maps SDK key obtained from
+3. Replace `YOUR_GOOGLE_MAPS_IOS_API_KEY` with your real **iOS** Maps SDK key obtained from
    [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials.
    Make sure **Maps SDK for iOS** is enabled.
 
@@ -475,7 +476,7 @@ try {
 - **Android**: Pass `--dart-define=GOOGLE_MAPS_ANDROID_API_KEY=<key>` when running locally.  
   In CI, ensure the `GOOGLE_MAPS_ANDROID_API_KEY` repository secret is set.  
   A warning banner appears in the app when the key is missing or still the placeholder value.
-- **iOS**: Replace `YOUR_GOOGLE_MAPS_API_KEY_HERE` in `ios/Runner/Info.plist` with your iOS key.  
+- **iOS**: Replace `YOUR_GOOGLE_MAPS_IOS_API_KEY` in `ios/Runner/Info.plist` with your iOS key.  
   See the *Google Maps Platform Setup → iOS* section above for step-by-step instructions.
 
 ## Performance Tips
