@@ -18,8 +18,8 @@ class _Callout {
 const _callouts = [
   _Callout(
     icon: Icons.search_rounded,
-    title: 'Unified Search Bar',
-    body: 'Tap the search bar at the top to search for destinations, POIs, road cameras, and more — all without leaving the map view.',
+    title: '"Where to?"',
+    body: 'Tap the "Where to?" bar at the top to search for a destination by address, or long-press anywhere on the map to drop a pin.',
   ),
   _Callout(
     icon: Icons.layers_rounded,

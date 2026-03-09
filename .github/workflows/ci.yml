@@ -90,44 +90,16 @@ jobs:
 
       - name: Inject google-services.json
         env:
-          ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          if [ -z "$ANDROID_GOOGLE_SERVICES_JSON" ]; then
-            echo "Secret ANDROID_GOOGLE_SERVICES_JSON is not set; building without Firebase (FIREBASE_ENABLED=false)."
-            echo "FIREBASE_ENABLED=false" >> "$GITHUB_ENV"
-          else
-            # Auto-detect: try base64 decode first; suppress decode errors with || true
-            # so that non-base64 input falls through to the raw-JSON check below.
-            DECODED=$(printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" | base64 --decode 2>/dev/null || true)
-            if printf '%s' "$DECODED" | python -m json.tool > /dev/null 2>&1; then
-              JSON_CONTENT="$DECODED"
-            elif printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" | python -m json.tool > /dev/null 2>&1; then
-              JSON_CONTENT="$ANDROID_GOOGLE_SERVICES_JSON"
-            else
-              echo "::error::ANDROID_GOOGLE_SERVICES_JSON is neither valid base64-encoded JSON nor valid raw JSON. Check the secret value."
-              exit 1
-            fi
-            # Write to both locations searched by the Google Services Gradle plugin.
-            mkdir -p android/app android/app/src/release
-            printf '%s' "$JSON_CONTENT" > android/app/google-services.json
-            printf '%s' "$JSON_CONTENT" > android/app/src/release/google-services.json
-            echo "google-services.json injected and validated successfully (written to android/app/ and android/app/src/release/)."
-            echo "FIREBASE_ENABLED=true" >> "$GITHUB_ENV"
-          fi
-
-      - name: Inject Firebase Android API key
-        env:
-          ANDROID_FIREBASE_API_KEY: ${{ secrets.ANDROID_FIREBASE_API_KEY }}
-        run: |
-          if [ -n "$ANDROID_FIREBASE_API_KEY" ]; then
-            sed -i "s|YOUR_ANDROID_FIREBASE_API_KEY|${ANDROID_FIREBASE_API_KEY}|g" lib/firebase_options.dart
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
           fi
 
       - name: Build Android APK (debug)
         run: |
           flutter build apk --debug \
-            --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }} \
-            --dart-define=FIREBASE_ENABLED=${{ env.FIREBASE_ENABLED }}
+            --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }}
 
   ios-build:
     name: iOS build (debug, no-codesign)
@@ -173,14 +145,6 @@ jobs:
         run: |
           if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
             echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
-          fi
-
-      - name: Inject Firebase iOS API key
-        env:
-          IOS_FIREBASE_API_KEY: ${{ secrets.IOS_FIREBASE_API_KEY }}
-        run: |
-          if [ -n "$IOS_FIREBASE_API_KEY" ]; then
-            sed -i "" "s|YOUR_IOS_FIREBASE_API_KEY|${IOS_FIREBASE_API_KEY}|g" lib/firebase_options.dart
           fi
 
       - name: Generate iOS Flutter config files

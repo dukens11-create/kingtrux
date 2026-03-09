@@ -2,6 +2,7 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
+    // id "com.google.gms.google-services" // Uncomment if Firebase/Google services are required
 }
 
 def localProperties = new Properties()
@@ -62,13 +63,4 @@ flutter {
 
 dependencies {
     implementation 'com.google.android.gms:play-services-base:18.2.0'
-}
-
-// Apply Google Services plugin only when google-services.json is present.
-// This allows release builds to succeed in CI even when the Firebase config
-// secret (ANDROID_GOOGLE_SERVICES_JSON) is not available (e.g. fork PRs).
-def googleServicesJson = file("google-services.json")
-def googleServicesJsonRelease = file("src/release/google-services.json")
-if (googleServicesJson.exists() || googleServicesJsonRelease.exists()) {
-    apply plugin: "com.google.gms.google-services"
 }

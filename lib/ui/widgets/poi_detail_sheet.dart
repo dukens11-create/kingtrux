@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../../models/poi.dart';
 import '../../models/scale_report.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
-import 'navigation_utils.dart';
 
 /// Bottom sheet displaying details for a single [Poi] with a favorite toggle
 /// and a one-tap **Navigate** button.
@@ -79,40 +77,6 @@ class PoiDetailSheet extends StatelessWidget {
                 ),
 
                 const Divider(height: AppTheme.spaceLG),
-
-                // Straight-line distance from current truck location
-                if (state.myLat != null && state.myLng != null) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: AppTheme.spaceXS),
-                    child: Row(
-                      children: [
-                        Icon(Icons.straighten_rounded,
-                            size: 16, color: cs.onSurfaceVariant),
-                        const SizedBox(width: AppTheme.spaceSM),
-                        Text(
-                          'Distance',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
-                        ),
-                        const SizedBox(width: AppTheme.spaceSM),
-                        Text(
-                          formatPoiDistance(
-                            Geolocator.distanceBetween(
-                              state.myLat!,
-                              state.myLng!,
-                              poi.lat,
-                              poi.lng,
-                            ),
-                          ),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
 
                 // OSM tag details
                 ..._buildTagRows(context, poi.tags, cs),

@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../../models/poi.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
-import 'navigation_utils.dart';
 import 'poi_detail_sheet.dart';
 
 /// Full POI browser bottom sheet.
@@ -349,22 +347,6 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
     Poi poi,
   ) {
     final isFav = state.favoritePois.contains(poi.id);
-
-    String? distText;
-    if (state.myLat != null && state.myLng != null) {
-      final meters = Geolocator.distanceBetween(
-        state.myLat!,
-        state.myLng!,
-        poi.lat,
-        poi.lng,
-      );
-      distText = formatPoiDistance(meters);
-    }
-
-    final subtitleText = distText != null
-        ? '${PoiDetailSheet.poiLabel(poi.type)} · $distText'
-        : PoiDetailSheet.poiLabel(poi.type);
-
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: cs.primaryContainer,
@@ -375,7 +357,7 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
         ),
       ),
       title: Text(poi.name),
-      subtitle: Text(subtitleText),
+      subtitle: Text(PoiDetailSheet.poiLabel(poi.type)),
       trailing: IconButton(
         tooltip: isFav ? 'Remove from favorites' : 'Add to favorites',
         icon: Icon(

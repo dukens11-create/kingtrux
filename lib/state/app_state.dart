@@ -54,13 +54,6 @@ import '../services/tts_language_service.dart';
 import '../services/alert_phrase_service.dart';
 import '../services/destination_persistence_service.dart';
 import '../services/units_service.dart';
-import '../models/road_camera.dart';
-import '../services/road_camera_service.dart';
-import '../models/weigh_station.dart';
-import '../services/weigh_station_service.dart';
-import '../services/weigh_station_monitor.dart';
-import '../services/weigh_station_settings_service.dart';
-import '../services/firestore_weigh_station_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -94,13 +87,6 @@ class AppState extends ChangeNotifier {
       NightModeSettingsService();
   final RoadsideAssistanceService _roadsideAssistanceService =
       RoadsideAssistanceService();
-  final RoadCameraService _roadCameraService = RoadCameraService();
-  final WeighStationService _weighStationService = WeighStationService();
-  final WeighStationMonitor _weighStationMonitor = WeighStationMonitor();
-  final WeighStationSettingsService _weighStationSettingsService =
-      WeighStationSettingsService();
-  final FirestoreWeighStationService _firestoreWeighStationService =
-      FirestoreWeighStationService();
   final ThemeSettingsService _themeSettingsService = ThemeSettingsService();
   final TtsLanguageService _ttsLanguageService = TtsLanguageService();
   final DestinationPersistenceService _destinationPersistenceService =
@@ -398,42 +384,6 @@ class AppState extends ChangeNotifier {
   /// `true` while [loadRoadsideProviders] is running.
   bool isLoadingRoadside = false;
 
-  // ---------------------------------------------------------------------------
-  // Road cameras state
-  // ---------------------------------------------------------------------------
-
-  /// Road / traffic cameras loaded via [loadRoadCameras].
-  List<RoadCamera> roadCameras = [];
-
-  /// `true` while [loadRoadCameras] is in progress.
-  bool isLoadingCameras = false;
-
-  /// Error message from the last [loadRoadCameras] call, or `null` on success.
-  String? cameraError;
-
-  // ---------------------------------------------------------------------------
-  // Weigh station state
-  // ---------------------------------------------------------------------------
-
-  /// Weigh stations loaded via [loadWeighStations].
-  List<WeighStation> weighStations = [];
-
-  /// `true` while [loadWeighStations] is in progress.
-  bool isLoadingWeighStations = false;
-
-  /// Error message from the last [loadWeighStations] call, or `null` on success.
-  String? weighStationError;
-
-  /// Driver-configurable weigh-station alert settings.
-  WeighStationSettings weighStationSettings = const WeighStationSettings();
-
-  /// Called by [AppState] when the driver enters the 150-foot submission
-  /// radius of a weigh station and submission prompts are enabled.
-  ///
-  /// The UI layer (MapScreen) sets this callback to show the status-report
-  /// dialog to the driver.
-  WeighStationSubmissionCallback? onWeighStationSubmissionPrompt;
-
   // Subscription / entitlement state
   /// `true` when the user has an active KINGTRUX Pro entitlement.
   bool isPro = false;
@@ -581,12 +531,6 @@ class AppState extends ChangeNotifier {
       debugPrint('Error loading hazard settings: $e');
     }
     try {
-      weighStationSettings = await _weighStationSettingsService.load();
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error loading weigh station settings: $e');
-    }
-    try {
       enabledTruckStopBrands = await _truckStopBrandSettingsService.load();
       notifyListeners();
     } catch (e) {
@@ -621,14 +565,6 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading metric units preference: $e');
-    }
-    try {
-      weighStationSettings = await _weighStationSettingsService.load();
-      _weighStationMonitor.thresholdMeters =
-          weighStationSettings.alertDistanceMeters;
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error loading weigh station settings: $e');
     }
     try {
       await refreshMyLocation();
@@ -680,11 +616,6 @@ class AppState extends ChangeNotifier {
       } catch (e) {
         debugPrint('Error fetching weather: $e');
       }
-
-      // Auto-load weigh stations on every location refresh.
-      loadWeighStations().catchError(
-          (Object e) => debugPrint('Error loading weigh stations: $e'),
-        );
     } catch (e) {
       debugPrint('Error refreshing location: $e');
       locationError = e.toString().replaceFirst('Exception: ', '');
@@ -960,122 +891,6 @@ class AppState extends ChangeNotifier {
       isLoadingRoadside = false;
       notifyListeners();
     }
-  }
-
-  /// Populates [roadCameras] with road / traffic cameras near the current
-  /// location within [radiusKm] kilometres.
-  ///
-  /// When a real 511 API key is configured via
-  /// `--dart-define=ROAD_CAMERA_511_API_KEY=<key>`, live DOT feeds are queried.
-  /// Otherwise demo cameras are returned so the UI is always functional.
-  Future<void> loadRoadCameras({double radiusKm = 200}) async {
-    if (myLat == null || myLng == null) {
-      throw Exception('Current location not set');
-    }
-
-    isLoadingCameras = true;
-    cameraError = null;
-    notifyListeners();
-
-    try {
-      roadCameras = await _roadCameraService.fetchCameras(
-        centerLat: myLat!,
-        centerLng: myLng!,
-        radiusKm: radiusKm,
-      );
-    } catch (e) {
-      cameraError = e.toString().replaceFirst('Exception: ', '');
-      roadCameras = [];
-    } finally {
-      isLoadingCameras = false;
-      notifyListeners();
-    }
-  }
-
-  /// Populates [weighStations] with weigh / inspection stations near the
-  /// current location within [radiusKm] kilometres.
-  ///
-  /// After fetching the static baseline, overlays the most-recent Firestore
-  /// crowdsourced status for each station.  Stations with no fresh Firestore
-  /// report retain [WeighStationStatus.unknown].
-  Future<void> loadWeighStations({double radiusKm = 300}) async {
-    if (myLat == null || myLng == null) {
-      throw Exception('Current location not set');
-    }
-
-    isLoadingWeighStations = true;
-    weighStationError = null;
-    notifyListeners();
-
-    try {
-      final raw = await _weighStationService.fetchStations(
-        centerLat: myLat!,
-        centerLng: myLng!,
-        radiusKm: radiusKm,
-      );
-      // Overlay Firestore crowdsourced statuses on top of the static baseline.
-      weighStations = await _applyFirestoreStatuses(raw);
-    } catch (e) {
-      weighStationError = e.toString().replaceFirst('Exception: ', '');
-      weighStations = [];
-    } finally {
-      isLoadingWeighStations = false;
-      notifyListeners();
-    }
-  }
-
-  /// Overlays the latest Firestore crowdsourced statuses onto [stations].
-  Future<List<WeighStation>> _applyFirestoreStatuses(
-    List<WeighStation> stations,
-  ) async {
-    final overrides =
-        await _firestoreWeighStationService.getLatestStatusPerStation();
-    if (overrides.isEmpty) return stations;
-    return stations.map((s) {
-      final ov = overrides[s.id];
-      if (ov == null) return s;
-      return s.copyWith(
-        status: ov.status,
-        statusUpdatedAt: ov.updatedAt,
-        source: 'Crowdsourced',
-      );
-    }).toList();
-  }
-
-  /// Submit a crowdsourced weigh-station status report to Firestore and
-  /// immediately update the local [weighStations] list.
-  Future<void> submitWeighStationReport({
-    required String stationId,
-    required WeighStationStatus status,
-  }) async {
-    // Update local state immediately for a snappy UI.
-    final now = DateTime.now();
-    weighStations = weighStations.map((s) {
-      if (s.id != stationId) return s;
-      return s.copyWith(
-        status: status,
-        statusUpdatedAt: now,
-        source: 'Crowdsourced',
-      );
-    }).toList();
-    notifyListeners();
-
-    // Persist to Firestore in the background.
-    await _firestoreWeighStationService.submitReport(
-      stationId: stationId,
-      status: status,
-    );
-  }
-
-  /// Update the weigh-station alert settings and persist them.
-  void setWeighStationSettings(WeighStationSettings settings) {
-    weighStationSettings = settings;
-    _weighStationMonitor.thresholdMeters = settings.alertDistanceMeters;
-    _weighStationMonitor.alertOnUnknown = settings.alertOnUnknownStatus;
-    notifyListeners();
-    _weighStationSettingsService.save(settings).catchError(
-      (Object e) => debugPrint('Error saving weigh station settings: $e'),
-    );
   }
 
   /// Clear route and destination
@@ -1741,34 +1556,6 @@ class AppState extends ChangeNotifier {
       ));
     };
 
-    _weighStationMonitor.thresholdMeters = weighStationSettings.alertDistanceMeters;
-    _weighStationMonitor.alertOnUnknown = weighStationSettings.alertOnUnknownStatus;
-    _weighStationMonitor.onNearbyStation = (WeighStation station, double dist) {
-      final distMi = (dist / 1609.344).toStringAsFixed(1);
-      final distKm = (dist / 1000).toStringAsFixed(1);
-      final distLabel = useMetricUnits ? '$distKm km' : '$distMi mi';
-      final effectiveStatus = station.effectiveStatus;
-      final statusLabel = effectiveStatus == WeighStationStatus.unknown
-          ? 'Status unknown'
-          : effectiveStatus.label;
-      addAlert(AlertEvent(
-        id: 'weigh_station_${station.id}_${DateTime.now().millisecondsSinceEpoch}',
-        type: AlertType.weighStationAlert,
-        title: 'Weigh Station Ahead',
-        message: '${station.name} — $statusLabel, $distLabel away.',
-        severity: effectiveStatus.isActive
-            ? AlertSeverity.warning
-            : AlertSeverity.info,
-        timestamp: DateTime.now(),
-        speakable: weighStationSettings.enableTts,
-      ));
-    };
-    _weighStationMonitor.onSubmissionPrompt = (WeighStation station) {
-      if (weighStationSettings.enableSubmissionPrompts) {
-        onWeighStationSubmissionPrompt?.call(station);
-      }
-    };
-
     _hazardMonitor.onHazardApproaching = (Hazard hazard, double dist) {
       final distMi = (dist / 1609.344).toStringAsFixed(1);
       switch (hazard.type) {
@@ -1962,7 +1749,6 @@ class AppState extends ChangeNotifier {
     _routeMonitor.reset();
     _scaleMonitor.reset();
     _hazardMonitor.reset();
-    _weighStationMonitor.reset();
     _activeHazards = [];
   }
 
@@ -1985,12 +1771,6 @@ class AppState extends ChangeNotifier {
       lat: pos.latitude,
       lng: pos.longitude,
       reports: scaleReports,
-    );
-    _weighStationMonitor.update(
-      lat: pos.latitude,
-      lng: pos.longitude,
-      stations: weighStations,
-      enabled: weighStationSettings.enableAlerts,
     );
     // Hazard alerts only fire during active navigation.
     if (isNavigating) {
@@ -2016,14 +1796,6 @@ class AppState extends ChangeNotifier {
         enableTunnel: hs.enableTunnelWarnings,
       );
     }
-    // Weigh station proximity alerts fire whenever a route is active.
-    _weighStationMonitor.update(
-      lat: pos.latitude,
-      lng: pos.longitude,
-      stations: weighStations,
-      enabled: weighStationSettings.enableAlerts,
-      submissionEnabled: weighStationSettings.enableSubmissionPrompts,
-    );
   }
 
   /// Human-readable label for a [ScaleStatus].
