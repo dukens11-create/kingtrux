@@ -183,19 +183,66 @@ The `android-build.yml` workflow requires the following secrets to produce a
 fully-functional APK. Add them under **Settings → Secrets and variables →
 Actions → New repository secret** in the GitHub UI.
 
+> **⚠️ Build will FAIL if `GOOGLE_SERVICES_JSON` or `GOOGLE_MAPS_ANDROID_API_KEY` are missing.**
+> The workflow enforces these as required secrets because Firebase Auth and Maps
+> are core app features.
+
 | Secret | Required | Purpose |
 |--------|----------|---------|
+| `GOOGLE_SERVICES_JSON` | ✅ **Required** | Base64-encoded `android/app/google-services.json` – Firebase Android config |
+| `GOOGLE_MAPS_ANDROID_API_KEY` | ✅ **Required** | Google Maps Android SDK – map tiles |
 | `HERE_API_KEY` | ✅ Yes | HERE Routing API v8 – routing and search |
-| `GOOGLE_MAPS_ANDROID_API_KEY` | ✅ Yes | Google Maps Android SDK – map tiles |
-| `OPENWEATHER_API_KEY` | ⬜ Optional | OpenWeather API – weather overlay (weather data is hidden when unset) |
-| `REVENUECAT_ANDROID_API_KEY` | ⬜ Optional | RevenueCat – in-app subscriptions (paywall shows a descriptive error when unset) |
+| `OPENWEATHER_API_KEY` | ⬜ Optional | OpenWeather API – weather overlay (hidden when unset) |
+| `REVENUECAT_ANDROID_API_KEY` | ⬜ Optional | RevenueCat – in-app subscriptions (shows error when unset) |
+
+### Encoding secrets for GitHub Actions
+
+**`GOOGLE_SERVICES_JSON`** — base64-encode your `google-services.json`:
+```bash
+# macOS
+base64 -i android/app/google-services.json | pbcopy   # copies to clipboard
+
+# Linux / CI
+base64 -w 0 android/app/google-services.json
+```
+Paste the output as the `GOOGLE_SERVICES_JSON` secret value.
+
+**`GOOGLE_SERVICE_INFO_PLIST`** (iOS, if needed):
+```bash
+# macOS
+base64 -i ios/Runner/GoogleService-Info.plist | pbcopy
+
+# Linux
+base64 -w 0 ios/Runner/GoogleService-Info.plist
+```
 
 The workflow injects these at build time:
+- `GOOGLE_SERVICES_JSON` is base64-decoded to `android/app/google-services.json`
+  before the Gradle build. The file is **never committed to the repository**.
+- `GOOGLE_MAPS_ANDROID_API_KEY` replaces the embedded placeholder in
+  `android/app/build.gradle` using `sed` before the build step. The actual key
+  is **never committed to the repository**.
 - `HERE_API_KEY`, `OPENWEATHER_API_KEY`, and `REVENUECAT_ANDROID_API_KEY` are
   passed to Flutter via `--dart-define`.
-- `GOOGLE_MAPS_ANDROID_API_KEY` replaces the `YOUR_GOOGLE_MAPS_API_KEY_HERE`
-  placeholder in `android/app/src/main/AndroidManifest.xml` using `sed` before
-  the build step. The actual key is **never committed to the repository**.
+
+### Firebase local development setup
+
+For local Android builds you must supply the Firebase config file:
+
+1. Download `google-services.json` from the
+   [Firebase Console](https://console.firebase.google.com/) →
+   Project settings → Your apps → Android → Download google-services.json.
+2. Place it at `android/app/google-services.json` (this path is in `.gitignore`
+   — do **not** commit it).
+3. Build as usual:
+   ```bash
+   flutter clean && flutter pub get
+   flutter run --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=<your_key>
+   ```
+
+The app initializes Firebase from the native config file on Android/iOS.
+On web, `lib/firebase_options.dart` is used instead (replace the
+`YOUR_WEB_FIREBASE_API_KEY` placeholder with your real web API key).
 
 ## Key Components
 

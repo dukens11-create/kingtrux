@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
@@ -42,7 +43,7 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
       final auth = context.read<AuthService>();
       await auth.signInWithEmail(_emailCtrl.text.trim(), _passCtrl.text);
     } on FirebaseAuthException catch (e) {
-      if (mounted) setState(() => _error = _friendlyAuthMessage(e.code));
+      if (mounted) setState(() => _error = _authErrorMessage(e));
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -63,7 +64,7 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
         await auth.createAccountWithEmail(
             _emailCtrl.text.trim(), _passCtrl.text);
       } on FirebaseAuthException catch (e) {
-        if (mounted) setState(() => _error = _friendlyAuthMessage(e.code));
+        if (mounted) setState(() => _error = _authErrorMessage(e));
       } catch (e) {
         if (mounted) setState(() => _error = e.toString());
       } finally {
@@ -97,7 +98,7 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
         );
       }
     } on FirebaseAuthException catch (e) {
-      if (mounted) setState(() => _error = _friendlyAuthMessage(e.code));
+      if (mounted) setState(() => _error = _authErrorMessage(e));
     }
   }
 
@@ -109,12 +110,27 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
     });
   }
 
+  /// Maps a [FirebaseAuthException] to a user-readable message.
+  ///
+  /// In debug builds the raw Firebase error code and message are appended so
+  /// that misconfiguration issues (invalid API key, provider disabled, etc.)
+  /// are immediately visible.
+  static String _authErrorMessage(FirebaseAuthException e) {
+    final friendly = _friendlyAuthMessage(e.code);
+    if (kDebugMode && e.message != null && e.message!.isNotEmpty) {
+      return '$friendly\n[Debug] ${e.code}: ${e.message}';
+    }
+    return friendly;
+  }
+
   static String _friendlyAuthMessage(String code) {
     switch (code) {
       case 'user-not-found':
         return 'No account found for that email.';
       case 'wrong-password':
         return 'Incorrect password. Please try again.';
+      case 'invalid-credential':
+        return 'Invalid credentials. Check your email and password.';
       case 'email-already-in-use':
         return 'An account already exists for that email.';
       case 'weak-password':
@@ -125,6 +141,12 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
         return 'Too many attempts. Please try again later.';
       case 'network-request-failed':
         return 'Network error. Check your connection.';
+      case 'invalid-api-key':
+        return 'Authentication configuration error (invalid-api-key). Contact support.';
+      case 'app-not-authorized':
+        return 'This app is not authorized for Firebase Authentication. Add your SHA-1/SHA-256 fingerprint in Firebase Console → Project Settings → Your apps.';
+      case 'operation-not-allowed':
+        return 'This sign-in method is not enabled. Enable Email/Password in the Firebase console.';
       default:
         return 'Authentication error ($code). Please try again.';
     }
