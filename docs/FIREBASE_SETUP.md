@@ -165,26 +165,40 @@ workflows inject it at build time from a GitHub Actions secret.
 
 1. In the Firebase Console → **Project Settings** → **Your apps** → Android app,
    download `google-services.json`.
-2. Base64-encode it locally (no line wrapping):
+2. Base64-encode it locally (no line wrapping) — **this is the preferred format**:
    ```bash
    # macOS
    base64 -i android/app/google-services.json | tr -d '\n'
    # Linux
    base64 -w 0 android/app/google-services.json
    ```
+   > **Raw JSON also works.** If you paste the raw JSON content directly as the
+   > secret value, the workflow will detect and accept it automatically.
 3. In the GitHub repository, go to **Settings → Secrets and variables → Actions**.
 4. Click **New repository secret**.
 5. Name: `ANDROID_GOOGLE_SERVICES_JSON`  
-   Value: the base64 string from step 2.
+   Value: the base64 string from step 2 (or raw JSON if preferred).
 6. Click **Add secret**.
 
 > **Note:** The build workflow (`android-build.yml`) and the CI workflow (`ci.yml`)
-> will both **fail with a clear error** if this secret is absent.  This prevents
-> silent, confusing Gradle failures deep inside the build.
+> will both **fail with a clear error** if this secret is absent or contains
+> an invalid value.  This prevents silent, confusing Gradle failures deep inside the build.
 
 ### What the workflow does
 
-Before every Android build step the workflow runs:
+Before every Android build step the workflow:
+
+1. Checks that `ANDROID_GOOGLE_SERVICES_JSON` is set; fails immediately with a
+   descriptive error if not.
+2. Auto-detects whether the value is base64-encoded or raw JSON and decodes
+   accordingly — no change to the secret is needed if the format is already raw JSON.
+3. Writes the config to **both** locations searched by the
+   `com.google.gms.google-services` Gradle plugin:
+   - `android/app/google-services.json`
+   - `android/app/src/release/google-services.json`
+4. Validates the written file with `python -m json.tool`; fails with a clear
+   error if the result is not valid JSON.
+5. Never prints secret contents to the log.
 
 ```yaml
 - name: Inject google-services.json
@@ -195,12 +209,22 @@ Before every Android build step the workflow runs:
       echo "::error::Secret ANDROID_GOOGLE_SERVICES_JSON is not set."
       exit 1
     fi
-    mkdir -p android/app
-    echo "$ANDROID_GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+    DECODED=$(printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" | base64 --decode 2>/dev/null || true)
+    if printf '%s' "$DECODED" | python -m json.tool > /dev/null 2>&1; then
+      JSON_CONTENT="$DECODED"
+    elif printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" | python -m json.tool > /dev/null 2>&1; then
+      JSON_CONTENT="$ANDROID_GOOGLE_SERVICES_JSON"
+    else
+      echo "::error::ANDROID_GOOGLE_SERVICES_JSON is neither valid base64-encoded JSON nor valid raw JSON."
+      exit 1
+    fi
+    mkdir -p android/app android/app/src/release
+    printf '%s' "$JSON_CONTENT" > android/app/google-services.json
+    printf '%s' "$JSON_CONTENT" > android/app/src/release/google-services.json
 ```
 
-The file is written to `android/app/google-services.json` at runtime and is
-never stored in Git (it is listed in `.gitignore`).
+Both files are written at runtime and are never stored in Git (both paths are
+listed in `.gitignore`).
 
 ---
 
@@ -255,6 +279,7 @@ Then set `FIRESTORE_EMULATOR_HOST=localhost:8080` before running Flutter tests.
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | CI fails with "Secret ANDROID_GOOGLE_SERVICES_JSON is not set" | Secret not added to repo | Follow §6 to create the `ANDROID_GOOGLE_SERVICES_JSON` secret |
+| CI fails with "neither valid base64-encoded JSON nor valid raw JSON" | Secret value is corrupted or truncated | Re-encode with `base64 -w 0 google-services.json` and update the secret |
 | Build fails with "Google Services plugin requires…" | Missing `google-services.json` locally | Download from Firebase Console and place at `android/app/google-services.json` |
 | Status always shows Unknown | Firestore rules deny reads, or Auth not enabled | Check rules and Anonymous Auth |
 | Reports not persisted | Anonymous Auth disabled | Enable in Firebase Console → Authentication |
