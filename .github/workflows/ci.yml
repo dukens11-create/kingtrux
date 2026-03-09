@@ -96,6 +96,14 @@ jobs:
             echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
           fi
 
+      - name: Inject Firebase Android API key
+        env:
+          ANDROID_FIREBASE_API_KEY: ${{ secrets.ANDROID_FIREBASE_API_KEY }}
+        run: |
+          if [ -n "$ANDROID_FIREBASE_API_KEY" ]; then
+            sed -i "s|YOUR_ANDROID_FIREBASE_API_KEY|${ANDROID_FIREBASE_API_KEY}|g" lib/firebase_options.dart
+          fi
+
       - name: Build Android APK (debug)
         run: |
           flutter build apk --debug \
@@ -145,6 +153,14 @@ jobs:
         run: |
           if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
             echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
+          fi
+
+      - name: Inject Firebase iOS API key
+        env:
+          IOS_FIREBASE_API_KEY: ${{ secrets.IOS_FIREBASE_API_KEY }}
+        run: |
+          if [ -n "$IOS_FIREBASE_API_KEY" ]; then
+            sed -i "" "s|YOUR_IOS_FIREBASE_API_KEY|${IOS_FIREBASE_API_KEY}|g" lib/firebase_options.dart
           fi
 
       - name: Generate iOS Flutter config files

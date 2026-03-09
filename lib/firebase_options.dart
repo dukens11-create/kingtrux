@@ -40,8 +40,13 @@ class DefaultFirebaseOptions {
     }
   }
 
+  // API keys are injected at CI build time via --dart-define or sed replacement.
+  // Replace each YOUR_*_FIREBASE_API_KEY placeholder with the real value from your
+  // Firebase Console before building locally (or set up GitHub Secrets — see
+  // docs/FIREBASE_SETUP.md for instructions).
+
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDtRUBPL4UBjBH3_TponBlF_J39ZJfslSc',
+    apiKey: 'YOUR_WEB_FIREBASE_API_KEY',
     appId: '1:802226888759:web:4a64ff7011e28876c8dfb2',
     messagingSenderId: '802226888759',
     projectId: 'kingtrux-387ae',
@@ -51,7 +56,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyC0VX971vSfdwDX7r5m1wsrmIGnGKaaOCo',
+    apiKey: 'YOUR_ANDROID_FIREBASE_API_KEY',
     appId: '1:802226888759:android:b1b70f1fc3171a81c8dfb2',
     messagingSenderId: '802226888759',
     projectId: 'kingtrux-387ae',
@@ -59,7 +64,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCF0sbDQMex6G_TVwSbOaP7Sf9sOhgT4KQ',
+    apiKey: 'YOUR_IOS_FIREBASE_API_KEY',
     appId: '1:802226888759:ios:f986a91d615a979bc8dfb2',
     messagingSenderId: '802226888759',
     projectId: 'kingtrux-387ae',
@@ -69,7 +74,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyCF0sbDQMex6G_TVwSbOaP7Sf9sOhgT4KQ',
+    apiKey: 'YOUR_IOS_FIREBASE_API_KEY',
     appId: '1:802226888759:ios:f986a91d615a979bc8dfb2',
     messagingSenderId: '802226888759',
     projectId: 'kingtrux-387ae',
@@ -79,7 +84,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDtRUBPL4UBjBH3_TponBlF_J39ZJfslSc',
+    apiKey: 'YOUR_WEB_FIREBASE_API_KEY',
     appId: '1:802226888759:web:efeb0213973bcc1bc8dfb2',
     messagingSenderId: '802226888759',
     projectId: 'kingtrux-387ae',
