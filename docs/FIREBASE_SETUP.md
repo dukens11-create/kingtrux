@@ -161,6 +161,19 @@ ID to each status report without requiring the driver to create an account.
 `google-services.json` must **never** be committed to the repository.  CI
 workflows inject it at build time from a GitHub Actions secret.
 
+### Required secrets
+
+| Secret name                    | Required? | Description |
+|-------------------------------|-----------|-------------|
+| `ANDROID_GOOGLE_SERVICES_JSON` | Optional  | Base64-encoded (preferred) or raw JSON contents of `google-services.json` |
+| `ANDROID_FIREBASE_API_KEY`     | Optional  | Firebase Android API key (replaces `YOUR_ANDROID_FIREBASE_API_KEY` placeholder) |
+
+> **Fallback behavior:** If `ANDROID_GOOGLE_SERVICES_JSON` is not set (e.g. on
+> fork PRs that cannot access repository secrets), the build continues with
+> `--dart-define=FIREBASE_ENABLED=false`.  Firebase is not initialized and all
+> Firestore-backed features gracefully no-op.  No secret content is ever printed
+> to the log.
+
 ### Creating the secret
 
 1. In the Firebase Console → **Project Settings** → **Your apps** → Android app,
@@ -180,25 +193,20 @@ workflows inject it at build time from a GitHub Actions secret.
    Value: the base64 string from step 2 (or raw JSON if preferred).
 6. Click **Add secret**.
 
-> **Note:** The build workflow (`android-build.yml`) and the CI workflow (`ci.yml`)
-> will both **fail with a clear error** if this secret is absent or contains
-> an invalid value.  This prevents silent, confusing Gradle failures deep inside the build.
-
 ### What the workflow does
 
 Before every Android build step the workflow:
 
-1. Checks that `ANDROID_GOOGLE_SERVICES_JSON` is set; fails immediately with a
-   descriptive error if not.
-2. Auto-detects whether the value is base64-encoded or raw JSON and decodes
-   accordingly — no change to the secret is needed if the format is already raw JSON.
-3. Writes the config to **both** locations searched by the
-   `com.google.gms.google-services` Gradle plugin:
-   - `android/app/google-services.json`
-   - `android/app/src/release/google-services.json`
-4. Validates the written file with `python -m json.tool`; fails with a clear
-   error if the result is not valid JSON.
-5. Never prints secret contents to the log.
+1. Checks whether `ANDROID_GOOGLE_SERVICES_JSON` is set.
+   - **If set:** decodes (base64 or raw JSON), validates with `python -m json.tool`,
+     writes to `android/app/google-services.json` and
+     `android/app/src/release/google-services.json`, then sets
+     `FIREBASE_ENABLED=true` in the environment.
+   - **If absent:** logs an informational message and sets `FIREBASE_ENABLED=false`.
+     No error is raised; the build continues without Firebase.
+2. Never prints secret contents to the log.
+3. Passes `--dart-define=FIREBASE_ENABLED=$FIREBASE_ENABLED` to every
+   `flutter build` invocation so the Dart code matches the Gradle configuration.
 
 ```yaml
 - name: Inject google-services.json
@@ -206,21 +214,23 @@ Before every Android build step the workflow:
     ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
   run: |
     if [ -z "$ANDROID_GOOGLE_SERVICES_JSON" ]; then
-      echo "::error::Secret ANDROID_GOOGLE_SERVICES_JSON is not set."
-      exit 1
-    fi
-    DECODED=$(printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" | base64 --decode 2>/dev/null || true)
-    if printf '%s' "$DECODED" | python -m json.tool > /dev/null 2>&1; then
-      JSON_CONTENT="$DECODED"
-    elif printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" | python -m json.tool > /dev/null 2>&1; then
-      JSON_CONTENT="$ANDROID_GOOGLE_SERVICES_JSON"
+      echo "Secret not set; building without Firebase (FIREBASE_ENABLED=false)."
+      echo "FIREBASE_ENABLED=false" >> "$GITHUB_ENV"
     else
-      echo "::error::ANDROID_GOOGLE_SERVICES_JSON is neither valid base64-encoded JSON nor valid raw JSON."
-      exit 1
+      DECODED=$(printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" | base64 --decode 2>/dev/null || true)
+      if printf '%s' "$DECODED" | python -m json.tool > /dev/null 2>&1; then
+        JSON_CONTENT="$DECODED"
+      elif printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" | python -m json.tool > /dev/null 2>&1; then
+        JSON_CONTENT="$ANDROID_GOOGLE_SERVICES_JSON"
+      else
+        echo "::error::ANDROID_GOOGLE_SERVICES_JSON is neither valid base64-encoded JSON nor valid raw JSON."
+        exit 1
+      fi
+      mkdir -p android/app android/app/src/release
+      printf '%s' "$JSON_CONTENT" > android/app/google-services.json
+      printf '%s' "$JSON_CONTENT" > android/app/src/release/google-services.json
+      echo "FIREBASE_ENABLED=true" >> "$GITHUB_ENV"
     fi
-    mkdir -p android/app android/app/src/release
-    printf '%s' "$JSON_CONTENT" > android/app/google-services.json
-    printf '%s' "$JSON_CONTENT" > android/app/src/release/google-services.json
 ```
 
 Both files are written at runtime and are never stored in Git (both paths are
@@ -228,24 +238,34 @@ listed in `.gitignore`).
 
 ---
 
-## 7. Building Without Firebase Config Files (Local Only)
+## 7. Building Without Firebase (Local or Fork PRs)
 
-The app is designed to build and run gracefully without `google-services.json`
-or `GoogleService-Info.plist` — it falls back to showing station status as
-**Unknown** and silently skips Firestore reads/writes.
+The app supports building and running without Firebase by passing
+`--dart-define=FIREBASE_ENABLED=false` at build time.
 
-However, the Android Gradle build *requires* `google-services.json` to be
-present when the `com.google.gms.google-services` plugin is applied.  To build
-without Firebase on Android, comment out the plugin line in
-`android/app/build.gradle`:
+### How it works
 
-```groovy
-// id "com.google.gms.google-services"
+| Layer | What happens when `FIREBASE_ENABLED=false` |
+|-------|--------------------------------------------|
+| **Gradle** | `android/app/build.gradle` checks for `google-services.json`; if absent the `com.google.gms.google-services` plugin is **not** applied, so Gradle does not fail. |
+| **Dart/Flutter** | `Config.firebaseEnabled` resolves to `false`; `main.dart` skips `Firebase.initializeApp`. |
+| **Firestore** | `FirestoreWeighStationService` wraps all calls in `try-catch`; any exceptions return empty maps / `false`. All weigh-station crowdsource features are silently disabled. |
+| **UI** | The Account icon (requires Firebase Auth) is hidden when `Firebase.apps.isEmpty`. |
+
+### Local build without Firebase
+
+```bash
+flutter build apk --debug --dart-define=FIREBASE_ENABLED=false
+flutter build appbundle --release --dart-define=FIREBASE_ENABLED=false
 ```
 
----
+### Local build with Firebase
 
-## 8. Firestore Collection & Document Schema
+1. Place `android/app/google-services.json` (downloaded from Firebase Console).
+2. Run:
+   ```bash
+   flutter build appbundle --release --dart-define=FIREBASE_ENABLED=true
+   ```
 
 | Collection              | Field       | Type      | Description                              |
 |-------------------------|-------------|-----------|------------------------------------------|
@@ -278,9 +298,9 @@ Then set `FIRESTORE_EMULATOR_HOST=localhost:8080` before running Flutter tests.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| CI fails with "Secret ANDROID_GOOGLE_SERVICES_JSON is not set" | Secret not added to repo | Follow §6 to create the `ANDROID_GOOGLE_SERVICES_JSON` secret |
 | CI fails with "neither valid base64-encoded JSON nor valid raw JSON" | Secret value is corrupted or truncated | Re-encode with `base64 -w 0 google-services.json` and update the secret |
-| Build fails with "Google Services plugin requires…" | Missing `google-services.json` locally | Download from Firebase Console and place at `android/app/google-services.json` |
+| Build fails with "Google Services plugin requires…" locally | Missing `google-services.json` | Download from Firebase Console or build with `--dart-define=FIREBASE_ENABLED=false` |
+| Firebase features disabled unexpectedly | `FIREBASE_ENABLED=false` passed or secret absent in CI | Set `ANDROID_GOOGLE_SERVICES_JSON` secret (see §6) |
 | Status always shows Unknown | Firestore rules deny reads, or Auth not enabled | Check rules and Anonymous Auth |
 | Reports not persisted | Anonymous Auth disabled | Enable in Firebase Console → Authentication |
 | Wrong platform config | `firebase_options.dart` out of date | Run `flutterfire configure` again |

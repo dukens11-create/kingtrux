@@ -187,4 +187,22 @@ class Config {
           .map((e) => e.trim().toLowerCase())
           .where((e) => e.isNotEmpty)
           .toSet();
+
+  // ---------------------------------------------------------------------------
+  // Firebase
+  // ---------------------------------------------------------------------------
+  // Set at build time via --dart-define=FIREBASE_ENABLED=true.
+  // Defaults to false so that builds succeed even when google-services.json
+  // is absent (e.g. fork PRs without access to repository secrets).
+  // ---------------------------------------------------------------------------
+
+  /// Whether Firebase is enabled for this build.
+  ///
+  /// Pass at build/run time:
+  ///   flutter build apk --dart-define=FIREBASE_ENABLED=true
+  ///
+  /// When false, Firebase.initializeApp is skipped and all Firestore-backed
+  /// features gracefully no-op.
+  static const bool firebaseEnabled =
+      bool.fromEnvironment('FIREBASE_ENABLED', defaultValue: false);
 }

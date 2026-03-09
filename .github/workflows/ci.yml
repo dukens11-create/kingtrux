@@ -93,25 +93,27 @@ jobs:
           ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
         run: |
           if [ -z "$ANDROID_GOOGLE_SERVICES_JSON" ]; then
-            echo "::error::Secret ANDROID_GOOGLE_SERVICES_JSON is not set. Add the base64-encoded (preferred) or raw JSON contents of google-services.json as a repository secret named ANDROID_GOOGLE_SERVICES_JSON."
-            exit 1
-          fi
-          # Auto-detect: try base64 decode first; suppress decode errors with || true
-          # so that non-base64 input falls through to the raw-JSON check below.
-          DECODED=$(printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" | base64 --decode 2>/dev/null || true)
-          if printf '%s' "$DECODED" | python -m json.tool > /dev/null 2>&1; then
-            JSON_CONTENT="$DECODED"
-          elif printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" | python -m json.tool > /dev/null 2>&1; then
-            JSON_CONTENT="$ANDROID_GOOGLE_SERVICES_JSON"
+            echo "Secret ANDROID_GOOGLE_SERVICES_JSON is not set; building without Firebase (FIREBASE_ENABLED=false)."
+            echo "FIREBASE_ENABLED=false" >> "$GITHUB_ENV"
           else
-            echo "::error::ANDROID_GOOGLE_SERVICES_JSON is neither valid base64-encoded JSON nor valid raw JSON. Check the secret value."
-            exit 1
+            # Auto-detect: try base64 decode first; suppress decode errors with || true
+            # so that non-base64 input falls through to the raw-JSON check below.
+            DECODED=$(printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" | base64 --decode 2>/dev/null || true)
+            if printf '%s' "$DECODED" | python -m json.tool > /dev/null 2>&1; then
+              JSON_CONTENT="$DECODED"
+            elif printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" | python -m json.tool > /dev/null 2>&1; then
+              JSON_CONTENT="$ANDROID_GOOGLE_SERVICES_JSON"
+            else
+              echo "::error::ANDROID_GOOGLE_SERVICES_JSON is neither valid base64-encoded JSON nor valid raw JSON. Check the secret value."
+              exit 1
+            fi
+            # Write to both locations searched by the Google Services Gradle plugin.
+            mkdir -p android/app android/app/src/release
+            printf '%s' "$JSON_CONTENT" > android/app/google-services.json
+            printf '%s' "$JSON_CONTENT" > android/app/src/release/google-services.json
+            echo "google-services.json injected and validated successfully (written to android/app/ and android/app/src/release/)."
+            echo "FIREBASE_ENABLED=true" >> "$GITHUB_ENV"
           fi
-          # Write to both locations searched by the Google Services Gradle plugin.
-          mkdir -p android/app android/app/src/release
-          printf '%s' "$JSON_CONTENT" > android/app/google-services.json
-          printf '%s' "$JSON_CONTENT" > android/app/src/release/google-services.json
-          echo "google-services.json injected and validated successfully (written to android/app/ and android/app/src/release/)."
 
       - name: Inject Firebase Android API key
         env:
@@ -124,7 +126,8 @@ jobs:
       - name: Build Android APK (debug)
         run: |
           flutter build apk --debug \
-            --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }}
+            --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }} \
+            --dart-define=FIREBASE_ENABLED=${{ env.FIREBASE_ENABLED }}
 
   ios-build:
     name: iOS build (debug, no-codesign)
