@@ -2,7 +2,13 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
-    id "com.google.gms.google-services"
+}
+
+// Apply the Google Services plugin only when google-services.json is present.
+// This allows CI/PR builds without Firebase secrets to succeed, with Firebase
+// features disabled at runtime via --dart-define=FIREBASE_ENABLED=false.
+if (file("google-services.json").exists()) {
+    apply plugin: "com.google.gms.google-services"
 }
 
 def localProperties = new Properties()

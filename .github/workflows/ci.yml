@@ -93,7 +93,20 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           if [ -n "$GOOGLE_SERVICES_JSON" ]; then
-            echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+            mkdir -p android/app
+            # Auto-detect base64-encoded vs raw JSON.
+            # Raw JSON starts with '{'; anything else is assumed to be base64.
+            if echo "$GOOGLE_SERVICES_JSON" | grep -q '^{'; then
+              echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            else
+              if ! echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json 2>/dev/null; then
+                echo "ERROR: GOOGLE_SERVICES_JSON could not be decoded."
+                echo "       The secret must be either the raw JSON content of google-services.json"
+                echo "       or its base64-encoded form: base64 -w 0 google-services.json"
+                exit 1
+              fi
+            fi
+            echo "google-services.json written ($(wc -c < android/app/google-services.json) bytes)."
           fi
 
       - name: Build Android APK (debug)
