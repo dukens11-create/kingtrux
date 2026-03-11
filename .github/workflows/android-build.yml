@@ -38,85 +38,48 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Check secret availability
+      - name: Check API key configuration
         env:
-          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-          GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
           HERE_API_KEY: ${{ secrets.HERE_API_KEY }}
+          GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
           OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
           REVENUECAT_ANDROID_API_KEY: ${{ secrets.REVENUECAT_ANDROID_API_KEY }}
         run: |
-          echo "GOOGLE_SERVICES_JSON:        $( [ -n "$GOOGLE_SERVICES_JSON" ]        && echo 'set' || echo 'unset (Firebase features will be disabled)' )"
+          echo "HERE_API_KEY: $( [ -n "$HERE_API_KEY" ] && echo 'set' || echo 'unset' )"
           echo "GOOGLE_MAPS_ANDROID_API_KEY: $( [ -n "$GOOGLE_MAPS_ANDROID_API_KEY" ] && echo 'set' || echo 'unset' )"
-          echo "HERE_API_KEY:                $( [ -n "$HERE_API_KEY" ]                && echo 'set' || echo 'unset' )"
-          echo "OPENWEATHER_API_KEY:         $( [ -n "$OPENWEATHER_API_KEY" ]         && echo 'set' || echo 'unset' )"
-          echo "REVENUECAT_ANDROID_API_KEY:  $( [ -n "$REVENUECAT_ANDROID_API_KEY" ]  && echo 'set' || echo 'unset' )"
-          if [ -z "$GOOGLE_MAPS_ANDROID_API_KEY" ]; then
-            echo "ERROR: GOOGLE_MAPS_ANDROID_API_KEY secret is not set."
-            echo "       Maps are a core feature — add the key as a repository secret."
-            exit 1
-          fi
+          echo "OPENWEATHER_API_KEY: $( [ -n "$OPENWEATHER_API_KEY" ] && echo 'set' || echo 'unset' )"
+          echo "REVENUECAT_ANDROID_API_KEY: $( [ -n "$REVENUECAT_ANDROID_API_KEY" ] && echo 'set' || echo 'unset' )"
 
       - name: Inject Google Maps Android API key
         env:
           GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
         run: |
-          sed -i "s|YOUR_GOOGLE_MAPS_ANDROID_API_KEY|${GOOGLE_MAPS_ANDROID_API_KEY}|g" \
-            android/app/build.gradle
-          echo "Google Maps Android API key injected."
+          if [ -z "$GOOGLE_MAPS_ANDROID_API_KEY" ]; then
+            echo "Google Maps Android API key not provided via secret; using the key embedded in build.gradle."
+          else
+            sed -i "s|AIzaSyD0c5KgMWa1Zb7P3sarhl0I861_KLAPxXI|${GOOGLE_MAPS_ANDROID_API_KEY}|g" \
+              android/app/build.gradle
+          fi
 
       - name: Inject google-services.json
-        id: inject_gservices
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          FIREBASE_ENABLED=false
           if [ -n "$GOOGLE_SERVICES_JSON" ]; then
-            mkdir -p android/app
-            # Auto-detect base64-encoded vs raw JSON.
-            # Raw JSON starts with '{'; anything else is assumed to be base64.
-            if echo "$GOOGLE_SERVICES_JSON" | grep -q '^{'; then
-              echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
-            else
-              if ! echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json 2>/dev/null; then
-                echo "ERROR: GOOGLE_SERVICES_JSON could not be decoded."
-                echo "       The secret must be either the raw JSON content of google-services.json"
-                echo "       or its base64-encoded form: base64 -w 0 google-services.json"
-                exit 1
-              fi
-            fi
-            # Verify the written file is non-empty.
-            SIZE=$(wc -c < android/app/google-services.json)
-            echo "google-services.json written (${SIZE} bytes)."
-            ls -la android/app/google-services.json
-            if [ "$SIZE" -lt 10 ]; then
-              echo "ERROR: google-services.json is unexpectedly small (${SIZE} bytes) — decode may have failed."
-              exit 1
-            fi
-            FIREBASE_ENABLED=true
-          else
-            echo "GOOGLE_SERVICES_JSON secret not available — building with FIREBASE_ENABLED=false."
-            echo "Firebase-dependent features will be disabled at runtime."
+            echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
           fi
-          echo "firebase_enabled=${FIREBASE_ENABLED}" >> "$GITHUB_OUTPUT"
 
       - name: Build APK (release)
-        env:
-          FIREBASE_ENABLED: ${{ steps.inject_gservices.outputs.firebase_enabled }}
         run: |
           flutter build apk --release \
-            --dart-define=FIREBASE_ENABLED=${FIREBASE_ENABLED} \
             --dart-define=HERE_API_KEY=${{ secrets.HERE_API_KEY }} \
             --dart-define=OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }} \
             --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }} \
             --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
 
       - name: Build App Bundle (release)
-        env:
-          FIREBASE_ENABLED: ${{ steps.inject_gservices.outputs.firebase_enabled }}
         run: |
           flutter build appbundle --release \
-            --dart-define=FIREBASE_ENABLED=${FIREBASE_ENABLED} \
             --dart-define=HERE_API_KEY=${{ secrets.HERE_API_KEY }} \
             --dart-define=OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }} \
             --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }} \
