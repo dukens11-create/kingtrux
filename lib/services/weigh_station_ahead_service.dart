@@ -117,8 +117,8 @@ bool isAheadOnRoute(
 // WeighStationAheadService
 // ---------------------------------------------------------------------------
 
-/// Continuously tracks the nearest weigh station (scale) ahead of the driver
-/// within a 100-mile search radius.
+/// Continuously tracks the nearest weigh station (scale) to the driver,
+/// in any direction, using a locally cached Overpass result set.
 ///
 /// Call [update] on each GPS position update.  Results are derived from a
 /// locally cached Overpass response; the cache is refreshed at most once per
@@ -128,7 +128,7 @@ bool isAheadOnRoute(
 /// "Passed" detection uses a two-step distance hysteresis:
 ///  1. Distance to the selected scale drops below [passedNearThresholdMeters].
 ///  2. Distance then rises above [passedFarHysteresisMeters].
-/// At that point the scale is marked as passed and the next closest-ahead
+/// At that point the scale is marked as passed and the next closest
 /// scale is selected.
 ///
 /// [onCacheRefreshed] is called after a background fetch succeeds so the
@@ -159,9 +159,6 @@ class WeighStationAheadService {
   /// passed the scale (1.5 miles in metres).
   static const double passedFarHysteresisMeters = 2413.72;
 
-  /// Half-cone angle for heading-based "ahead" classification (degrees).
-  static const double aheadMaxBearingDiffDeg = 60.0;
-
   // ── Cache ──────────────────────────────────────────────────────────────────
 
   List<Poi> _cachedScales = [];
@@ -188,30 +185,24 @@ class WeighStationAheadService {
   /// the driver to report the scale's status.
   void Function(Poi passedScale)? onScalePassed;
 
-  /// Returns the currently tracked scale (null if none within range).
+  /// Returns the currently tracked scale (null if none found).
   Poi? get selectedScale => _selectedScale;
 
-  /// Synchronously recomputes the closest-ahead scale from the cached data and
+  /// Synchronously recomputes the closest scale from the cached data and
   /// returns it together with its distance in metres.
   ///
   /// When the cache is missing or stale, a background fetch is started
   /// automatically; [onCacheRefreshed] will fire once new data is available.
-  ///
-  /// [heading] should be the GPS heading in degrees [0, 360), or `null` when
-  /// unavailable.  [routePolyline] is an optional list of `[lat, lng]` pairs
-  /// representing the active route.
   (Poi?, double?) update({
     required double lat,
     required double lng,
-    double? heading,
-    List<List<double>>? routePolyline,
   }) {
     // Trigger a background cache refresh if the data is missing or stale.
     if (_shouldRefreshCache(lat, lng) && !_isFetching) {
       _fetchInBackground(lat, lng);
     }
 
-    return _recompute(lat, lng, heading, routePolyline);
+    return _recompute(lat, lng);
   }
 
   /// Reset all selection state (call when a new route or session starts).
@@ -236,12 +227,7 @@ class WeighStationAheadService {
 
   // ── Private helpers ────────────────────────────────────────────────────────
 
-  (Poi?, double?) _recompute(
-    double lat,
-    double lng,
-    double? heading,
-    List<List<double>>? routePolyline,
-  ) {
+  (Poi?, double?) _recompute(double lat, double lng) {
     // Check whether the currently selected scale has been passed.
     if (_selectedScale != null) {
       final dist = weighStationHaversine(
@@ -263,9 +249,9 @@ class WeighStationAheadService {
       }
     }
 
-    // If no current selection, find the closest scale that is ahead.
+    // If no current selection, find the closest scale in any direction.
     if (_selectedScale == null) {
-      _selectedScale = _findClosestAhead(lat, lng, heading, routePolyline);
+      _selectedScale = _findClosest(lat, lng);
       _wasNear = false;
     }
 
@@ -280,31 +266,12 @@ class WeighStationAheadService {
     return (_selectedScale, dist);
   }
 
-  Poi? _findClosestAhead(
-    double lat,
-    double lng,
-    double? heading,
-    List<List<double>>? routePolyline,
-  ) {
+  Poi? _findClosest(double lat, double lng) {
     Poi? best;
     var bestDist = double.infinity;
 
     for (final poi in _cachedScales) {
       if (_passedScaleIds.contains(poi.id)) continue;
-
-      // Determine whether this scale is "ahead".
-      final bool ahead;
-      if (routePolyline != null && routePolyline.isNotEmpty) {
-        ahead = isAheadOnRoute(lat, lng, poi.lat, poi.lng, routePolyline);
-      } else if (heading != null) {
-        ahead = isAheadByHeading(lat, lng, poi.lat, poi.lng, heading,
-            maxDiffDeg: aheadMaxBearingDiffDeg);
-      } else {
-        // No heading or route: include all scales within the search radius.
-        ahead = true;
-      }
-
-      if (!ahead) continue;
 
       final dist = weighStationHaversine(lat, lng, poi.lat, poi.lng);
       if (dist < bestDist) {

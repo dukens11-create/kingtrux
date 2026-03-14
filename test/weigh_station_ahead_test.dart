@@ -187,10 +187,10 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // WeighStationAheadService – "passed" logic
+  // WeighStationAheadService – "closest in any direction" logic
   // ---------------------------------------------------------------------------
 
-  group('WeighStationAheadService passed logic', () {
+  group('WeighStationAheadService closest logic', () {
     late _FakePoiService poiService;
     late WeighStationAheadService service;
 
@@ -210,11 +210,10 @@ void main() {
       service.injectCacheForTesting([scaleA]);
     });
 
-    test('selects the closest ahead scale', () {
+    test('selects the closest scale', () {
       final (poi, dist) = service.update(
         lat: 39.9, // slightly south of scale
         lng: -90.0,
-        heading: 0.0, // heading north
       );
       expect(poi, isNotNull);
       expect(poi!.id, 'scale_a');
@@ -222,39 +221,40 @@ void main() {
       expect(dist!, greaterThan(0));
     });
 
-    test('no scale selected when heading away', () {
+    test('selects scale regardless of driver heading direction', () {
+      // Scale is north; driver is heading south — still selected.
       final (poi, _) = service.update(
         lat: 39.9,
         lng: -90.0,
-        heading: 180.0, // heading south, scale is north
       );
-      expect(poi, isNull);
+      expect(poi, isNotNull);
+      expect(poi!.id, 'scale_a');
     });
 
     test(
         'selected scale persists while driver is near (before hysteresis)',
         () {
-      // First pick the scale heading north.
-      service.update(lat: 39.9, lng: -90.0, heading: 0.0);
+      // First pick the scale.
+      service.update(lat: 39.9, lng: -90.0);
       expect(service.selectedScale?.id, 'scale_a');
 
       // Driver gets close (within passedNearThreshold – 0.5 mi ≈ 800 m).
       // At 40.0 (same lat as scale), distance ≈ 0.
-      service.update(lat: 40.0, lng: -90.0, heading: 0.0);
+      service.update(lat: 40.0, lng: -90.0);
       expect(service.selectedScale?.id, 'scale_a');
     });
 
     test('scale is marked passed after near→far hysteresis', () {
       // Approach: driver is 0.4 mi south (≈640 m).
-      service.update(lat: 39.994, lng: -90.0, heading: 0.0);
+      service.update(lat: 39.994, lng: -90.0);
       expect(service.selectedScale?.id, 'scale_a');
 
       // Get within passedNearThreshold (≈ same lat as scale, distance ≈ 0).
-      service.update(lat: 40.0, lng: -90.0, heading: 0.0);
+      service.update(lat: 40.0, lng: -90.0);
 
       // Move north past the scale (> passedFarHysteresis ≈ 1.5 mi ≈ 2.4 km).
       // 40.022 ≈ 2.45 km north of 40.0.
-      service.update(lat: 40.022, lng: -90.0, heading: 0.0);
+      service.update(lat: 40.022, lng: -90.0);
 
       // Scale should now be cleared (no other scales in cache).
       expect(service.selectedScale, isNull);
@@ -262,14 +262,14 @@ void main() {
 
     test('reset clears selection and passed-ids', () {
       // Select scale.
-      service.update(lat: 39.9, lng: -90.0, heading: 0.0);
+      service.update(lat: 39.9, lng: -90.0);
       expect(service.selectedScale, isNotNull);
 
       service.reset();
       expect(service.selectedScale, isNull);
 
       // Should re-select after reset.
-      final (poi, _) = service.update(lat: 39.9, lng: -90.0, heading: 0.0);
+      final (poi, _) = service.update(lat: 39.9, lng: -90.0);
       expect(poi?.id, 'scale_a');
     });
 
@@ -277,14 +277,14 @@ void main() {
       Poi? passedPoi;
       service.onScalePassed = (poi) => passedPoi = poi;
 
-      // Approach: select scale heading north.
-      service.update(lat: 39.994, lng: -90.0, heading: 0.0);
+      // Approach: select scale.
+      service.update(lat: 39.994, lng: -90.0);
 
       // Arrive: get within passedNearThreshold.
-      service.update(lat: 40.0, lng: -90.0, heading: 0.0);
+      service.update(lat: 40.0, lng: -90.0);
 
       // Pass: move beyond passedFarHysteresis (1.5 mi ≈ 2.4 km).
-      service.update(lat: 40.022, lng: -90.0, heading: 0.0);
+      service.update(lat: 40.022, lng: -90.0);
 
       expect(passedPoi, isNotNull);
       expect(passedPoi!.id, 'scale_a');
@@ -295,14 +295,14 @@ void main() {
       service.onScalePassed = (poi) => passedPoi = poi;
 
       // Approach and immediately move far away without getting near first.
-      service.update(lat: 39.994, lng: -90.0, heading: 0.0);
-      service.update(lat: 39.5, lng: -90.0, heading: 0.0);
+      service.update(lat: 39.994, lng: -90.0);
+      service.update(lat: 39.5, lng: -90.0);
 
       expect(passedPoi, isNull);
     });
   });
 
-  group('WeighStationAheadService no-heading fallback', () {
+  group('WeighStationAheadService nearest of multiple scales', () {
     late _FakePoiService poiService;
     late WeighStationAheadService service;
 
@@ -321,13 +321,34 @@ void main() {
       service.injectCacheForTesting([scale]);
     });
 
-    test('when heading is null all scales are considered ahead', () {
+    test('selects nearest scale in any direction', () {
       final (poi, _) = service.update(
         lat: 40.0,
         lng: -90.0,
-        heading: null, // no heading
       );
       expect(poi?.id, 'scale_x');
+    });
+
+    test('picks the closer of two scales regardless of direction', () {
+      final scaleNear = Poi(
+        id: 'near',
+        type: PoiType.scale,
+        name: 'Near',
+        lat: 40.1, // ~11 km north
+        lng: -90.0,
+        tags: {},
+      );
+      final scaleFar = Poi(
+        id: 'far',
+        type: PoiType.scale,
+        name: 'Far',
+        lat: 39.5, // ~55 km south
+        lng: -90.0,
+        tags: {},
+      );
+      service.injectCacheForTesting([scaleFar, scaleNear]);
+      final (poi, _) = service.update(lat: 40.0, lng: -90.0);
+      expect(poi?.id, 'near');
     });
   });
 }
