@@ -54,6 +54,7 @@ import '../services/tts_language_service.dart';
 import '../services/alert_phrase_service.dart';
 import '../services/destination_persistence_service.dart';
 import '../services/units_service.dart';
+import '../services/firestore_scale_report_service.dart';
 import '../services/weigh_station_ahead_service.dart';
 
 /// Application state management using ChangeNotifier
@@ -72,6 +73,8 @@ class AppState extends ChangeNotifier {
   final RouteMonitor _routeMonitor = RouteMonitor();
   final ScaleMonitor _scaleMonitor = ScaleMonitor();
   final ScaleReportService _scaleReportService = ScaleReportService();
+  final FirestoreScaleReportService _firestoreScaleReportService =
+      FirestoreScaleReportService();
   final TollPreferenceService _tollPreferenceService = TollPreferenceService();
   final RouteOptionsService _routeOptionsService = RouteOptionsService();
   final SpeedMonitor _speedMonitor = SpeedMonitor();
@@ -98,6 +101,7 @@ class AppState extends ChangeNotifier {
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
+  StreamSubscription<ScaleReport?>? _scaleStatusSub;
   Timer? _forecastTimer;
   Timer? _nightModeTimer;
   Timer? _etaTimer;
@@ -278,6 +282,13 @@ class AppState extends ChangeNotifier {
   /// Driving distance in metres from the driver's current location to
   /// [closestScalePoi], or `null` when [closestScalePoi] is `null`.
   double? closestScaleDistanceMeters;
+
+  /// The weigh scale POI that the driver has just passed.
+  ///
+  /// Non-null when the pass-detection hysteresis has triggered and a status
+  /// submission prompt should be shown to the driver.  Cleared by calling
+  /// [acknowledgeScalePass].
+  Poi? pendingScalePassPoi;
 
   // ---------------------------------------------------------------------------
   // Night mode state
@@ -490,6 +501,12 @@ class AppState extends ChangeNotifier {
   Future<void> init() async {
     // Wire the weigh-station-ahead cache refresh callback.
     _weighStationAheadService.onCacheRefreshed = () => _updateClosestScale();
+
+    // Wire the pass-detection callback so the driver is prompted to report.
+    _weighStationAheadService.onScalePassed = (Poi passed) {
+      pendingScalePassPoi = passed;
+      notifyListeners();
+    };
 
     try {
       truckProfile = await _truckProfileService.load();
@@ -760,6 +777,12 @@ class AppState extends ChangeNotifier {
     _scaleReportService.save(scaleReports).catchError(
       (Object e) => debugPrint('Error saving scale reports: $e'),
     );
+    // Also push to Firestore so other drivers can see this report.
+    _firestoreScaleReportService
+        .submit(poiId, poiName, status, lat, lng)
+        .catchError(
+          (Object e) => debugPrint('FirestoreScaleReportService error: $e'),
+        );
     final statusLabel = _scaleStatusLabel(status);
     addAlert(AlertEvent(
       id: 'scale_report_${poiId}_${report.reportedAt.millisecondsSinceEpoch}',
@@ -776,6 +799,17 @@ class AppState extends ChangeNotifier {
   ScaleReport? scaleReportFor(String poiId) {
     final matches = scaleReports.where((r) => r.poiId == poiId);
     return matches.isEmpty ? null : matches.last;
+  }
+
+  /// Clears the [pendingScalePassPoi] after the driver has been prompted.
+  ///
+  /// Call this after the pass-prompt dialog has been dismissed (whether or not
+  /// the driver submitted a status report).
+  void acknowledgeScalePass() {
+    if (pendingScalePassPoi != null) {
+      pendingScalePassPoi = null;
+      notifyListeners();
+    }
   }
 
   /// Calculate truck route from current location to destination
@@ -1605,7 +1639,7 @@ class AppState extends ChangeNotifier {
       addAlert(AlertEvent(
         id: 'scale_nearby_${report.poiId}_${report.reportedAt.millisecondsSinceEpoch}',
         type: AlertType.scaleActivity,
-        title: 'Weigh Scale Ahead',
+        title: 'Police Weight Station Ahead',
         message: '${report.poiName} is $statusLabel — $distKm km away.',
         severity: report.status == ScaleStatus.open
             ? AlertSeverity.warning
@@ -2055,8 +2089,36 @@ class AppState extends ChangeNotifier {
     if (poi != closestScalePoi || dist != closestScaleDistanceMeters) {
       closestScalePoi = poi;
       closestScaleDistanceMeters = dist;
+      // When the closest scale changes, start watching its Firestore status.
+      _watchClosestScaleStatus(poi);
       notifyListeners();
     }
+  }
+
+  /// Start (or stop) the Firestore real-time status watch for [scale].
+  ///
+  /// Cancels any previous subscription before starting a new one.  When
+  /// [scale] is `null` the subscription is simply cancelled.
+  void _watchClosestScaleStatus(Poi? scale) {
+    _scaleStatusSub?.cancel();
+    _scaleStatusSub = null;
+    if (scale == null) return;
+
+    _scaleStatusSub = _firestoreScaleReportService
+        .watchLatest(scale.id)
+        .listen((report) {
+      if (report == null) return;
+      // Merge the Firestore report into the local list (latest wins per POI).
+      final existing = scaleReportFor(report.poiId);
+      if (existing?.reportedAt == report.reportedAt) return;
+      scaleReports = [
+        ...scaleReports.where((r) => r.poiId != report.poiId),
+        report,
+      ];
+      notifyListeners();
+    }, onError: (Object e) {
+      debugPrint('Firestore scale status watch error: $e');
+    });
   }
 
   /// Check the current US state (throttled to at most once every 5 minutes).
@@ -2199,6 +2261,7 @@ class AppState extends ChangeNotifier {
   void dispose() {
     _stopRouteMonitoring();
     _speedMonitorSub?.cancel();
+    _scaleStatusSub?.cancel();
     _nightModeTimer?.cancel();
     _etaTimer?.cancel();
     _navService.stop();

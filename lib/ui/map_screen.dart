@@ -9,6 +9,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/poi.dart';
+import '../models/scale_report.dart';
 import '../services/map_preferences_service.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
@@ -83,6 +84,10 @@ class _MapScreenState extends State<MapScreen> {
   String? _lastPoiError;
   /// Cached reference to [AppState] for use in [dispose].
   AppState? _appState;
+
+  // ── Scale pass prompt ──────────────────────────────────────────────────────
+  /// Prevents showing the scale-pass prompt dialog more than once at a time.
+  bool _showingScalePassPrompt = false;
 
   @override
   void initState() {
@@ -325,7 +330,7 @@ class _MapScreenState extends State<MapScreen> {
                 child: SpeedDisplay(),
               ),
 
-              // ── Closest weigh station ahead (bottom-right, above route card) ─
+              // ── Closest police weight station ahead (bottom-right, above route card) ─
               const Positioned(
                 bottom: 180,
                 right: AppTheme.spaceMD,
@@ -374,11 +379,14 @@ class _MapScreenState extends State<MapScreen> {
                 child: const ManeuverBanner(),
               ),
 
-              // ── Compass indicator (bottom-left, above route card) ────────
-              const Positioned(
+              // ── Compass indicator (top-left, below "Where to" CTA bar) ──
+              Positioned(
+                top: MediaQuery.of(context).padding.top +
+                    kToolbarHeight +
+                    56 + // height of "Where to" CTA bar
+                    AppTheme.spaceSM,
                 left: AppTheme.spaceMD,
-                bottom: 180,
-                child: CompassIndicator(),
+                child: const CompassIndicator(),
               ),
 
               // ── "Set Destination" mode overlay ───────────────────────────
@@ -931,6 +939,32 @@ class _MapScreenState extends State<MapScreen> {
     } else if (err == null) {
       _lastPoiError = null;
     }
+
+    // Show scale-pass prompt when the driver crosses a police weight station.
+    if (state.pendingScalePassPoi != null && !_showingScalePassPrompt) {
+      _showingScalePassPrompt = true;
+      final poi = state.pendingScalePassPoi!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          _showingScalePassPrompt = false;
+          return;
+        }
+        showModalBottomSheet<void>(
+          context: context,
+          isDismissible: true,
+          enableDrag: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          builder: (_) => _ScalePassPromptSheet(poi: poi),
+        ).whenComplete(() {
+          _showingScalePassPrompt = false;
+          if (mounted) {
+            context.read<AppState>().acknowledgeScalePass();
+          }
+        });
+      });
+    }
   }
 
 
@@ -1328,8 +1362,189 @@ class _LoadingBadge extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// "Where to?" CTA bar
+// Scale pass prompt sheet
 // ---------------------------------------------------------------------------
+
+/// Bottom sheet shown when the driver passes a police weight station.
+///
+/// The driver selects the current status (Open / Monitoring / Closed) and the
+/// report is submitted to both local storage and Firestore so other drivers
+/// approaching the same station can see it.
+class _ScalePassPromptSheet extends StatelessWidget {
+  const _ScalePassPromptSheet({required this.poi});
+
+  final Poi poi;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppTheme.spaceMD,
+          AppTheme.spaceSM,
+          AppTheme.spaceMD,
+          AppTheme.spaceLG,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurfaceVariant.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: AppTheme.spaceMD),
+            // Title
+            Row(
+              children: [
+                Icon(Icons.scale_rounded, color: cs.primary, size: 24),
+                const SizedBox(width: AppTheme.spaceSM),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Police Weight Station',
+                        style: tt.labelMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      Text(poi.name, style: tt.titleMedium),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppTheme.spaceSM),
+            Text(
+              'What is the current status?',
+              style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: AppTheme.spaceMD),
+            // Status buttons
+            Row(
+              children: [
+                Expanded(
+                  child: _StatusButton(
+                    label: 'Open',
+                    icon: Icons.check_circle_rounded,
+                    color: Colors.green.shade600,
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      context.read<AppState>().submitScaleReport(
+                            poiId: poi.id,
+                            poiName: poi.name,
+                            lat: poi.lat,
+                            lng: poi.lng,
+                            status: ScaleStatus.open,
+                          );
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ),
+                const SizedBox(width: AppTheme.spaceXS),
+                Expanded(
+                  child: _StatusButton(
+                    label: 'Monitoring',
+                    icon: Icons.visibility_rounded,
+                    color: Colors.orange.shade700,
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      context.read<AppState>().submitScaleReport(
+                            poiId: poi.id,
+                            poiName: poi.name,
+                            lat: poi.lat,
+                            lng: poi.lng,
+                            status: ScaleStatus.monitoring,
+                          );
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ),
+                const SizedBox(width: AppTheme.spaceXS),
+                Expanded(
+                  child: _StatusButton(
+                    label: 'Closed',
+                    icon: Icons.cancel_rounded,
+                    color: Colors.red.shade600,
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      context.read<AppState>().submitScaleReport(
+                            poiId: poi.id,
+                            poiName: poi.name,
+                            lat: poi.lat,
+                            lng: poi.lng,
+                            status: ScaleStatus.closed,
+                          );
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppTheme.spaceXS),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Skip'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A large colored button for the scale status selection prompt.
+class _StatusButton extends StatelessWidget {
+  const _StatusButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color.withOpacity(0.12),
+      borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceMD),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(height: AppTheme.spaceXS),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 
 /// A tappable search-bar–style CTA that opens the [WhereToSheet].
 class _WhereToCta extends StatelessWidget {

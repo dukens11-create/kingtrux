@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/scale_report.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
 
-/// Persistent map overlay that displays the nearest weigh station ahead
-/// within 100 miles.
+/// Persistent map overlay that displays the nearest police weight station
+/// ahead within 100 miles.
 ///
-/// The card shows the station name and distance in miles.  It stays on screen
-/// until the driver passes the station, at which point it updates to the next
-/// closest-ahead station.  When no station is found within the search radius,
-/// a "No weigh station within 100 mi" message is shown instead.
+/// The card shows the station name, distance in miles, and the latest
+/// community-reported status (Open / Monitoring / Closed).  It stays on
+/// screen until the driver passes the station, at which point it updates to
+/// the next closest-ahead station.  When no station is found within the
+/// search radius a "No weight station within 100 mi" message is shown.
 ///
 /// The widget renders only when a GPS fix is available.
 class ClosestScaleCard extends StatelessWidget {
@@ -35,6 +37,11 @@ class _ClosestScaleCardContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final scale = state.closestScalePoi;
     final distMeters = state.closestScaleDistanceMeters;
+    final report = scale != null ? state.scaleReportFor(scale.id) : null;
+    final cs = Theme.of(context).colorScheme;
+
+    final statusColor = report != null ? _statusColor(report.status) : null;
+    final statusIcon = report != null ? _statusIcon(report.status) : null;
 
     return Card(
       elevation: AppTheme.elevationCard,
@@ -50,13 +57,28 @@ class _ClosestScaleCardContent extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Scale icon ────────────────────────────────────────────────
-            Icon(
-              Icons.scale,
-              size: 22,
-              color: scale != null
-                  ? Colors.indigo.shade700
-                  : Colors.grey.shade500,
+            // ── Scale icon with optional status ring ─────────────────────
+            Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                Icon(
+                  Icons.scale,
+                  size: 22,
+                  color: statusColor ?? (scale != null
+                      ? cs.primary
+                      : Colors.grey.shade500),
+                ),
+                if (statusIcon != null)
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: cs.surface, width: 1),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: AppTheme.spaceXS + 2),
             // ── Text ──────────────────────────────────────────────────────
@@ -65,7 +87,7 @@ class _ClosestScaleCardContent extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'WEIGH STATION',
+                  'POLICE WEIGHT STATION',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         fontSize: 8,
                         fontWeight: FontWeight.w700,
@@ -78,21 +100,43 @@ class _ClosestScaleCardContent extends StatelessWidget {
                     scale.name,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: cs.onSurface,
                         ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
-                  Text(
-                    _formatDistance(distMeters),
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.indigo.shade700,
-                          fontWeight: FontWeight.w600,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _formatDistance(distMeters),
+                        style:
+                            Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: cs.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                      ),
+                      if (report != null) ...[
+                        const SizedBox(width: 4),
+                        Icon(statusIcon, size: 10, color: statusColor),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${_statusLabel(report.status)} · ${_timeAgo(report.reportedAt)}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(
+                                color: statusColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 9,
+                              ),
                         ),
+                      ],
+                    ],
                   ),
                 ] else ...[
                   Text(
-                    'No weigh station within 100 mi',
+                    'No weight station within 100 mi',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Colors.grey.shade600,
                         ),
@@ -115,4 +159,46 @@ class _ClosestScaleCardContent extends StatelessWidget {
     }
     return '${miles.toStringAsFixed(1)} mi';
   }
+
+  static Color _statusColor(ScaleStatus status) {
+    switch (status) {
+      case ScaleStatus.open:
+        return Colors.green.shade600;
+      case ScaleStatus.monitoring:
+        return Colors.orange.shade700;
+      case ScaleStatus.closed:
+        return Colors.red.shade600;
+    }
+  }
+
+  static IconData _statusIcon(ScaleStatus status) {
+    switch (status) {
+      case ScaleStatus.open:
+        return Icons.check_circle_rounded;
+      case ScaleStatus.monitoring:
+        return Icons.visibility_rounded;
+      case ScaleStatus.closed:
+        return Icons.cancel_rounded;
+    }
+  }
+
+  static String _statusLabel(ScaleStatus status) {
+    switch (status) {
+      case ScaleStatus.open:
+        return 'Open';
+      case ScaleStatus.monitoring:
+        return 'Monitoring';
+      case ScaleStatus.closed:
+        return 'Closed';
+    }
+  }
+
+  static String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
 }
+

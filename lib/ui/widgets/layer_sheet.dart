@@ -64,13 +64,13 @@ class LayerSheet extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                 ),
 
-                // Scales
+                // Police Weight Stations
                 SwitchListTile(
                   secondary: Icon(
                     Icons.scale_rounded,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  title: const Text('Scales'),
+                  title: const Text('Police Weight Stations'),
                   subtitle: const Text('amenity=weighbridge'),
                   value: state.enabledPoiLayers.contains(PoiType.scale),
                   onChanged: (value) {

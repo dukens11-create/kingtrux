@@ -206,7 +206,7 @@ class PoiDetailSheet extends StatelessWidget {
       case PoiType.parking:
         return 'Parking';
       case PoiType.scale:
-        return 'Weigh Scale';
+        return 'Police Weight Station';
       case PoiType.restArea:
         return 'Rest Area';
       case PoiType.gym:
@@ -237,7 +237,7 @@ class _ScaleStatusSection extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Scale Status', style: tt.labelMedium),
+            Text('Station Status', style: tt.labelMedium),
             const SizedBox(height: AppTheme.spaceXS),
             if (report != null) ...[
               Row(
@@ -310,9 +310,9 @@ class _ScaleStatusSection extends StatelessWidget {
   static IconData _statusIcon(ScaleStatus status) {
     switch (status) {
       case ScaleStatus.open:
-        return Icons.warning_amber_rounded;
+        return Icons.check_circle_rounded;
       case ScaleStatus.closed:
-        return Icons.check_circle_outline_rounded;
+        return Icons.cancel_rounded;
       case ScaleStatus.monitoring:
         return Icons.visibility_rounded;
     }
@@ -321,11 +321,11 @@ class _ScaleStatusSection extends StatelessWidget {
   static Color _statusColor(ScaleStatus status, ColorScheme cs) {
     switch (status) {
       case ScaleStatus.open:
-        return cs.error;
+        return Colors.green.shade600;
       case ScaleStatus.closed:
-        return cs.primary;
+        return Colors.red.shade600;
       case ScaleStatus.monitoring:
-        return cs.tertiary;
+        return Colors.orange.shade700;
     }
   }
 
