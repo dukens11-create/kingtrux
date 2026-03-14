@@ -5,13 +5,11 @@ import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
 
 /// Persistent map overlay that displays the nearest police weight station
-/// ahead within 100 miles.
+/// to the driver's current GPS location, in any direction.
 ///
 /// The card shows the station name, distance in miles, and the latest
-/// community-reported status (Open / Monitoring / Closed).  It stays on
-/// screen until the driver passes the station, at which point it updates to
-/// the next closest-ahead station.  When no station is found within the
-/// search radius a "No weight station within 100 mi" message is shown.
+/// community-reported status (Open / Monitoring / Closed).  When no station
+/// is found nearby a "No weight station found" message is shown.
 ///
 /// The widget renders only when a GPS fix is available.
 class ClosestScaleCard extends StatelessWidget {
@@ -136,7 +134,7 @@ class _ClosestScaleCardContent extends StatelessWidget {
                   ),
                 ] else ...[
                   Text(
-                    'No weight station within 100 mi',
+                    'No weight station found',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Colors.grey.shade600,
                         ),

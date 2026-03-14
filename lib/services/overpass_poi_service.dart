@@ -128,6 +128,7 @@ class OverpassPoiService {
     }
     if (enabledTypes.contains(PoiType.scale)) {
       add('"amenity"="weighbridge"');
+      add('"highway"="weigh_station"');
     }
     if (enabledTypes.contains(PoiType.gym)) {
       add('"leisure"="fitness_centre"');
@@ -168,7 +169,8 @@ class OverpassPoiService {
           type = isBranded ? PoiType.truckStop : PoiType.fuel;
         } else if (tags['highway'] == 'rest_area') {
           type = PoiType.restArea;
-        } else if (tags['amenity'] == 'weighbridge') {
+        } else if (tags['amenity'] == 'weighbridge' ||
+            tags['highway'] == 'weigh_station') {
           type = PoiType.scale;
         } else if (tags['leisure'] == 'fitness_centre' || tags['amenity'] == 'gym') {
           type = PoiType.gym;

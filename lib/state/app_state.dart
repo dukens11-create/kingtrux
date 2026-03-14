@@ -2076,15 +2076,9 @@ class AppState extends ChangeNotifier {
     final effectiveLng = lng ?? myLng;
     if (effectiveLat == null || effectiveLng == null) return;
 
-    final polyline = routeResult?.polylinePoints
-        .map((p) => [p.latitude, p.longitude])
-        .toList();
-
     final (poi, dist) = _weighStationAheadService.update(
       lat: effectiveLat,
       lng: effectiveLng,
-      heading: currentHeading,
-      routePolyline: polyline,
     );
 
     if (poi != closestScalePoi || dist != closestScaleDistanceMeters) {
