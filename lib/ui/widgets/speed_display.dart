@@ -40,6 +40,11 @@ class _SpeedDisplayContent extends StatelessWidget {
     final speedMph = state.currentSpeedMph;
     final limitMph = state.roadSpeedLimitMph;
 
+    final showTruckLimit =
+        state.commercialSpeedSettings.enableStateLimits &&
+            state.stateTruckSpeedLimitMph != null;
+    final truckLimitMph = state.stateTruckSpeedLimitMph;
+
     final Color speedColor;
     if (limitMph == null) {
       speedColor = Colors.grey.shade700;
@@ -66,8 +71,19 @@ class _SpeedDisplayContent extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Speed limit sign ──────────────────────────────────────────
-            _SpeedLimitSign(limitMph: limitMph),
+            // ── Speed limit sign(s) ───────────────────────────────────────
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _SpeedLimitSign(limitMph: limitMph),
+                if (showTruckLimit && truckLimitMph != null) ...[
+                  const SizedBox(height: 6),
+                  _TruckLimitBadge(
+                    limitMph: truckLimitMph,
+                  ),
+                ],
+              ],
+            ),
             const SizedBox(width: AppTheme.spaceSM),
             // ── Divider ───────────────────────────────────────────────────
             Container(
@@ -136,6 +152,48 @@ class _SpeedLimitSign extends StatelessWidget {
               fontWeight: FontWeight.bold,
               color: Colors.black,
               height: 1.1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small badge shown under the road limit sign for commercial/truck limit.
+class _TruckLimitBadge extends StatelessWidget {
+  const _TruckLimitBadge({required this.limitMph});
+
+  final double limitMph;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.grey.shade400, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'TRUCK',
+            style: tt.labelSmall?.copyWith(
+              fontSize: 8,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            limitMph.toStringAsFixed(0),
+            style: tt.labelSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
             ),
           ),
         ],
