@@ -284,47 +284,25 @@ class _MapScreenState extends State<MapScreen> {
                 myLocationButtonEnabled: false,
                 padding: EdgeInsets.only(
                   top: MediaQuery.of(context).padding.top + kToolbarHeight,
-                  bottom: 180,
+                  // Generous bottom padding clears the quick-actions strip
+                  // (~68 px) + destination CTA (~56 px) + safe-area bottom.
+                  bottom: 200 + MediaQuery.of(context).padding.bottom,
                 ),
               ),
 
-              // ── "Where to?" CTA bar ─────────────────────────────────────
-              // Hidden when tap-to-set destination mode is active.
-              if (!_settingDestination)
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceXS,
-                  left: AppTheme.spaceMD,
-                  right: AppTheme.spaceMD,
-                  child: _WhereToCta(onTap: _onWhereToCTAPressed),
-                ),
-
-              // ── Map overlay buttons (right side) ─────────────────────────
+              // ── Map overlay buttons – right-side vertical control rail ──
               Positioned(
-                top: MediaQuery.of(context).padding.top + kToolbarHeight + 56 + AppTheme.spaceSM,
+                top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceSM,
                 right: AppTheme.spaceSM,
-                child: Column(
-                  children: [
-                    _MapFab(
-                      key: const Key('map_type_toggle'),
-                      icon: _mapType == MapType.satellite
-                          ? Icons.map_rounded
-                          : Icons.satellite_alt_rounded,
-                      tooltip: _mapType == MapType.satellite
-                          ? 'Normal map'
-                          : 'Satellite view',
-                      onPressed: _onMapTypeToggle,
-                    ),
-                    const SizedBox(height: AppTheme.spaceXS),
-                    _MapFab(
-                      key: const Key('follow_mode_toggle'),
-                      icon: _followMode
-                          ? Icons.navigation_rounded
-                          : Icons.navigation_outlined,
-                      tooltip: _followMode ? 'Following location' : 'Follow location',
-                      onPressed: _onFollowModeToggle,
-                      active: _followMode,
-                    ),
-                  ],
+                child: _RightControlRail(
+                  mapType: _mapType,
+                  followMode: _followMode,
+                  onLayers: _onLayersPressed,
+                  onMapTypeToggle: _onMapTypeToggle,
+                  onZoomIn: _onZoomIn,
+                  onZoomOut: _onZoomOut,
+                  onMyLocation: _onMyLocationPressed,
+                  onFilters: _onRouteOptionsPressed,
                 ),
               ),
 
@@ -341,24 +319,55 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
 
-              // ── Route summary card (bottom overlay) ─────────────────────
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: RouteSummaryCard(settingDestination: _settingDestination),
-              ),
+              // ── Bottom panel: quick actions + destination CTA / route card ─
+              // The Column stacks (from bottom): quick-actions strip,
+              // then either the destination CTA (no route) or the route
+              // summary card (route loading / loaded).
+              if (!_settingDestination)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Column(
+                    key: const Key('bottom_map_panel'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Route summary (when loading or route exists).
+                      if (state.isLoadingRoute || state.routeResult != null)
+                        RouteSummaryCard(settingDestination: _settingDestination),
 
-              // ── Speed display (bottom-left, above route card) ────────────
+                      // Destination CTA (only when no route and not loading).
+                      if (!state.isLoadingRoute && state.routeResult == null)
+                        _BottomDestinationCta(onTap: _onWhereToCTAPressed),
+
+                      // Quick-actions strip – always visible in this panel.
+                      _QuickActionsBar(
+                        key: const Key('quick_actions_bar'),
+                        isWsEnabled: state.enabledPoiLayers.contains(PoiType.scale),
+                        onDirection: _onWhereToCTAPressed,
+                        onPlaces: _onPoiBrowserPressed,
+                        onWs: _onWsTogglePressed,
+                        onRestricted: _onRouteOptionsPressed,
+                        onToll: () => _showComingSoon('Toll routing'),
+                        onWeather: () => _showComingSoon('Weather'),
+                        onCameras: () => _showComingSoon('Cameras'),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // ── Speed display (bottom-left, above bottom panel) ──────────
+              // Positioned above the quick-actions strip (~68 px) plus a
+              // comfortable buffer so it never overlaps the strip.
               const Positioned(
-                bottom: 180,
+                bottom: 200,
                 left: AppTheme.spaceMD,
                 child: SpeedDisplay(),
               ),
 
-              // ── Closest police weight station ahead (bottom-right, above route card) ─
+              // ── Closest police weight station (bottom-right, above panel) ─
               const Positioned(
-                bottom: 180,
+                bottom: 200,
                 right: AppTheme.spaceMD,
                 child: ClosestScaleCard(),
               ),
@@ -405,11 +414,10 @@ class _MapScreenState extends State<MapScreen> {
                 child: const ManeuverBanner(),
               ),
 
-              // ── Compass indicator (top-left, below "Where to" CTA bar) ──
+              // ── Compass indicator (top-left, just below app bar) ────────
               Positioned(
                 top: MediaQuery.of(context).padding.top +
                     kToolbarHeight +
-                    56 + // height of "Where to" CTA bar
                     AppTheme.spaceSM,
                 left: AppTheme.spaceMD,
                 child: const CompassIndicator(),
@@ -884,6 +892,56 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   // ---------------------------------------------------------------------------
+  // Weigh station (WS) quick-action: toggle PoiType.scale layer
+  // ---------------------------------------------------------------------------
+  void _onWsTogglePressed() {
+    HapticFeedback.selectionClick();
+    final state = context.read<AppState>();
+    final isEnabled = state.enabledPoiLayers.contains(PoiType.scale);
+    state.toggleLayer(PoiType.scale, !isEnabled);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isEnabled
+                ? 'Weigh stations hidden'
+                : 'Weigh stations shown on map',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Zoom controls (right-side control rail)
+  // ---------------------------------------------------------------------------
+  void _onZoomIn() {
+    HapticFeedback.selectionClick();
+    _mapController?.animateCamera(CameraUpdate.zoomIn());
+  }
+
+  void _onZoomOut() {
+    HapticFeedback.selectionClick();
+    _mapController?.animateCamera(CameraUpdate.zoomOut());
+  }
+
+  // ---------------------------------------------------------------------------
+  // "Coming soon" stub for unimplemented quick actions
+  // ---------------------------------------------------------------------------
+  void _showComingSoon(String feature) {
+    HapticFeedback.selectionClick();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$feature – Coming soon'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Map long-press: set destination directly without requiring toolbar mode
   // ---------------------------------------------------------------------------
   void _onMapLongPress(LatLng position) {
@@ -903,21 +961,6 @@ class _MapScreenState extends State<MapScreen> {
   // ---------------------------------------------------------------------------
   // Follow mode
   // ---------------------------------------------------------------------------
-
-  /// Toggle follow mode on / off. When turned on, also recenter immediately.
-  void _onFollowModeToggle() {
-    HapticFeedback.selectionClick();
-    if (_followMode) {
-      setState(() => _followMode = false);
-    } else {
-      setState(() {
-        _followMode = true;
-        // Reset cached position so camera moves immediately on next rebuild.
-        _lastFollowLat = null;
-        _lastFollowLng = null;
-      });
-    }
-  }
 
   /// Called by [GoogleMap.onCameraMove]. Disables follow mode when the camera
   /// is moved by the user (i.e., not by a programmatic animation).
@@ -1573,51 +1616,6 @@ class _StatusButton extends StatelessWidget {
   }
 }
 
-
-/// A tappable search-bar–style CTA that opens the [WhereToSheet].
-class _WhereToCta extends StatelessWidget {
-  const _WhereToCta({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      key: const Key('where_to_cta'),
-      elevation: AppTheme.elevationSheet,
-      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-      color: cs.surface,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppTheme.spaceMD,
-            vertical: AppTheme.spaceSM + 2,
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.search_rounded, color: cs.primary, size: 22),
-              const SizedBox(width: AppTheme.spaceSM),
-              Expanded(
-                child: Text(
-                  'Where to?',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                ),
-              ),
-              Icon(Icons.arrow_forward_ios_rounded,
-                  size: 14, color: cs.onSurfaceVariant),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Small floating action button for map overlay controls
 // ---------------------------------------------------------------------------
@@ -1656,6 +1654,299 @@ class _MapFab extends StatelessWidget {
               size: 22,
               color: active ? cs.onPrimaryContainer : cs.onSurface,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Right-side vertical control rail
+// ---------------------------------------------------------------------------
+
+/// A vertically stacked set of square map-control buttons shown on the right
+/// side of the map.  Provides: layers, map type toggle, zoom in/out, recenter,
+/// and route-filter access.
+class _RightControlRail extends StatelessWidget {
+  const _RightControlRail({
+    required this.mapType,
+    required this.followMode,
+    required this.onLayers,
+    required this.onMapTypeToggle,
+    required this.onZoomIn,
+    required this.onZoomOut,
+    required this.onMyLocation,
+    required this.onFilters,
+  });
+
+  final MapType mapType;
+  final bool followMode;
+  final VoidCallback onLayers;
+  final VoidCallback onMapTypeToggle;
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+  final VoidCallback onMyLocation;
+  final VoidCallback onFilters;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Layers – opens the POI layer sheet.
+        _MapFab(
+          key: const Key('rail_layers'),
+          icon: Icons.layers_rounded,
+          tooltip: 'Layers',
+          onPressed: onLayers,
+        ),
+        const SizedBox(height: AppTheme.spaceXS),
+        // Map type toggle (Normal ↔ Satellite).
+        _MapFab(
+          key: const Key('map_type_toggle'),
+          icon: mapType == MapType.satellite
+              ? Icons.map_rounded
+              : Icons.satellite_alt_rounded,
+          tooltip: mapType == MapType.satellite ? 'Normal map' : 'Satellite view',
+          onPressed: onMapTypeToggle,
+        ),
+        const SizedBox(height: AppTheme.spaceXS),
+        // Zoom in.
+        _MapFab(
+          key: const Key('rail_zoom_in'),
+          icon: Icons.add_rounded,
+          tooltip: 'Zoom in',
+          onPressed: onZoomIn,
+        ),
+        const SizedBox(height: AppTheme.spaceXS),
+        // Zoom out.
+        _MapFab(
+          key: const Key('rail_zoom_out'),
+          icon: Icons.remove_rounded,
+          tooltip: 'Zoom out',
+          onPressed: onZoomOut,
+        ),
+        const SizedBox(height: AppTheme.spaceXS),
+        // Recenter / my location.
+        _MapFab(
+          key: const Key('rail_recenter'),
+          icon: Icons.my_location_rounded,
+          tooltip: 'Recenter',
+          onPressed: onMyLocation,
+          active: followMode,
+        ),
+        const SizedBox(height: AppTheme.spaceXS),
+        // Filters – opens route options / truck restriction settings.
+        _MapFab(
+          key: const Key('rail_filters'),
+          icon: Icons.tune_rounded,
+          tooltip: 'Filters',
+          onPressed: onFilters,
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Horizontal quick-actions strip
+// ---------------------------------------------------------------------------
+
+/// A horizontally scrollable strip of labeled icon buttons shown above the
+/// bottom destination panel.  Surfaces the most-used map actions so they are
+/// always one tap away.
+class _QuickActionsBar extends StatelessWidget {
+  const _QuickActionsBar({
+    super.key,
+    required this.isWsEnabled,
+    required this.onDirection,
+    required this.onPlaces,
+    required this.onWs,
+    required this.onRestricted,
+    required this.onToll,
+    required this.onWeather,
+    required this.onCameras,
+  });
+
+  final bool isWsEnabled;
+  final VoidCallback onDirection;
+  final VoidCallback onPlaces;
+  final VoidCallback onWs;
+  final VoidCallback onRestricted;
+  final VoidCallback onToll;
+  final VoidCallback onWeather;
+  final VoidCallback onCameras;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surface,
+      elevation: AppTheme.elevationCard,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppTheme.spaceXS,
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSM),
+            child: Row(
+              children: [
+                _QuickActionButton(
+                  key: const Key('quick_action_direction'),
+                  icon: Icons.directions_rounded,
+                  label: 'Direction',
+                  onTap: onDirection,
+                ),
+                _QuickActionButton(
+                  key: const Key('quick_action_places'),
+                  icon: Icons.place_rounded,
+                  label: 'Places',
+                  onTap: onPlaces,
+                ),
+                _QuickActionButton(
+                  key: const Key('quick_action_ws'),
+                  icon: Icons.scale_rounded,
+                  label: 'WS',
+                  onTap: onWs,
+                  // Highlight when the weigh-station layer is active.
+                  isActive: isWsEnabled,
+                ),
+                _QuickActionButton(
+                  key: const Key('quick_action_restricted'),
+                  icon: Icons.no_transfer_rounded,
+                  label: 'Restricted',
+                  onTap: onRestricted,
+                ),
+                _QuickActionButton(
+                  key: const Key('quick_action_toll'),
+                  icon: Icons.monetization_on_outlined,
+                  label: 'Toll',
+                  onTap: onToll,
+                ),
+                _QuickActionButton(
+                  key: const Key('quick_action_weather'),
+                  icon: Icons.wb_cloudy_outlined,
+                  label: 'Weather',
+                  onTap: onWeather,
+                ),
+                _QuickActionButton(
+                  key: const Key('quick_action_cameras'),
+                  icon: Icons.videocam_outlined,
+                  label: 'Cameras',
+                  onTap: onCameras,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A single labeled icon button used inside [_QuickActionsBar].
+class _QuickActionButton extends StatelessWidget {
+  const _QuickActionButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isActive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  /// When true the button is tinted with the primary color.
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final effectiveColor = isActive ? cs.primary : cs.onSurfaceVariant;
+    return Semantics(
+      label: label,
+      button: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusSM),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spaceSM + 2,
+            vertical: AppTheme.spaceXS,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 22, color: effectiveColor),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: effectiveColor,
+                      fontWeight:
+                          isActive ? FontWeight.w600 : FontWeight.normal,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bottom destination call-to-action panel
+// ---------------------------------------------------------------------------
+
+/// Shown at the bottom of the map when no route is active.  Prompts the user
+/// to set a destination and opens the [WhereToSheet] on tap.
+class _BottomDestinationCta extends StatelessWidget {
+  const _BottomDestinationCta({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      key: const Key('bottom_destination_cta'),
+      color: cs.surfaceContainerLow,
+      elevation: AppTheme.elevationCard,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spaceMD,
+            vertical: AppTheme.spaceSM + 2,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.local_shipping_rounded,
+                color: cs.primary,
+                size: 22,
+              ),
+              const SizedBox(width: AppTheme.spaceSM),
+              Expanded(
+                child: Text(
+                  'Set destination for truck routes',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: cs.onSurface,
+                      ),
+                ),
+              ),
+              Icon(
+                Icons.search_rounded,
+                color: cs.onSurfaceVariant,
+                size: 22,
+              ),
+            ],
           ),
         ),
       ),
