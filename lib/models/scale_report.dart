@@ -1,5 +1,5 @@
 /// Status of a weigh scale as reported by drivers.
-enum ScaleStatus { open, closed, monitoring }
+enum ScaleStatus { openBypass, openRollingAcross, closed, notSure }
 
 /// A driver-submitted status report for a weigh scale POI.
 class ScaleReport {
@@ -46,7 +46,7 @@ class ScaleReport {
         poiName: json['poiName'] as String,
         status: ScaleStatus.values.firstWhere(
           (s) => s.name == json['status'],
-          orElse: () => ScaleStatus.monitoring,
+          orElse: () => ScaleStatus.notSure,
         ),
         lat: (json['lat'] as num).toDouble(),
         lng: (json['lng'] as num).toDouble(),

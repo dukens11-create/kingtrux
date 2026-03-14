@@ -28,6 +28,7 @@ import '../services/trip_routing_service.dart';
 import '../services/stop_optimizer.dart';
 import '../services/route_monitor.dart';
 import '../services/scale_monitor.dart';
+import '../services/scale_pass_monitor.dart';
 import '../services/scale_report_service.dart';
 import '../services/toll_preference_service.dart';
 import '../services/route_options_service.dart';
@@ -70,6 +71,9 @@ class AppState extends ChangeNotifier {
   final TripRoutingService _tripRoutingService = TripRoutingService();
   final RouteMonitor _routeMonitor = RouteMonitor();
   final ScaleMonitor _scaleMonitor = ScaleMonitor();
+  final ScalePassMonitor _scalePassMonitor = ScalePassMonitor();
+  /// Guard to prevent multiple overlapping scale-status prompt sheets.
+  bool _scalePromptOpen = false;
   final ScaleReportService _scaleReportService = ScaleReportService();
   final TollPreferenceService _tollPreferenceService = TollPreferenceService();
   final RouteOptionsService _routeOptionsService = RouteOptionsService();
@@ -201,6 +205,10 @@ class AppState extends ChangeNotifier {
 
   /// Driver-submitted scale status reports, keyed by POI ID (most recent wins).
   List<ScaleReport> scaleReports = [];
+
+  /// A scale POI that the driver just passed and should be prompted about.
+  /// Set by [_scalePassMonitor]; cleared after the UI consumes it.
+  Poi? pendingScalePromptPoi;
 
   // ---------------------------------------------------------------------------
   // Toll preference state
@@ -744,6 +752,16 @@ class AppState extends ChangeNotifier {
   ScaleReport? scaleReportFor(String poiId) {
     final matches = scaleReports.where((r) => r.poiId == poiId);
     return matches.isEmpty ? null : matches.last;
+  }
+
+  /// Called by the UI after it has consumed [pendingScalePromptPoi] (e.g.,
+  /// after showing the prompt sheet). Clears the pending prompt.
+  void clearPendingScalePrompt() {
+    if (pendingScalePromptPoi != null) {
+      pendingScalePromptPoi = null;
+      notifyListeners();
+    }
+    _scalePromptOpen = false;
   }
 
   /// Calculate truck route from current location to destination
@@ -1548,9 +1566,12 @@ class AppState extends ChangeNotifier {
         type: AlertType.scaleActivity,
         title: 'Weigh Scale Ahead',
         message: '${report.poiName} is $statusLabel — $distKm km away.',
-        severity: report.status == ScaleStatus.open
-            ? AlertSeverity.warning
-            : AlertSeverity.info,
+        severity: switch (report.status) {
+          ScaleStatus.closed || ScaleStatus.notSure => AlertSeverity.info,
+          ScaleStatus.openBypass ||
+          ScaleStatus.openRollingAcross =>
+            AlertSeverity.warning,
+        },
         timestamp: DateTime.now(),
         speakable: true,
       ));
@@ -1801,12 +1822,14 @@ class AppState extends ChangeNotifier {
   /// Human-readable label for a [ScaleStatus].
   static String _scaleStatusLabel(ScaleStatus status) {
     switch (status) {
-      case ScaleStatus.open:
-        return 'open';
+      case ScaleStatus.openBypass:
+        return 'Open (Bypass)';
+      case ScaleStatus.openRollingAcross:
+        return 'Open (Rolling Across)';
       case ScaleStatus.closed:
         return 'closed';
-      case ScaleStatus.monitoring:
-        return 'monitoring';
+      case ScaleStatus.notSure:
+        return 'not sure';
     }
   }
 
@@ -1853,6 +1876,15 @@ class AppState extends ChangeNotifier {
   /// information is available even before a route is calculated.
   void _startSpeedMonitoring() {
     _speedMonitorSub?.cancel();
+
+    // Wire the pass monitor callback once (idempotent if called again).
+    _scalePassMonitor.onScalePassed = (Poi poi, double distanceMeters) {
+      if (_scalePromptOpen) return;
+      _scalePromptOpen = true;
+      pendingScalePromptPoi = poi;
+      notifyListeners();
+    };
+
     _speedMonitor
       ..underspeedMarginMph = underspeedThresholdMph
       ..reset()
@@ -1965,6 +1997,17 @@ class AppState extends ChangeNotifier {
       },
       onError: (Object e) => debugPrint('SpeedLimitService error: $e'),
     );
+
+    // Update the pass monitor for scale POIs (always-on, even without a route).
+    final scalePois =
+        pois.where((p) => p.type == PoiType.scale).toList(growable: false);
+    if (scalePois.isNotEmpty) {
+      _scalePassMonitor.update(
+        lat: pos.latitude,
+        lng: pos.longitude,
+        scalePois: scalePois,
+      );
+    }
   }
 
   /// Check the current US state (throttled to at most once every 5 minutes).
