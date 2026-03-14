@@ -29,6 +29,7 @@ import 'widgets/maneuver_banner.dart';
 import 'widgets/steps_list_sheet.dart';
 import 'widgets/trip_planner_sheet.dart';
 import 'widgets/speed_display.dart';
+import 'widgets/closest_scale_card.dart';
 import 'widgets/compass_indicator.dart';
 import 'widgets/where_to_sheet.dart';
 import 'widgets/route_guidance_banner.dart';
@@ -322,6 +323,13 @@ class _MapScreenState extends State<MapScreen> {
                 bottom: 180,
                 left: AppTheme.spaceMD,
                 child: SpeedDisplay(),
+              ),
+
+              // ── Closest weigh station ahead (bottom-right, above route card) ─
+              const Positioned(
+                bottom: 180,
+                right: AppTheme.spaceMD,
+                child: ClosestScaleCard(),
               ),
 
               // ── Alert banner (below status bar + app bar) ────────────────
