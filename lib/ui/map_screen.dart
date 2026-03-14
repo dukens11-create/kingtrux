@@ -33,6 +33,7 @@ import 'widgets/compass_indicator.dart';
 import 'widgets/where_to_sheet.dart';
 import 'widgets/route_guidance_banner.dart';
 import 'widgets/kingtrux_logo.dart';
+import 'widgets/scale_status_prompt_sheet.dart';
 import 'account_screen.dart';
 import 'navigation_screen.dart';
 import 'paywall_screen.dart';
@@ -204,6 +205,9 @@ class _MapScreenState extends State<MapScreen> {
         builder: (context, state, _) {
           // Track location changes for follow mode.
           _maybeMoveCamera(state);
+
+          // Show scale-status prompt sheet when driver passes a scale POI.
+          _maybeShowScalePrompt(context, state);
 
           // Show full-screen loader while acquiring first location fix.
           if (state.myLat == null || state.myLng == null) {
@@ -873,6 +877,21 @@ class _MapScreenState extends State<MapScreen> {
     if (_followMode) {
       setState(() => _followMode = false);
     }
+  }
+
+  /// Shows the scale-status prompt sheet when a pending prompt is available.
+  /// Uses a post-frame callback so that the builder phase is not interrupted.
+  void _maybeShowScalePrompt(BuildContext context, AppState state) {
+    final poi = state.pendingScalePromptPoi;
+    if (poi == null) return;
+    // Consume immediately to prevent repeated triggers on subsequent rebuilds.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final currentState = context.read<AppState>();
+      if (currentState.pendingScalePromptPoi == null) return;
+      currentState.clearPendingScalePrompt();
+      ScaleStatusPromptSheet.show(context, poi);
+    });
   }
 
   /// Moves the camera to track the user's location when [_followMode] is true.

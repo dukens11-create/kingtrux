@@ -298,34 +298,40 @@ class _ScaleStatusSection extends StatelessWidget {
 
   static String _statusText(ScaleStatus status) {
     switch (status) {
-      case ScaleStatus.open:
-        return 'Open';
+      case ScaleStatus.openBypass:
+        return 'Open (Bypass)';
+      case ScaleStatus.openRollingAcross:
+        return 'Open (Rolling Across)';
       case ScaleStatus.closed:
         return 'Closed';
-      case ScaleStatus.monitoring:
-        return 'Monitoring';
+      case ScaleStatus.notSure:
+        return 'Not sure';
     }
   }
 
   static IconData _statusIcon(ScaleStatus status) {
     switch (status) {
-      case ScaleStatus.open:
+      case ScaleStatus.openBypass:
+        return Icons.directions_rounded;
+      case ScaleStatus.openRollingAcross:
         return Icons.warning_amber_rounded;
       case ScaleStatus.closed:
-        return Icons.check_circle_outline_rounded;
-      case ScaleStatus.monitoring:
-        return Icons.visibility_rounded;
+        return Icons.block_rounded;
+      case ScaleStatus.notSure:
+        return Icons.help_outline_rounded;
     }
   }
 
   static Color _statusColor(ScaleStatus status, ColorScheme cs) {
     switch (status) {
-      case ScaleStatus.open:
-        return cs.error;
+      case ScaleStatus.openBypass:
+        return const Color(0xFF4CAF50); // green
+      case ScaleStatus.openRollingAcross:
+        return const Color(0xFFFFC107); // yellow/amber
       case ScaleStatus.closed:
-        return cs.primary;
-      case ScaleStatus.monitoring:
-        return cs.tertiary;
+        return cs.error; // red
+      case ScaleStatus.notSure:
+        return cs.onSurfaceVariant; // grey
     }
   }
 
