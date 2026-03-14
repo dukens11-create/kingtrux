@@ -54,6 +54,7 @@ import '../services/tts_language_service.dart';
 import '../services/alert_phrase_service.dart';
 import '../services/destination_persistence_service.dart';
 import '../services/units_service.dart';
+import '../services/weigh_station_ahead_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -92,6 +93,8 @@ class AppState extends ChangeNotifier {
   final DestinationPersistenceService _destinationPersistenceService =
       DestinationPersistenceService();
   final UnitsService _unitsService = UnitsService();
+  late final WeighStationAheadService _weighStationAheadService =
+      WeighStationAheadService(_poiService);
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
@@ -260,6 +263,21 @@ class AppState extends ChangeNotifier {
   /// Legal commercial truck speed limit for [currentUsState] in mph, or `null`
   /// when the state is unknown or has no entry in the database.
   double? stateTruckSpeedLimitMph;
+
+  // ---------------------------------------------------------------------------
+  // Closest weigh station ahead
+  // ---------------------------------------------------------------------------
+
+  /// The nearest weigh station (scale POI) that is ahead of the driver within
+  /// a 100-mile search radius, or `null` when none has been found yet.
+  ///
+  /// Remains set until the driver passes the station (distance hysteresis),
+  /// at which point it switches to the next closest-ahead station.
+  Poi? closestScalePoi;
+
+  /// Driving distance in metres from the driver's current location to
+  /// [closestScalePoi], or `null` when [closestScalePoi] is `null`.
+  double? closestScaleDistanceMeters;
 
   // ---------------------------------------------------------------------------
   // Night mode state
@@ -459,6 +477,9 @@ class AppState extends ChangeNotifier {
 
   /// Initialize app state and get current location
   Future<void> init() async {
+    // Wire the weigh-station-ahead cache refresh callback.
+    _weighStationAheadService.onCacheRefreshed = () => _updateClosestScale();
+
     try {
       truckProfile = await _truckProfileService.load();
       notifyListeners();
@@ -1749,6 +1770,7 @@ class AppState extends ChangeNotifier {
     _routeMonitor.reset();
     _scaleMonitor.reset();
     _hazardMonitor.reset();
+    _weighStationAheadService.reset();
     _activeHazards = [];
   }
 
@@ -1947,6 +1969,9 @@ class AppState extends ChangeNotifier {
     // Throttled US state detection for state-specific truck speed limits.
     _checkUsState(pos.latitude, pos.longitude);
 
+    // Update the closest-ahead weigh station from the current position.
+    _updateClosestScale(lat: pos.latitude, lng: pos.longitude);
+
     // Query road speed limit (throttled – SpeedLimitService caches by distance).
     _speedLimitService.queryLimit(pos.latitude, pos.longitude).then(
       (limit) {
@@ -1965,6 +1990,35 @@ class AppState extends ChangeNotifier {
       },
       onError: (Object e) => debugPrint('SpeedLimitService error: $e'),
     );
+  }
+
+  /// Recompute [closestScalePoi] and [closestScaleDistanceMeters] from the
+  /// current GPS position and notify listeners when they change.
+  ///
+  /// Called on every speed-monitor GPS tick and after each Overpass cache
+  /// refresh to keep the displayed station fresh.  [lat] and [lng] default to
+  /// [myLat] / [myLng] when not supplied.
+  void _updateClosestScale({double? lat, double? lng}) {
+    final effectiveLat = lat ?? myLat;
+    final effectiveLng = lng ?? myLng;
+    if (effectiveLat == null || effectiveLng == null) return;
+
+    final polyline = routeResult?.polylinePoints
+        .map((p) => [p.latitude, p.longitude])
+        .toList();
+
+    final (poi, dist) = _weighStationAheadService.update(
+      lat: effectiveLat,
+      lng: effectiveLng,
+      heading: currentHeading,
+      routePolyline: polyline,
+    );
+
+    if (poi != closestScalePoi || dist != closestScaleDistanceMeters) {
+      closestScalePoi = poi;
+      closestScaleDistanceMeters = dist;
+      notifyListeners();
+    }
   }
 
   /// Check the current US state (throttled to at most once every 5 minutes).
