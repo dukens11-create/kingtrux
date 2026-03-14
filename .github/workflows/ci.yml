@@ -101,6 +101,14 @@ jobs:
           flutter build apk --debug \
             --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }}
 
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingtrux-android-apk-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
   ios-build:
     name: iOS build (debug, no-codesign)
     runs-on: macos-latest

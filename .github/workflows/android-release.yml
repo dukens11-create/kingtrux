@@ -1,15 +1,16 @@
-name: Android Build
+name: Android Release
 
 on:
   push:
-  pull_request:
+    tags:
+      - 'v*'
 
 jobs:
-  android-build:
-    name: Build Android release artifacts
+  android-release:
+    name: Build and publish Android release APK
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout
@@ -38,18 +39,6 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Check API key configuration
-        env:
-          HERE_API_KEY: ${{ secrets.HERE_API_KEY }}
-          GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
-          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
-          REVENUECAT_ANDROID_API_KEY: ${{ secrets.REVENUECAT_ANDROID_API_KEY }}
-        run: |
-          echo "HERE_API_KEY: $( [ -n "$HERE_API_KEY" ] && echo 'set' || echo 'unset' )"
-          echo "GOOGLE_MAPS_ANDROID_API_KEY: $( [ -n "$GOOGLE_MAPS_ANDROID_API_KEY" ] && echo 'set' || echo 'unset' )"
-          echo "OPENWEATHER_API_KEY: $( [ -n "$OPENWEATHER_API_KEY" ] && echo 'set' || echo 'unset' )"
-          echo "REVENUECAT_ANDROID_API_KEY: $( [ -n "$REVENUECAT_ANDROID_API_KEY" ] && echo 'set' || echo 'unset' )"
-
       - name: Inject Google Maps Android API key
         env:
           GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
@@ -77,14 +66,6 @@ jobs:
             --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }} \
             --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
 
-      - name: Build App Bundle (release)
-        run: |
-          flutter build appbundle --release \
-            --dart-define=HERE_API_KEY=${{ secrets.HERE_API_KEY }} \
-            --dart-define=OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }} \
-            --dart-define=REVENUECAT_ANDROID_API_KEY=${{ secrets.REVENUECAT_ANDROID_API_KEY }} \
-            --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
-
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -93,10 +74,8 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
+      - name: Publish APK to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: kingtrux-android-aab
-          path: build/app/outputs/bundle/release/app-release.aab
-          if-no-files-found: error
-          retention-days: 30
+          files: build/app/outputs/flutter-apk/app-release.apk
+          generate_release_notes: true
