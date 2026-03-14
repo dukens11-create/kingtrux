@@ -35,6 +35,7 @@ import 'widgets/compass_indicator.dart';
 import 'widgets/where_to_sheet.dart';
 import 'widgets/route_guidance_banner.dart';
 import 'widgets/kingtrux_logo.dart';
+import 'map/marker_icons.dart';
 import 'account_screen.dart';
 import 'navigation_screen.dart';
 import 'paywall_screen.dart';
@@ -89,10 +90,15 @@ class _MapScreenState extends State<MapScreen> {
   /// Prevents showing the scale-pass prompt dialog more than once at a time.
   bool _showingScalePassPrompt = false;
 
+  // ── Custom marker icons ────────────────────────────────────────────────────
+  /// Cached green-circle-with-w icon for [PoiType.scale] markers.
+  BitmapDescriptor? _scaleMarkerIcon;
+
   @override
   void initState() {
     super.initState();
     _logMapInitStart();
+    _loadScaleMarkerIcon();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final appState = context.read<AppState>();
       _appState = appState;
@@ -101,6 +107,26 @@ class _MapScreenState extends State<MapScreen> {
       _loadMapPrefs();
       _startMapInitTimer();
     });
+  }
+
+  /// Generates and caches the custom scale marker icon.
+  Future<void> _loadScaleMarkerIcon() async {
+    final icon = await buildCircleLetterMarker(
+      color: Colors.green,
+      letter: 'w',
+    );
+    if (mounted) {
+      if (icon != null) {
+        setState(() => _scaleMarkerIcon = icon);
+      } else {
+        developer.log(
+          'MapScreen._loadScaleMarkerIcon: failed to generate scale marker icon; '
+          'falling back to default yellow hue marker.',
+          name: _logName,
+          level: 900,
+        );
+      }
+    }
   }
 
   // ── Map diagnostics helpers ────────────────────────────────────────────────
@@ -609,7 +635,9 @@ class _MapScreenState extends State<MapScreen> {
             title: poi.name,
             snippet: PoiDetailSheet.poiLabel(poi.type),
           ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(_getPoiColor(poi.type)),
+          icon: poi.type == PoiType.scale && _scaleMarkerIcon != null
+              ? _scaleMarkerIcon!
+              : BitmapDescriptor.defaultMarkerWithHue(_getPoiColor(poi.type)),
           onTap: () => _onPoiMarkerTap(poi),
         ),
       );

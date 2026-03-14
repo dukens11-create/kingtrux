@@ -7,6 +7,7 @@ import 'package:kingtrux/services/map_preferences_service.dart';
 import 'package:kingtrux/ui/widgets/where_to_sheet.dart';
 import 'package:kingtrux/ui/widgets/onboarding_overlay.dart';
 import 'package:kingtrux/ui/theme/app_theme.dart';
+import 'package:kingtrux/ui/map/marker_icons.dart';
 
 /// Duration used for animation settle waits in widget tests.
 const _animationDuration = Duration(milliseconds: 400);
@@ -204,6 +205,64 @@ void main() {
       expect(find.textContaining('API key'), findsOneWidget);
       expect(find.textContaining('network connection'), findsOneWidget);
       expect(find.textContaining('Google Play Services'), findsOneWidget);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // MarkerIcons – buildCircleLetterMarker
+  // ---------------------------------------------------------------------------
+  group('buildCircleLetterMarker', () {
+    setUp(() {
+      // Ensure the cache is clean between tests.
+      clearMarkerIconCache();
+    });
+
+    test('returns a non-null BitmapDescriptor for green circle with w',
+        () async {
+      final descriptor = await buildCircleLetterMarker(
+        color: Colors.green,
+        letter: 'w',
+      );
+      expect(descriptor, isNotNull);
+    });
+
+    test('returns the same cached instance on repeated calls', () async {
+      final first = await buildCircleLetterMarker(
+        color: Colors.green,
+        letter: 'w',
+      );
+      final second = await buildCircleLetterMarker(
+        color: Colors.green,
+        letter: 'w',
+      );
+      expect(identical(first, second), isTrue);
+    });
+
+    test('returns different instances for different colors', () async {
+      final green = await buildCircleLetterMarker(
+        color: Colors.green,
+        letter: 'w',
+      );
+      final blue = await buildCircleLetterMarker(
+        color: Colors.blue,
+        letter: 'w',
+      );
+      expect(identical(green, blue), isFalse);
+    });
+
+    test('clears cache with clearMarkerIconCache', () async {
+      final first = await buildCircleLetterMarker(
+        color: Colors.green,
+        letter: 'w',
+      );
+      clearMarkerIconCache();
+      // After clearing, a new call should create a distinct descriptor.
+      final fresh = await buildCircleLetterMarker(
+        color: Colors.green,
+        letter: 'w',
+      );
+      expect(fresh, isNotNull);
+      expect(identical(first, fresh), isFalse);
     });
   });
 }
