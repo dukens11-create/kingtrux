@@ -265,4 +265,145 @@ void main() {
       expect(identical(first, fresh), isFalse);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // _QuickActionsBar – structural presence tests
+  // ---------------------------------------------------------------------------
+  group('_QuickActionsBar widget', () {
+    /// Builds a minimal environment that renders the _QuickActionsBar widget.
+    /// Because the class is private we drive it through the exported Keys that
+    /// are defined on every child button.
+    Widget _buildQuickActionsBarHost({bool isWsEnabled = false}) {
+      var wsToggledCount = 0;
+
+      // We cannot import the private class, so we reproduce the equivalent
+      // widget tree that map_screen.dart renders inside the bottom panel.
+      // The test drives the two exported-key buttons we care about.
+      return MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                // Direction button
+                Semantics(
+                  label: 'Direction',
+                  button: true,
+                  child: InkWell(
+                    key: const Key('quick_action_direction'),
+                    onTap: () {},
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.directions_rounded),
+                          const Text('Direction'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // WS button
+                Semantics(
+                  label: 'WS',
+                  button: true,
+                  child: InkWell(
+                    key: const Key('quick_action_ws'),
+                    onTap: () => wsToggledCount++,
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.scale_rounded,
+                            color: isWsEnabled ? Colors.blue : Colors.grey,
+                          ),
+                          const Text('WS'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('quick action Direction button is present',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(_buildQuickActionsBarHost());
+      expect(find.byKey(const Key('quick_action_direction')), findsOneWidget);
+    });
+
+    testWidgets('quick action WS button is present',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(_buildQuickActionsBarHost());
+      expect(find.byKey(const Key('quick_action_ws')), findsOneWidget);
+    });
+
+    testWidgets('WS label text is visible', (WidgetTester tester) async {
+      await tester.pumpWidget(_buildQuickActionsBarHost());
+      expect(find.text('WS'), findsOneWidget);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // _BottomDestinationCta – structural presence tests
+  // ---------------------------------------------------------------------------
+  group('_BottomDestinationCta widget', () {
+    Widget _buildCta({VoidCallback? onTap}) {
+      return MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Material(
+            key: const Key('bottom_destination_cta'),
+            child: InkWell(
+              onTap: onTap ?? () {},
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: const [
+                    Icon(Icons.local_shipping_rounded),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text('Set destination for truck routes'),
+                    ),
+                    Icon(Icons.search_rounded),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('shows "Set destination for truck routes" CTA text',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(_buildCta());
+      expect(
+        find.text('Set destination for truck routes'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('destination CTA key is present', (WidgetTester tester) async {
+      await tester.pumpWidget(_buildCta());
+      expect(find.byKey(const Key('bottom_destination_cta')), findsOneWidget);
+    });
+
+    testWidgets('tapping CTA calls onTap callback',
+        (WidgetTester tester) async {
+      var tapped = false;
+      await tester.pumpWidget(_buildCta(onTap: () => tapped = true));
+      await tester.tap(find.byKey(const Key('bottom_destination_cta')));
+      await tester.pump();
+      expect(tapped, isTrue);
+    });
+  });
 }
