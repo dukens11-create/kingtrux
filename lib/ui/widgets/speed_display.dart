@@ -93,10 +93,15 @@ class _SpeedDisplayContent extends StatelessWidget {
                 ),
                 const SizedBox(width: AppTheme.spaceSM),
                 // ── Divider ───────────────────────────────────────────────────
-                Container(
-                  width: 1,
-                  height: 40,
-                  color: Colors.grey.shade300,
+                Builder(
+                  builder: (context) {
+                    final signW = _signWidth(MediaQuery.sizeOf(context).width);
+                    return Container(
+                      width: 1,
+                      height: signW * 1.25,
+                      color: Colors.grey.shade300,
+                    );
+                  },
                 ),
                 const SizedBox(width: AppTheme.spaceSM),
                 // ── Driver speed ──────────────────────────────────────────────
@@ -138,6 +143,11 @@ class _SpeedDisplayContent extends StatelessWidget {
   }
 }
 
+/// Returns the responsive width for the speed limit sign, clamped to a safe
+/// range so it looks proportionate on phones of all sizes.
+double _signWidth(double screenWidth) =>
+    (screenWidth * 0.28).clamp(100.0, 160.0);
+
 /// Standard US SPEED LIMIT sign – white rounded rectangle, black border,
 /// "SPEED" / "LIMIT" stacked above the large numeric limit.
 class _SpeedLimitSign extends StatelessWidget {
@@ -147,24 +157,36 @@ class _SpeedLimitSign extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
     final label = limitMph != null ? limitMph!.toStringAsFixed(0) : '–';
+    final screenWidth = MediaQuery.sizeOf(context).width;
+
+    // Responsive size constants – scale with screen width but stay within
+    // a safe range so the sign is clearly readable on small devices without
+    // overflowing on larger ones.
+    final signW = _signWidth(screenWidth);
+    final borderW = (signW * 0.035).clamp(2.5, 5.0);
+    final hPad = (signW * 0.09).clamp(8.0, 16.0);
+    final vPad = (signW * 0.09).clamp(8.0, 14.0);
+    final radius = (signW * 0.09).clamp(6.0, 14.0);
+    final headerSize = (signW * 0.14).clamp(11.0, 20.0);
+    final numSize = (signW * 0.55).clamp(44.0, 82.0);
+    final innerSpacing = (signW * 0.04).clamp(2.0, 8.0);
 
     return Container(
-      width: 72,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      width: signW,
+      padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.black, width: 2.5),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: Colors.black, width: borderW),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             'SPEED',
-            style: tt.labelSmall?.copyWith(
-              fontSize: 11,
+            style: TextStyle(
+              fontSize: headerSize,
               fontWeight: FontWeight.w800,
               color: Colors.black,
               letterSpacing: 1.0,
@@ -173,18 +195,19 @@ class _SpeedLimitSign extends StatelessWidget {
           ),
           Text(
             'LIMIT',
-            style: tt.labelSmall?.copyWith(
-              fontSize: 11,
+            style: TextStyle(
+              fontSize: headerSize,
               fontWeight: FontWeight.w800,
               color: Colors.black,
               letterSpacing: 1.0,
               height: 1.1,
             ),
           ),
-          const SizedBox(height: 2),
+          SizedBox(height: innerSpacing),
           Text(
             label,
-            style: tt.headlineMedium?.copyWith(
+            style: TextStyle(
+              fontSize: numSize,
               fontWeight: FontWeight.w900,
               color: Colors.black,
               height: 1.0,
