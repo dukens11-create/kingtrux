@@ -156,8 +156,8 @@ class WeighStationAheadService {
   static const double passedNearThresholdMeters = 804.672;
 
   /// After being near, if distance grows beyond this value the driver has
-  /// passed the scale (2 miles in metres).
-  static const double passedFarHysteresisMeters = 3218.69;
+  /// passed the scale (1.5 miles in metres).
+  static const double passedFarHysteresisMeters = 2413.72;
 
   /// Half-cone angle for heading-based "ahead" classification (degrees).
   static const double aheadMaxBearingDiffDeg = 60.0;
@@ -181,6 +181,12 @@ class WeighStationAheadService {
   /// Called after a background Overpass fetch completes successfully so the
   /// owner can re-invoke [update] to incorporate fresh data immediately.
   void Function()? onCacheRefreshed;
+
+  /// Called when the driver passes (crosses) the currently selected scale.
+  ///
+  /// The passed [Poi] is the scale that was just crossed.  Use this to prompt
+  /// the driver to report the scale's status.
+  void Function(Poi passedScale)? onScalePassed;
 
   /// Returns the currently tracked scale (null if none within range).
   Poi? get selectedScale => _selectedScale;
@@ -249,9 +255,11 @@ class WeighStationAheadService {
       }
       if (_wasNear && dist > passedFarHysteresisMeters) {
         // Driver has crossed the scale — mark it passed and clear selection.
-        _passedScaleIds.add(_selectedScale!.id);
+        final passed = _selectedScale!;
+        _passedScaleIds.add(passed.id);
         _selectedScale = null;
         _wasNear = false;
+        onScalePassed?.call(passed);
       }
     }
 

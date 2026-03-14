@@ -252,9 +252,9 @@ void main() {
       // Get within passedNearThreshold (≈ same lat as scale, distance ≈ 0).
       service.update(lat: 40.0, lng: -90.0, heading: 0.0);
 
-      // Move far north past the scale (> passedFarHysteresis ≈ 2 mi ≈ 3.2 km).
-      // 40.029 ≈ 3.2 km north of 40.0.
-      service.update(lat: 40.029, lng: -90.0, heading: 0.0);
+      // Move north past the scale (> passedFarHysteresis ≈ 1.5 mi ≈ 2.4 km).
+      // 40.022 ≈ 2.45 km north of 40.0.
+      service.update(lat: 40.022, lng: -90.0, heading: 0.0);
 
       // Scale should now be cleared (no other scales in cache).
       expect(service.selectedScale, isNull);
@@ -271,6 +271,34 @@ void main() {
       // Should re-select after reset.
       final (poi, _) = service.update(lat: 39.9, lng: -90.0, heading: 0.0);
       expect(poi?.id, 'scale_a');
+    });
+
+    test('onScalePassed fires when driver crosses scale', () {
+      Poi? passedPoi;
+      service.onScalePassed = (poi) => passedPoi = poi;
+
+      // Approach: select scale heading north.
+      service.update(lat: 39.994, lng: -90.0, heading: 0.0);
+
+      // Arrive: get within passedNearThreshold.
+      service.update(lat: 40.0, lng: -90.0, heading: 0.0);
+
+      // Pass: move beyond passedFarHysteresis (1.5 mi ≈ 2.4 km).
+      service.update(lat: 40.022, lng: -90.0, heading: 0.0);
+
+      expect(passedPoi, isNotNull);
+      expect(passedPoi!.id, 'scale_a');
+    });
+
+    test('onScalePassed does not fire before near threshold', () {
+      Poi? passedPoi;
+      service.onScalePassed = (poi) => passedPoi = poi;
+
+      // Approach and immediately move far away without getting near first.
+      service.update(lat: 39.994, lng: -90.0, heading: 0.0);
+      service.update(lat: 39.5, lng: -90.0, heading: 0.0);
+
+      expect(passedPoi, isNull);
     });
   });
 
