@@ -141,7 +141,7 @@ class _CommercialSpeedSettingsSheetState
               ),
               title: const Text('Use state truck speed limits'),
               subtitle: const Text(
-                  'Show and enforce legal truck speed limit for the current US state'),
+                  'Show and enforce legal truck speed limit for the current US state or Canadian province'),
               value: _enableStateLimits,
               onChanged: (v) {
                 HapticFeedback.selectionClick();

@@ -257,15 +257,16 @@ class AppState extends ChangeNotifier {
       CommercialSpeedSettings.defaults();
 
   // ---------------------------------------------------------------------------
-  // State-specific truck speed limit
+  // State/province-specific truck speed limit
   // ---------------------------------------------------------------------------
 
-  /// USPS 2-letter code for the US state the driver is currently in (e.g.,
-  /// `'TX'`), or `null` when the state has not yet been determined.
+  /// 2-letter code for the US state or Canadian province/territory the driver
+  /// is currently in (e.g., `'TX'` or `'ON'`), or `null` when the region has
+  /// not yet been determined.
   String? currentUsState;
 
   /// Legal commercial truck speed limit for [currentUsState] in mph, or `null`
-  /// when the state is unknown or has no entry in the database.
+  /// when the region is unknown or has no entry in the database.
   double? stateTruckSpeedLimitMph;
 
   // ---------------------------------------------------------------------------
@@ -2121,9 +2122,10 @@ class AppState extends ChangeNotifier {
     });
   }
 
-  /// Check the current US state (throttled to at most once every 5 minutes).
+  /// Check the current US state or Canadian province (throttled to at most
+  /// once every 5 minutes).
   ///
-  /// On state change, updates [currentUsState] and [stateTruckSpeedLimitMph],
+  /// On region change, updates [currentUsState] and [stateTruckSpeedLimitMph],
   /// notifies listeners, and fires a speakable alert when navigating.
   void _checkUsState(double lat, double lng) {
     final now = DateTime.now();

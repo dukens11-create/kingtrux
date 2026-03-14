@@ -15,8 +15,10 @@ void main() {
       service = TruckSpeedLimitService();
     });
 
-    test('returns speed limit for Texas (75 mph)', () {
-      expect(service.limitForState('TX'), 75.0);
+    // US state lookups --------------------------------------------------------
+
+    test('returns conservative limit for Texas (70 mph)', () {
+      expect(service.limitForState('TX'), 70.0);
     });
 
     test('returns speed limit for California (55 mph)', () {
@@ -31,12 +33,24 @@ void main() {
       expect(service.limitForState('DC'), 55.0);
     });
 
+    test('returns conservative limit for Arizona (65 mph)', () {
+      expect(service.limitForState('AZ'), 65.0);
+    });
+
+    test('returns conservative limit for Colorado (65 mph)', () {
+      expect(service.limitForState('CO'), 65.0);
+    });
+
+    test('returns conservative limit for Wyoming (65 mph)', () {
+      expect(service.limitForState('WY'), 65.0);
+    });
+
     test('is case-insensitive (lowercase state code)', () {
-      expect(service.limitForState('tx'), 75.0);
+      expect(service.limitForState('tx'), 70.0);
     });
 
     test('is case-insensitive (mixed case)', () {
-      expect(service.limitForState('Tx'), 75.0);
+      expect(service.limitForState('Tx'), 70.0);
     });
 
     test('returns null for an unknown code', () {
@@ -65,6 +79,49 @@ void main() {
       }
     });
 
+    // Canadian province/territory lookups ------------------------------------
+
+    test('returns speed limit for Ontario (62 mph)', () {
+      expect(service.limitForState('ON'), 62.0);
+    });
+
+    test('returns speed limit for British Columbia (62 mph)', () {
+      expect(service.limitForState('BC'), 62.0);
+    });
+
+    test('returns speed limit for Alberta (68 mph)', () {
+      expect(service.limitForState('AB'), 68.0);
+    });
+
+    test('returns speed limit for Quebec (62 mph)', () {
+      expect(service.limitForState('QC'), 62.0);
+    });
+
+    test('returns speed limit for Nunavut (50 mph)', () {
+      expect(service.limitForState('NU'), 50.0);
+    });
+
+    test('is case-insensitive for Canadian province codes', () {
+      expect(service.limitForState('on'), 62.0);
+      expect(service.limitForState('Bc'), 62.0);
+    });
+
+    test('all 13 Canadian provinces/territories are present', () {
+      const allProvinces = [
+        'AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU',
+        'ON', 'PE', 'QC', 'SK', 'YT',
+      ];
+      for (final code in allProvinces) {
+        expect(
+          service.limitForState(code),
+          isNotNull,
+          reason: '$code should have a truck speed limit',
+        );
+      }
+    });
+
+    // Combined map ------------------------------------------------------------
+
     test('all limits are positive mph values', () {
       for (final entry in TruckSpeedLimitService.allStateLimits.entries) {
         expect(
@@ -75,9 +132,28 @@ void main() {
       }
     });
 
+    test('allStateLimits contains both US states and Canadian provinces', () {
+      final map = TruckSpeedLimitService.allStateLimits;
+      expect(map.containsKey('TX'), isTrue);
+      expect(map.containsKey('ON'), isTrue);
+      expect(map.containsKey('BC'), isTrue);
+    });
+
     test('allStateLimits returns an unmodifiable map', () {
       final map = TruckSpeedLimitService.allStateLimits;
       expect(() => (map as dynamic)['XX'] = 60.0, throwsUnsupportedError);
+    });
+
+    test('usStateLimits contains only US states', () {
+      final map = TruckSpeedLimitService.usStateLimits;
+      expect(map.containsKey('TX'), isTrue);
+      expect(map.containsKey('ON'), isFalse);
+    });
+
+    test('canadaProvinceLimits contains only Canadian provinces', () {
+      final map = TruckSpeedLimitService.canadaProvinceLimits;
+      expect(map.containsKey('ON'), isTrue);
+      expect(map.containsKey('TX'), isFalse);
     });
   });
 
