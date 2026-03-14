@@ -115,9 +115,20 @@ class _SpeedDisplayContent extends StatelessWidget {
                         color: speedColor,
                       ),
                     ),
-                    Text(
-                      'mph',
-                      style: tt.labelSmall?.copyWith(color: speedColor),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.black, width: 1),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        'mph',
+                        style: tt.labelSmall?.copyWith(color: speedColor),
+                      ),
                     ),
                   ],
                 ),
@@ -146,7 +157,7 @@ class _SpeedDisplayContent extends StatelessWidget {
 /// Returns the responsive width for the speed limit sign, clamped to a safe
 /// range so it looks proportionate on phones of all sizes.
 double _signWidth(double screenWidth) =>
-    (screenWidth * 0.28).clamp(100.0, 160.0);
+    (screenWidth * 0.18).clamp(70.0, 110.0);
 
 /// Standard US SPEED LIMIT sign – white rounded rectangle, black border,
 /// "SPEED" / "LIMIT" stacked above the large numeric limit.
