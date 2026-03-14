@@ -28,11 +28,17 @@ class FirestoreScaleReportService {
   FirestoreScaleReportService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+  })  : _firestoreOverride = firestore,
+        _authOverride = auth;
 
-  final FirebaseFirestore _firestore;
-  final FirebaseAuth _auth;
+  final FirebaseFirestore? _firestoreOverride;
+  final FirebaseAuth? _authOverride;
+
+  // Lazy accessors so Firebase is only accessed when methods are actually
+  // called (avoids failures in unit tests where Firebase is not initialised).
+  FirebaseFirestore get _firestore =>
+      _firestoreOverride ?? FirebaseFirestore.instance;
+  FirebaseAuth get _auth => _authOverride ?? FirebaseAuth.instance;
 
   static const _collection = 'scale_reports';
 
