@@ -79,8 +79,9 @@ class HereGeocodingService {
     }
   }
 
-  /// Reverse geocodes [lat]/[lng] and returns the USPS 2-letter state code
-  /// (e.g., `'TX'`), or `null` when outside the US or on any error.
+  /// Reverse geocodes [lat]/[lng] and returns the 2-letter state or province
+  /// code (e.g., `'TX'` for Texas or `'ON'` for Ontario), or `null` when the
+  /// HERE API returns no result or on any error.
   Future<String?> reverseGeocodeStateCode(double lat, double lng) async {
     if (Config.hereApiKey.isEmpty) return null;
     try {
@@ -99,7 +100,8 @@ class HereGeocodingService {
       final address =
           (items[0] as Map<String, dynamic>)['address'] as Map<String, dynamic>?;
       final stateCode = address?['stateCode'] as String?;
-      // Only return codes that look like USPS abbreviations (2 upper-case letters).
+      // Only return codes that are exactly 2 upper-case letters (covers both
+      // US state codes and Canadian province/territory codes).
       if (stateCode == null || stateCode.length != 2) return null;
       return stateCode.toUpperCase();
     } catch (e) {
