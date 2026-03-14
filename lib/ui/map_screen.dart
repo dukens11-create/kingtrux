@@ -77,12 +77,21 @@ class _MapScreenState extends State<MapScreen> {
   /// Fires if the map controller has not been created within the timeout window.
   Timer? _mapInitTimer;
 
+  // ── POI error tracking ────────────────────────────────────────────────────
+  /// Last seen [AppState.poiError] value used to detect changes for snackbar.
+  String? _lastPoiError;
+  /// Cached reference to [AppState] for use in [dispose].
+  AppState? _appState;
+
   @override
   void initState() {
     super.initState();
     _logMapInitStart();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AppState>().init();
+      final appState = context.read<AppState>();
+      _appState = appState;
+      appState.init();
+      appState.addListener(_onAppStateChanged);
       _loadMapPrefs();
       _startMapInitTimer();
     });
@@ -895,9 +904,27 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Onboarding
-  // ---------------------------------------------------------------------------
+  /// Listens to [AppState] changes and surfaces POI fetch errors as snackbars.
+  void _onAppStateChanged() {
+    if (!mounted) return;
+    final state = context.read<AppState>();
+    final err = state.poiError;
+    if (err != null && err != _lastPoiError) {
+      _lastPoiError = err;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Unable to load POIs. Check your connection and try again.',
+          ),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    } else if (err == null) {
+      _lastPoiError = null;
+    }
+  }
+
 
   Future<void> _onOnboardingDismissed() async {
     await _mapPrefs.saveOnboardingDismissed();
@@ -938,6 +965,8 @@ class _MapScreenState extends State<MapScreen> {
   void dispose() {
     _mapInitTimer?.cancel();
     _mapController?.dispose();
+    // Remove the AppState change listener added in initState.
+    _appState?.removeListener(_onAppStateChanged);
     super.dispose();
   }
 }

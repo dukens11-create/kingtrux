@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../state/app_state.dart';
@@ -40,10 +41,12 @@ class _SpeedDisplayContent extends StatelessWidget {
     final speedMph = state.currentSpeedMph;
     final limitMph = state.roadSpeedLimitMph;
 
-    final showTruckLimit =
-        state.commercialSpeedSettings.enableStateLimits &&
-            state.stateTruckSpeedLimitMph != null;
+    // Show the TRUCK badge whenever state limits are enabled – even when the
+    // truck limit is not yet known (displays "–") so the user can see that the
+    // feature is active and waiting for a GPS state fix.
+    final stateLimitsEnabled = state.commercialSpeedSettings.enableStateLimits;
     final truckLimitMph = state.stateTruckSpeedLimitMph;
+    final showTruckBadge = stateLimitsEnabled;
 
     final Color speedColor;
     if (limitMph == null) {
@@ -68,47 +71,67 @@ class _SpeedDisplayContent extends StatelessWidget {
           horizontal: AppTheme.spaceMD,
           vertical: AppTheme.spaceXS + 2,
         ),
-        child: Row(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Speed limit sign(s) ───────────────────────────────────────
-            Column(
+            Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _SpeedLimitSign(limitMph: limitMph),
-                if (showTruckLimit && truckLimitMph != null) ...[
-                  const SizedBox(height: 6),
-                  _TruckLimitBadge(
-                    limitMph: truckLimitMph,
-                  ),
-                ],
+                // ── Speed limit sign(s) ───────────────────────────────────────
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _SpeedLimitSign(limitMph: limitMph),
+                    if (showTruckBadge) ...[
+                      const SizedBox(height: 6),
+                      _TruckLimitBadge(
+                        limitMph: truckLimitMph,
+                        stateCode: state.currentUsState,
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(width: AppTheme.spaceSM),
+                // ── Divider ───────────────────────────────────────────────────
+                Container(
+                  width: 1,
+                  height: 36,
+                  color: Colors.grey.shade300,
+                ),
+                const SizedBox(width: AppTheme.spaceSM),
+                // ── Driver speed ──────────────────────────────────────────────
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      speedMph.toStringAsFixed(0),
+                      style: tt.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: speedColor,
+                      ),
+                    ),
+                    Text(
+                      'mph',
+                      style: tt.labelSmall?.copyWith(color: speedColor),
+                    ),
+                  ],
+                ),
               ],
             ),
-            const SizedBox(width: AppTheme.spaceSM),
-            // ── Divider ───────────────────────────────────────────────────
-            Container(
-              width: 1,
-              height: 36,
-              color: Colors.grey.shade300,
-            ),
-            const SizedBox(width: AppTheme.spaceSM),
-            // ── Driver speed ──────────────────────────────────────────────
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  speedMph.toStringAsFixed(0),
-                  style: tt.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: speedColor,
-                  ),
+            // ── Debug diagnostics (only in debug builds) ──────────────────
+            if (kDebugMode) ...[
+              const SizedBox(height: 4),
+              Text(
+                'state:${state.currentUsState ?? '?'} '
+                'road:${state.roadSpeedLimitMph?.toStringAsFixed(0) ?? '?'} '
+                'truck:${state.stateTruckSpeedLimitMph?.toStringAsFixed(0) ?? '?'}',
+                style: tt.labelSmall?.copyWith(
+                  fontSize: 8,
+                  color: Colors.grey.shade500,
                 ),
-                Text(
-                  'mph',
-                  style: tt.labelSmall?.copyWith(color: speedColor),
-                ),
-              ],
-            ),
+              ),
+            ],
           ],
         ),
       ),
@@ -161,14 +184,22 @@ class _SpeedLimitSign extends StatelessWidget {
 }
 
 /// Small badge shown under the road limit sign for commercial/truck limit.
+///
+/// When [limitMph] is `null` the badge shows "TRUCK –" (with optional
+/// [stateCode]) to communicate that the feature is enabled but the state-
+/// specific limit is not yet known.
 class _TruckLimitBadge extends StatelessWidget {
-  const _TruckLimitBadge({required this.limitMph});
+  const _TruckLimitBadge({required this.limitMph, this.stateCode});
 
-  final double limitMph;
+  final double? limitMph;
+  final String? stateCode;
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final limitLabel =
+        limitMph != null ? limitMph!.toStringAsFixed(0) : '–';
+    final suffix = (limitMph == null && stateCode != null) ? ' ($stateCode)' : '';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -190,10 +221,10 @@ class _TruckLimitBadge extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            limitMph.toStringAsFixed(0),
+            '$limitLabel$suffix',
             style: tt.labelSmall?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Colors.black,
+              color: limitMph != null ? Colors.black : Colors.grey.shade600,
             ),
           ),
         ],

@@ -158,6 +158,56 @@ class LayerSheet extends StatelessWidget {
 
                 const SizedBox(height: AppTheme.spaceMD),
 
+                // ── POI fetch feedback ─────────────────────────────────────
+                if (state.poiError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppTheme.spaceSM),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline_rounded,
+                            color: Theme.of(context).colorScheme.error,
+                            size: 18),
+                        const SizedBox(width: AppTheme.spaceXS),
+                        Expanded(
+                          child: Text(
+                            state.poiError!,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (state.poiEmptyMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppTheme.spaceSM),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded,
+                            color: Theme.of(context).colorScheme.secondary,
+                            size: 18),
+                        const SizedBox(width: AppTheme.spaceXS),
+                        Expanded(
+                          child: Text(
+                            state.poiEmptyMessage!,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 // Load buttons
                 Row(
                   children: [

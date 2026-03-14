@@ -374,6 +374,17 @@ class AppState extends ChangeNotifier {
   bool isLoadingRoute = false;
   bool isLoadingPois = false;
 
+  /// Error message from the last [loadPois] / [loadPoisAlongRoute] call, or
+  /// `null` when the last fetch succeeded.  Cleared at the start of every new
+  /// fetch.
+  String? poiError;
+
+  /// Non-null when the last POI fetch returned zero results.  Contains a
+  /// human-readable hint (e.g., "No POIs found within 15 km. Try increasing
+  /// the search radius.").  Cleared whenever results are found or an error
+  /// occurs instead.
+  String? poiEmptyMessage;
+
   // ---------------------------------------------------------------------------
   // Roadside assistance state
   // ---------------------------------------------------------------------------
@@ -797,10 +808,12 @@ class AppState extends ChangeNotifier {
     }
 
     isLoadingPois = true;
+    poiError = null;
+    poiEmptyMessage = null;
     notifyListeners();
 
     try {
-      pois = await _poiService.fetchPois(
+      final results = await _poiService.fetchPois(
         centerLat: myLat!,
         centerLng: myLng!,
         enabledTypes: enabledPoiLayers,
@@ -809,6 +822,18 @@ class AppState extends ChangeNotifier {
       _poisLastFetchedAt = DateTime.now();
       _poisCacheLat = myLat;
       _poisCacheLng = myLng;
+      pois = results;
+      if (results.isEmpty) {
+        final radiusKm = (radiusMeters / 1000).toStringAsFixed(0);
+        poiEmptyMessage =
+            'No POIs found within $radiusKm km. Try increasing the search radius.';
+        debugPrint('OverpassPoi: fetch returned 0 results within $radiusKm km');
+      } else {
+        debugPrint('OverpassPoi: loaded ${results.length} POI(s) within ${(radiusMeters / 1000).toStringAsFixed(0)}km');
+      }
+    } catch (e, st) {
+      debugPrint('OverpassPoi: loadPois error: $e\n$st');
+      poiError = e.toString().replaceFirst('Exception: ', '');
     } finally {
       isLoadingPois = false;
       notifyListeners();
@@ -827,6 +852,8 @@ class AppState extends ChangeNotifier {
     }
 
     isLoadingPois = true;
+    poiError = null;
+    poiEmptyMessage = null;
     notifyListeners();
 
     try {
@@ -862,6 +889,17 @@ class AppState extends ChangeNotifier {
         }
       }
       pois = merged;
+      if (merged.isEmpty) {
+        final radiusKm = (nearMeRadiusMeters / 1000).toStringAsFixed(0);
+        poiEmptyMessage =
+            'No POIs found within $radiusKm km. Try increasing the search radius.';
+        debugPrint('OverpassPoi: along-route fetch returned 0 results');
+      } else {
+        debugPrint('OverpassPoi: along-route loaded ${merged.length} POI(s)');
+      }
+    } catch (e, st) {
+      debugPrint('OverpassPoi: loadPoisAlongRoute error: $e\n$st');
+      poiError = e.toString().replaceFirst('Exception: ', '');
     } finally {
       isLoadingPois = false;
       notifyListeners();
