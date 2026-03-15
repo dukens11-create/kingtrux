@@ -66,14 +66,14 @@ String _distanceMiles(
 
 Widget _buildCategoryGrid() {
   const tileData = [
-    (Key('poi_hub_truck_stops'), 'Truck Stops'),
-    (Key('poi_hub_weigh_stations'), 'Weigh Stations'),
-    (Key('poi_hub_parking'), 'Parking'),
-    (Key('poi_hub_fuel'), 'Fuel'),
-    (Key('poi_hub_rest_areas'), 'Rest Areas'),
-    (Key('poi_hub_walmarts'), 'Walmarts'),
-    (Key('poi_hub_truck_washes'), 'Truck Washes'),
-    (Key('poi_hub_more'), 'More'),
+    (Key('poi_hub_tile_truckStops'), 'Truck Stops'),
+    (Key('poi_hub_tile_weighStations'), 'Weigh Stations'),
+    (Key('poi_hub_tile_parking'), 'Parking'),
+    (Key('poi_hub_tile_fuel'), 'Fuel'),
+    (Key('poi_hub_tile_restAreas'), 'Rest Areas'),
+    (Key('poi_hub_tile_walmarts'), 'Walmarts'),
+    (Key('poi_hub_tile_truckWashes'), 'Truck Washes'),
+    (Key('poi_hub_tile_more'), 'More'),
   ];
 
   return MaterialApp(
@@ -211,14 +211,14 @@ void main() {
         (WidgetTester tester) async {
       await tester.pumpWidget(_buildCategoryGrid());
 
-      expect(find.byKey(const Key('poi_hub_truck_stops')), findsOneWidget);
-      expect(find.byKey(const Key('poi_hub_weigh_stations')), findsOneWidget);
-      expect(find.byKey(const Key('poi_hub_parking')), findsOneWidget);
-      expect(find.byKey(const Key('poi_hub_fuel')), findsOneWidget);
-      expect(find.byKey(const Key('poi_hub_rest_areas')), findsOneWidget);
-      expect(find.byKey(const Key('poi_hub_walmarts')), findsOneWidget);
-      expect(find.byKey(const Key('poi_hub_truck_washes')), findsOneWidget);
-      expect(find.byKey(const Key('poi_hub_more')), findsOneWidget);
+      expect(find.byKey(const Key('poi_hub_tile_truckStops')), findsOneWidget);
+      expect(find.byKey(const Key('poi_hub_tile_weighStations')), findsOneWidget);
+      expect(find.byKey(const Key('poi_hub_tile_parking')), findsOneWidget);
+      expect(find.byKey(const Key('poi_hub_tile_fuel')), findsOneWidget);
+      expect(find.byKey(const Key('poi_hub_tile_restAreas')), findsOneWidget);
+      expect(find.byKey(const Key('poi_hub_tile_walmarts')), findsOneWidget);
+      expect(find.byKey(const Key('poi_hub_tile_truckWashes')), findsOneWidget);
+      expect(find.byKey(const Key('poi_hub_tile_more')), findsOneWidget);
     });
 
     testWidgets('renders all eight category label texts',
