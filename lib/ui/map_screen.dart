@@ -20,6 +20,7 @@ import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/poi_browser_sheet.dart';
 import 'widgets/poi_detail_sheet.dart';
+import 'widgets/more_poi_screen.dart';
 import 'widgets/roadside_assistance_sheet.dart';
 import 'widgets/route_summary_card.dart';
 import 'widgets/voice_settings_sheet.dart';
@@ -351,6 +352,7 @@ class _MapScreenState extends State<MapScreen> {
                         onToll: () => _showComingSoon('Toll routing'),
                         onWeather: () => _showComingSoon('Weather'),
                         onCameras: () => _showComingSoon('Cameras'),
+                        onMore: _onMorePoiPressed,
                       ),
                     ],
                   ),
@@ -824,6 +826,24 @@ class _MapScreenState extends State<MapScreen> {
       isScrollControlled: true,
       builder: (context) => const PoiBrowserSheet(),
     );
+  }
+
+  Future<void> _onMorePoiPressed() async {
+    HapticFeedback.selectionClick();
+    final state = context.read<AppState>();
+    final selectedType = await Navigator.of(context).push<PoiType?>(
+      MaterialPageRoute<PoiType?>(
+        builder: (_) => ChangeNotifierProvider.value(
+          value: state,
+          child: const MorePoiScreen(),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    // If the user selected a supported POI type, open the browser.
+    if (selectedType != null) {
+      _onPoiBrowserPressed();
+    }
   }
 
   void _onGetHelpPressed() {
@@ -1767,6 +1787,7 @@ class _QuickActionsBar extends StatelessWidget {
     required this.onToll,
     required this.onWeather,
     required this.onCameras,
+    required this.onMore,
   });
 
   final bool isWsEnabled;
@@ -1777,6 +1798,7 @@ class _QuickActionsBar extends StatelessWidget {
   final VoidCallback onToll;
   final VoidCallback onWeather;
   final VoidCallback onCameras;
+  final VoidCallback onMore;
 
   @override
   Widget build(BuildContext context) {
@@ -1838,6 +1860,12 @@ class _QuickActionsBar extends StatelessWidget {
                   icon: Icons.videocam_outlined,
                   label: 'Cameras',
                   onTap: onCameras,
+                ),
+                _QuickActionButton(
+                  key: const Key('quick_action_more'),
+                  icon: Icons.grid_view_rounded,
+                  label: 'More',
+                  onTap: onMore,
                 ),
               ],
             ),

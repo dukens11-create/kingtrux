@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +6,7 @@ import '../../models/poi.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
 import 'poi_detail_sheet.dart';
+import 'more_poi_screen.dart';
 
 /// Full POI browser bottom sheet.
 ///
@@ -73,6 +75,45 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
   /// can decide whether to show the "Open Now" filter chip.
   static bool _hasHoursData(List<Poi> pois) =>
       pois.any((p) => (p.tags['opening_hours'] as String?) != null);
+
+  /// Haversine distance in meters between two WGS-84 coordinates.
+  static double _haversineMeters(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
+    const r = 6371000.0;
+    final phi1 = lat1 * math.pi / 180;
+    final phi2 = lat2 * math.pi / 180;
+    final dPhi = (lat2 - lat1) * math.pi / 180;
+    final dLambda = (lng2 - lng1) * math.pi / 180;
+    final sinDPhi = math.sin(dPhi / 2);
+    final sinDLambda = math.sin(dLambda / 2);
+    final a = sinDPhi * sinDPhi +
+        math.cos(phi1) * math.cos(phi2) * sinDLambda * sinDLambda;
+    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  }
+
+  /// Formats a distance in metres as a human-readable miles string,
+  /// e.g. "2.3 mi".
+  static String _formatMiles(double meters) {
+    final miles = meters / 1609.344;
+    if (miles < 10) {
+      return '${miles.toStringAsFixed(1)} mi';
+    }
+    return '${miles.round()} mi';
+  }
+
+  /// Returns a formatted distance string from the driver's current location
+  /// to [poi], or `null` if GPS is not available.
+  static String? _distanceText(AppState state, Poi poi) {
+    final lat = state.myLat;
+    final lng = state.myLng;
+    if (lat == null || lng == null) return null;
+    final meters = _haversineMeters(lat, lng, poi.lat, poi.lng);
+    return _formatMiles(meters);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -218,6 +259,30 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
                             },
                           ),
                         ),
+                      // "More" chip – navigates to the full-screen More page
+                      Padding(
+                        padding:
+                            const EdgeInsets.only(right: AppTheme.spaceXS),
+                        child: ActionChip(
+                          key: const Key('poi_browser_more_chip'),
+                          avatar: const Icon(
+                            Icons.grid_view_rounded,
+                            size: 14,
+                          ),
+                          label: const Text('More'),
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            Navigator.of(context).push<void>(
+                              MaterialPageRoute<void>(
+                                builder: (_) => ChangeNotifierProvider.value(
+                                  value: state,
+                                  child: const MorePoiScreen(),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -347,6 +412,9 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
     Poi poi,
   ) {
     final isFav = state.favoritePois.contains(poi.id);
+    final distText = _distanceText(state, poi);
+    final typeLabel = PoiDetailSheet.poiLabel(poi.type);
+    final subtitle = distText != null ? '$typeLabel · $distText' : typeLabel;
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: cs.primaryContainer,
@@ -357,7 +425,7 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
         ),
       ),
       title: Text(poi.name),
-      subtitle: Text(PoiDetailSheet.poiLabel(poi.type)),
+      subtitle: Text(subtitle),
       trailing: IconButton(
         tooltip: isFav ? 'Remove from favorites' : 'Add to favorites',
         icon: Icon(
