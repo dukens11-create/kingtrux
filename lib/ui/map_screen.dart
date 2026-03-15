@@ -30,6 +30,7 @@ import 'widgets/maneuver_banner.dart';
 import 'widgets/steps_list_sheet.dart';
 import 'widgets/trip_planner_sheet.dart';
 import 'widgets/speed_display.dart';
+import 'trip_screen.dart';
 import 'widgets/closest_scale_card.dart';
 import 'widgets/compass_indicator.dart';
 import 'widgets/where_to_sheet.dart';
@@ -770,10 +771,10 @@ class _MapScreenState extends State<MapScreen> {
 
   void _onTripPlannerPressed() {
     HapticFeedback.selectionClick();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => const TripPlannerSheet(),
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const TripScreen(),
+      ),
     );
   }
 
