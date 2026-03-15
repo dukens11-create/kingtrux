@@ -37,6 +37,7 @@ import 'widgets/route_guidance_banner.dart';
 import 'widgets/kingtrux_logo.dart';
 import 'map/marker_icons.dart';
 import 'account_screen.dart';
+import 'messages_screen.dart';
 import 'navigation_screen.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
@@ -236,6 +237,7 @@ class _MapScreenState extends State<MapScreen> {
           onGoPro: _onGoProPressed,
           onSteps: _onStepsPressed,
           onRouteOptions: _onRouteOptionsPressed,
+          onMessages: _onMessagesPressed,
           isPro: state.isPro,
           isSettingDestination: _settingDestination,
           isNavigating: state.isNavigating,
@@ -860,6 +862,14 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onMessagesPressed() {
+    HapticFeedback.selectionClick();
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const MessagesScreen()),
+    );
+  }
+
   /// Called when the user taps the map. Only acts when destination-setting
   /// mode is active; all other taps are ignored so normal map interaction
   /// (panning, zooming, marker taps) is unaffected.
@@ -1102,6 +1112,7 @@ class _MapToolbar extends StatelessWidget {
     required this.onGoPro,
     required this.onSteps,
     required this.onRouteOptions,
+    required this.onMessages,
     required this.isPro,
     required this.isSettingDestination,
     required this.isNavigating,
@@ -1117,6 +1128,7 @@ class _MapToolbar extends StatelessWidget {
   final VoidCallback onGoPro;
   final VoidCallback onSteps;
   final VoidCallback onRouteOptions;
+  final VoidCallback onMessages;
   final bool isPro;
   final bool isSettingDestination;
   final bool isNavigating;
@@ -1157,6 +1169,11 @@ class _MapToolbar extends StatelessWidget {
             icon: Icons.route_rounded,
             label: 'Trip',
             onPressed: onTripPlanner,
+          ),
+          _ToolbarButton(
+            icon: Icons.message_rounded,
+            label: 'Messages',
+            onPressed: onMessages,
           ),
           if (isNavigating)
             _ToolbarButton(
