@@ -105,32 +105,48 @@ class _SpeedDisplayContent extends StatelessWidget {
                 ),
                 const SizedBox(width: AppTheme.spaceSM),
                 // ── Driver speed ──────────────────────────────────────────────
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      speedMph.toStringAsFixed(0),
-                      style: tt.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: speedColor,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: Colors.black, width: 1),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: Text(
-                        'mph',
-                        style: tt.labelSmall?.copyWith(color: speedColor),
-                      ),
-                    ),
-                  ],
+                Builder(
+                  builder: (context) {
+                    final signW =
+                        _signWidth(MediaQuery.sizeOf(context).width);
+                    final driverNumSize =
+                        (signW * 0.42).clamp(40.0, 72.0);
+                    final driverMphSize =
+                        (signW * 0.14).clamp(12.0, 20.0);
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          speedMph.toStringAsFixed(0),
+                          style: TextStyle(
+                            fontSize: driverNumSize,
+                            fontWeight: FontWeight.bold,
+                            color: speedColor,
+                            height: 1.0,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            border:
+                                Border.all(color: Colors.black, width: 1),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            'mph',
+                            style: TextStyle(
+                              fontSize: driverMphSize,
+                              color: speedColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -157,7 +173,7 @@ class _SpeedDisplayContent extends StatelessWidget {
 /// Returns the responsive width for the speed limit sign, clamped to a safe
 /// range so it looks proportionate on phones of all sizes.
 double _signWidth(double screenWidth) =>
-    (screenWidth * 0.18).clamp(70.0, 110.0);
+    (screenWidth * 0.28).clamp(110.0, 170.0);
 
 /// Standard US SPEED LIMIT sign – white rounded rectangle, black border,
 /// "SPEED" / "LIMIT" stacked above the large numeric limit.
