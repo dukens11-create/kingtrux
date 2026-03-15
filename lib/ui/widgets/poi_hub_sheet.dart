@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/poi.dart';
 import '../../state/app_state.dart';
-import '../more_poi_screen.dart';
 import '../navigation_screen.dart';
 import '../theme/app_theme.dart';
 import 'poi_browser_sheet.dart';
@@ -27,7 +26,7 @@ import 'where_to_sheet.dart';
 /// Tapping a tile for a not-yet-implemented category (Walmarts, Truck Washes)
 /// shows a "Coming soon" [SnackBar].
 ///
-/// Tapping **More** opens the full-screen [MorePoiScreen].
+/// Tapping **More** opens the full [PoiBrowserSheet] without any filter change.
 class PoiHubSheet extends StatelessWidget {
   const PoiHubSheet({super.key});
 
@@ -140,7 +139,7 @@ class PoiHubSheet extends StatelessWidget {
       case _PoiCategory.truckWashes:
         _showComingSoon(context, category.label);
       case _PoiCategory.more:
-        _openMoreScreen(context);
+        _openFullBrowser(context);
     }
   }
 
@@ -164,13 +163,15 @@ class PoiHubSheet extends StatelessWidget {
     );
   }
 
-  void _openMoreScreen(BuildContext context) {
-    HapticFeedback.selectionClick();
-    final rootNav = Navigator.of(context, rootNavigator: true);
-    Navigator.of(context).pop();
-    rootNav.push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => const MorePoiScreen(),
+  void _openFullBrowser(BuildContext context) {
+    final state = context.read<AppState>();
+    Navigator.pop(context);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => ChangeNotifierProvider.value(
+        value: state,
+        child: const PoiBrowserSheet(),
       ),
     );
   }
