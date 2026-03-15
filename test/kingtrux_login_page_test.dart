@@ -54,6 +54,19 @@ Widget _buildPage(_MockAuthService auth) {
   );
 }
 
+/// Wraps [KingtruxLoginPage] inside a dark-theme [MaterialApp] to verify the
+/// page forces a light theme internally.
+Widget _buildPageWithDarkTheme(_MockAuthService auth) {
+  return Provider<AuthService>.value(
+    value: auth,
+    child: MaterialApp(
+      theme: ThemeData.dark(),
+      themeMode: ThemeMode.dark,
+      home: const KingtruxLoginPage(),
+    ),
+  );
+}
+
 void main() {
   group('KingtruxLoginPage', () {
     testWidgets('renders without crashing', (WidgetTester tester) async {
@@ -266,6 +279,15 @@ void main() {
 
       expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
       expect(_findPasswordField(tester).obscureText, isTrue);
+    });
+
+    testWidgets('renders with light theme even inside a dark-theme MaterialApp',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(_buildPageWithDarkTheme(_MockAuthService()));
+
+      // The Scaffold background should be white (light), not dark.
+      final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
+      expect(scaffold.backgroundColor, Colors.white);
     });
   });
 }

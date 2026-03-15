@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import 'widgets/kingtrux_logo.dart';
@@ -135,8 +136,26 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
     final size = MediaQuery.of(context).size;
     final isSmall = size.height < 740;
 
-    return Scaffold(
-      body: Stack(
+    // Force a light theme for the login page regardless of the app's
+    // night-mode setting so the page is always bright and readable.
+    final lightTheme = Theme.of(context).copyWith(
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: Colors.white,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF214EA8),
+        brightness: Brightness.light,
+      ),
+    );
+
+    return Theme(
+      data: lightTheme,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarBrightness: Brightness.light,
+          statusBarIconBrightness: Brightness.dark,
+        ),
+        child: Scaffold(
+          body: Stack(
         children: [
           // BACKGROUND (map image if available, otherwise gradient)
           Positioned.fill(
@@ -415,6 +434,8 @@ class _KingtruxLoginPageState extends State<KingtruxLoginPage> {
             ),
           ),
         ],
+      ),
+        ),
       ),
     );
   }
