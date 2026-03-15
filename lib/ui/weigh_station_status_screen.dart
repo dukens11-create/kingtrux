@@ -1,5 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import '../config.dart';
 import '../models/scale_report.dart';
+import '../services/auth_service.dart';
 import '../services/firestore_scale_report_service.dart';
 import 'theme/app_theme.dart';
 
@@ -23,10 +27,42 @@ class WeighStationStatusScreen extends StatefulWidget {
 class _WeighStationStatusScreenState extends State<WeighStationStatusScreen> {
   late final FirestoreScaleReportService _service;
 
+  // Incremented to force the StreamBuilder to recreate the stream on retry.
+  int _streamKey = 0;
+
+  // Set to true while we are signing in anonymously for a retry.
+  bool _signingIn = false;
+
   @override
   void initState() {
     super.initState();
     _service = FirestoreScaleReportService();
+  }
+
+  /// Returns `true` when [error] is a Firestore permission-denied exception.
+  static bool _isPermissionDenied(Object error) {
+    if (error is FirebaseException) {
+      return error.code == 'permission-denied';
+    }
+    final msg = error.toString();
+    return msg.contains('permission-denied') || msg.contains('PERMISSION_DENIED');
+  }
+
+  /// Attempts an anonymous sign-in and retries the Firestore stream.
+  Future<void> _retryWithAnonymousAuth() async {
+    setState(() => _signingIn = true);
+    try {
+      await AuthService().ensureSignedIn();
+    } catch (e) {
+      debugPrint('[WeighStationStatus] Anonymous sign-in failed on retry: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _signingIn = false;
+          _streamKey++; // force a new stream subscription
+        });
+      }
+    }
   }
 
   @override
@@ -81,7 +117,12 @@ class _WeighStationStatusScreenState extends State<WeighStationStatusScreen> {
   // ---------------------------------------------------------------------------
 
   Widget _buildLiveStatus(BuildContext context, String scaleId) {
+    if (_signingIn) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return StreamBuilder<ScaleReport?>(
+      key: ValueKey(_streamKey),
       stream: _service.watchLatest(scaleId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -89,7 +130,23 @@ class _WeighStationStatusScreenState extends State<WeighStationStatusScreen> {
         }
 
         if (snapshot.hasError) {
-          return _ErrorView(message: 'Could not load status: ${snapshot.error}');
+          final error = snapshot.error!;
+          debugPrint('[WeighStationStatus] Firestore error: $error');
+
+          if (_isPermissionDenied(error)) {
+            return _ErrorView(
+              message: 'Status unavailable. Please sign in to view live weigh station data.',
+              isPermissionDenied: true,
+              onRetry: Config.enableAnonymousAuthForStatus
+                  ? _retryWithAnonymousAuth
+                  : null,
+            );
+          }
+
+          return _ErrorView(
+            message: 'Could not load status: $error',
+            onRetry: () => setState(() => _streamKey++),
+          );
         }
 
         final report = snapshot.data;
@@ -283,9 +340,15 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message});
+  const _ErrorView({
+    required this.message,
+    this.isPermissionDenied = false,
+    this.onRetry,
+  });
 
   final String message;
+  final bool isPermissionDenied;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -305,6 +368,18 @@ class _ErrorView extends StatelessWidget {
                   ),
               textAlign: TextAlign.center,
             ),
+            if (onRetry != null) ...[
+              const SizedBox(height: AppTheme.spaceMD),
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: Icon(
+                  isPermissionDenied
+                      ? Icons.lock_open_rounded
+                      : Icons.refresh_rounded,
+                ),
+                label: Text(isPermissionDenied ? 'Sign In & Retry' : 'Retry'),
+              ),
+            ],
           ],
         ),
       ),

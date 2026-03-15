@@ -153,6 +153,27 @@ class AuthService {
   }
 
   // ---------------------------------------------------------------------------
+  // Anonymous sign-in
+  // ---------------------------------------------------------------------------
+
+  /// Signs in anonymously if no user is currently signed in.
+  ///
+  /// Safe to call multiple times — subsequent calls are no-ops when a user
+  /// (anonymous or otherwise) is already signed in.  If anonymous sign-in
+  /// fails the error is logged and re-thrown so the caller can decide how
+  /// to handle it.
+  Future<void> ensureSignedIn() async {
+    if (_auth.currentUser != null) return;
+    try {
+      await _auth.signInAnonymously();
+      debugPrint('[Auth] Signed in anonymously for Firestore access.');
+    } catch (e) {
+      debugPrint('[Auth] Anonymous sign-in failed: $e');
+      rethrow;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Sign out
   // ---------------------------------------------------------------------------
 

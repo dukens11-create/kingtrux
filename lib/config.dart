@@ -106,6 +106,22 @@ class Config {
   static const String feedbackUrl = 'https://kingtrux.com/feedback';
 
   // ---------------------------------------------------------------------------
+  // Anonymous authentication for Firestore status reads
+  // ---------------------------------------------------------------------------
+
+  /// When `true`, the app signs in anonymously on startup if no user is already
+  /// signed in. This ensures that Firestore reads for the Weigh Station Status
+  /// feature succeed when rules require `request.auth != null`.
+  ///
+  /// Set to `false` to disable automatic anonymous sign-in and require the user
+  /// to sign in manually via the login screen.
+  ///
+  /// Override at build/run time:
+  ///   flutter run --dart-define=ENABLE_ANONYMOUS_AUTH_FOR_STATUS=false
+  static const bool enableAnonymousAuthForStatus =
+      bool.fromEnvironment('ENABLE_ANONYMOUS_AUTH_FOR_STATUS', defaultValue: true);
+
+  // ---------------------------------------------------------------------------
   // Admin access
   // Comma-separated list of email addresses that are treated as app admins.
   // Pass at build/run time:
