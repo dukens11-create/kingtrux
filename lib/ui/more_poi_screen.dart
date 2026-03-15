@@ -32,7 +32,7 @@ class MorePoiScreen extends StatelessWidget {
               _buildSection(
                 context,
                 state,
-                label: 'Categories',
+                label: 'Brands & Categories',
                 items: [
                   _MoreItem(
                     'Pilot & Flying J',

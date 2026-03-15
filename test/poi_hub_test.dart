@@ -141,7 +141,7 @@ class _MoreScreenStub extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('CATEGORIES'),
+          const Text('BRANDS & CATEGORIES'),
           Wrap(
             children: [
               ActionChip(label: const Text('Truck Stops'), onPressed: () {}),
@@ -255,7 +255,7 @@ void main() {
       await tester.tap(find.byKey(const Key('open_more')));
       await tester.pumpAndSettle();
 
-      expect(find.text('CATEGORIES'), findsOneWidget);
+      expect(find.text('BRANDS & CATEGORIES'), findsOneWidget);
       expect(find.text('TRUCK SERVICES'), findsOneWidget);
       expect(find.text('AMENITIES'), findsOneWidget);
       expect(find.text('SECURITY'), findsOneWidget);
