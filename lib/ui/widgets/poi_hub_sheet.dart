@@ -517,25 +517,25 @@ class _ExtrasSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppTheme.spaceSM),
-        const _PlaceholderCard(
+        _PlaceholderCard(
           icon: Icons.local_offer_rounded,
           title: 'Driver Discounts',
           subtitle: 'Fuel savings, rest stop deals & more — Coming soon',
-          color: Colors.green,
+          color: cs.primary,
         ),
         const SizedBox(height: AppTheme.spaceSM),
-        const _PlaceholderCard(
+        _PlaceholderCard(
           icon: Icons.wb_cloudy_rounded,
           title: 'Weather Along Route',
           subtitle: 'Forecast for your route stops — Coming soon',
-          color: Colors.blue,
+          color: cs.primary,
         ),
         const SizedBox(height: AppTheme.spaceSM),
-        const _PlaceholderCard(
+        _PlaceholderCard(
           icon: Icons.share_rounded,
           title: 'Share My Experience',
           subtitle: 'Rate stops and share tips with fellow drivers — Coming soon',
-          color: Colors.orange,
+          color: cs.primary,
         ),
       ],
     );

@@ -85,7 +85,7 @@ class MessagesScreen extends StatelessWidget {
               children: [
                 _MessageCategoryRow(
                   icon: Icons.notifications_rounded,
-                  color: Colors.red.shade600,
+                  color: cs.primary,
                   title: 'Announcements',
                   subtitle: 'Company-wide updates & alerts',
                   badge: '5',
@@ -93,14 +93,14 @@ class MessagesScreen extends StatelessWidget {
                 ),
                 _MessageCategoryRow(
                   icon: Icons.folder_rounded,
-                  color: Colors.blue.shade600,
+                  color: cs.primary,
                   title: 'Files',
                   subtitle: 'Documents & attachments',
                   onTap: () {},
                 ),
                 _MessageCategoryRow(
                   icon: Icons.route_rounded,
-                  color: Colors.green.shade700,
+                  color: cs.primary,
                   title: 'Trip Updates',
                   subtitle: 'Load & route notifications',
                   onTap: () {},
@@ -109,7 +109,7 @@ class MessagesScreen extends StatelessWidget {
                 const _WeighStationStatusRow(),
                 _MessageCategoryRow(
                   icon: Icons.list_alt_rounded,
-                  color: Colors.purple.shade600,
+                  color: cs.primary,
                   title: 'Load Board',
                   subtitle: 'Available loads near you',
                   badge: '99+',
@@ -275,6 +275,7 @@ class _WeighStationStatusRowState extends State<_WeighStationStatusRow> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Consumer<AppState>(
       builder: (context, state, _) {
         final scale = state.closestScalePoi;
@@ -283,7 +284,7 @@ class _WeighStationStatusRowState extends State<_WeighStationStatusRow> {
           // No GPS fix or no nearby scale — show a graceful fallback.
           return _MessageCategoryRow(
             icon: Icons.scale_rounded,
-            color: Colors.orange.shade700,
+            color: cs.primary,
             title: 'Weigh Station Status',
             subtitle: 'No nearby scale',
             onTap: () => _openStatusScreen(null),
@@ -300,7 +301,7 @@ class _WeighStationStatusRowState extends State<_WeighStationStatusRow> {
 
             return _MessageCategoryRow(
               icon: Icons.scale_rounded,
-              color: Colors.orange.shade700,
+              color: cs.primary,
               title: 'Weigh Station Status',
               subtitle: subtitle,
               onTap: () => _openStatusScreen(scale.id),
