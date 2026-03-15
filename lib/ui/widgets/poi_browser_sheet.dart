@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -347,6 +349,10 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
     Poi poi,
   ) {
     final isFav = state.favoritePois.contains(poi.id);
+    final dist = _distanceMiles(state.myLat, state.myLng, poi.lat, poi.lng);
+    final typeLabel = PoiDetailSheet.poiLabel(poi.type);
+    final subtitleText =
+        dist != null ? '$typeLabel · $dist' : typeLabel;
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: cs.primaryContainer,
@@ -357,7 +363,7 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
         ),
       ),
       title: Text(poi.name),
-      subtitle: Text(PoiDetailSheet.poiLabel(poi.type)),
+      subtitle: Text(subtitleText),
       trailing: IconButton(
         tooltip: isFav ? 'Remove from favorites' : 'Add to favorites',
         icon: Icon(
@@ -380,6 +386,38 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
         );
       },
     );
+  }
+
+  /// Returns a formatted distance string (e.g. `"2.3 mi"`) from
+  /// [fromLat]/[fromLng] to [toLat]/[toLng], or `null` when GPS is
+  /// unavailable (i.e. [fromLat] or [fromLng] is `null`).
+  static String? _distanceMiles(
+    double? fromLat,
+    double? fromLng,
+    double toLat,
+    double toLng,
+  ) {
+    if (fromLat == null || fromLng == null) return null;
+    final meters = _haversineMeters(fromLat, fromLng, toLat, toLng);
+    final miles = meters / 1609.344;
+    return '${miles.toStringAsFixed(1)} mi';
+  }
+
+  static double _haversineMeters(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
+    const r = 6371000.0;
+    final dLat = (lat2 - lat1) * math.pi / 180.0;
+    final dLng = (lng2 - lng1) * math.pi / 180.0;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180.0) *
+            math.cos(lat2 * math.pi / 180.0) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
   Widget _buildEmptyState(
