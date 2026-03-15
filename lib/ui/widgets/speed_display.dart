@@ -95,10 +95,10 @@ class _SpeedDisplayContent extends StatelessWidget {
                 // ── Divider ───────────────────────────────────────────────────
                 Builder(
                   builder: (context) {
-                    final sw = MediaQuery.sizeOf(context).width;
+                    final signW = _signWidth(MediaQuery.sizeOf(context).width);
                     return Container(
                       width: 1,
-                      height: _signHeight(sw),
+                      height: signW * 1.25,
                       color: Colors.grey.shade300,
                     );
                   },
@@ -156,13 +156,8 @@ class _SpeedDisplayContent extends StatelessWidget {
 
 /// Returns the responsive width for the speed limit sign, clamped to a safe
 /// range so it looks proportionate on phones of all sizes.
-/// Roughly 25% smaller than the previous large version.
 double _signWidth(double screenWidth) =>
-    (screenWidth * 0.16).clamp(50.0, 68.0);
-
-/// Returns the responsive height for the speed limit sign.
-double _signHeight(double screenWidth) =>
-    (screenWidth * 0.20).clamp(58.0, 80.0);
+    (screenWidth * 0.18).clamp(70.0, 110.0);
 
 /// Standard US SPEED LIMIT sign – white rounded rectangle, black border,
 /// "SPEED" / "LIMIT" stacked above the large numeric limit.
@@ -178,20 +173,18 @@ class _SpeedLimitSign extends StatelessWidget {
 
     // Responsive size constants – scale with screen width but stay within
     // a safe range so the sign is clearly readable on small devices without
-    // overflowing on larger ones.  ~25% smaller than the previous design.
+    // overflowing on larger ones.
     final signW = _signWidth(screenWidth);
-    final signH = _signHeight(screenWidth);
-    final borderW = (signW * 0.035).clamp(1.4, 2.2);
-    final hPad = (signW * 0.10).clamp(4.0, 7.0);
-    final vPad = (signH * 0.085).clamp(4.0, 6.0);
-    final radius = (signW * 0.09).clamp(4.0, 8.0);
-    final headerSize = (signW * 0.18).clamp(8.0, 10.0);
-    final numSize = (signW * 0.62).clamp(20.0, 30.0);
-    final innerSpacing = (signW * 0.04).clamp(1.0, 4.0);
+    final borderW = (signW * 0.035).clamp(2.5, 5.0);
+    final hPad = (signW * 0.09).clamp(8.0, 16.0);
+    final vPad = (signW * 0.09).clamp(8.0, 14.0);
+    final radius = (signW * 0.09).clamp(6.0, 14.0);
+    final headerSize = (signW * 0.14).clamp(11.0, 20.0);
+    final numSize = (signW * 0.55).clamp(44.0, 82.0);
+    final innerSpacing = (signW * 0.04).clamp(2.0, 8.0);
 
     return Container(
       width: signW,
-      height: signH,
       padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
       decoration: BoxDecoration(
         color: Colors.white,
