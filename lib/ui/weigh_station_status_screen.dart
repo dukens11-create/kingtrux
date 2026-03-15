@@ -1,9 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/scale_report.dart';
-import '../services/firebase_auth_bootstrap.dart';
 import '../services/firestore_scale_report_service.dart';
 import 'theme/app_theme.dart';
 
@@ -27,42 +23,10 @@ class WeighStationStatusScreen extends StatefulWidget {
 class _WeighStationStatusScreenState extends State<WeighStationStatusScreen> {
   late final FirestoreScaleReportService _service;
 
-  /// Whether the auth bootstrap is still in progress.
-  bool _authLoading = false;
-
-  /// Active stream for the current [widget.scaleId].  Replaced on each retry.
-  Stream<ScaleReport?>? _stream;
-
   @override
   void initState() {
     super.initState();
     _service = FirestoreScaleReportService();
-    if (widget.scaleId != null) {
-      _initStream(widget.scaleId!);
-    }
-  }
-
-  /// Ensures auth then (re-)starts the Firestore stream for [scaleId].
-  ///
-  /// Called once on init and again whenever the user taps "Retry".
-  Future<void> _initStream(String scaleId) async {
-    if (!mounted) return;
-    setState(() => _authLoading = true);
-    try {
-      await FirebaseAuthBootstrap.ensureSignedIn();
-    } catch (e) {
-      debugPrint('[WeighStationStatus] auth error: $e');
-      // Auth failure is non-fatal: the finally block still initialises the
-      // stream so we attempt the Firestore read; if it is rejected the
-      // StreamBuilder error handler will surface the error to the user.
-    } finally {
-      if (mounted) {
-        setState(() {
-          _authLoading = false;
-          _stream = _service.watchLatest(scaleId);
-        });
-      }
-    }
   }
 
   @override
@@ -71,9 +35,7 @@ class _WeighStationStatusScreenState extends State<WeighStationStatusScreen> {
       appBar: AppBar(title: const Text('Weigh Station Status')),
       body: widget.scaleId == null
           ? _buildNoScale(context)
-          : _authLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _buildLiveStatus(context, widget.scaleId!),
+          : _buildLiveStatus(context, widget.scaleId!),
     );
   }
 
@@ -119,33 +81,15 @@ class _WeighStationStatusScreenState extends State<WeighStationStatusScreen> {
   // ---------------------------------------------------------------------------
 
   Widget _buildLiveStatus(BuildContext context, String scaleId) {
-    final stream = _stream;
-    if (stream == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
     return StreamBuilder<ScaleReport?>(
-      stream: stream,
+      stream: _service.watchLatest(scaleId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
         if (snapshot.hasError) {
-          final err = snapshot.error;
-          debugPrint('[WeighStationStatus] Firestore error: $err');
-          final isPermissionDenied = err is FirebaseException &&
-              err.plugin == 'cloud_firestore' &&
-              err.code == 'permission-denied';
-          if (isPermissionDenied) {
-            return _ErrorView(
-              message: 'Status unavailable. Please sign in.',
-              onRetry: () => _initStream(scaleId),
-            );
-          }
-          return _ErrorView(
-            message: 'Could not load status: $err',
-            onRetry: () => _initStream(scaleId),
-          );
+          return _ErrorView(message: 'Could not load status: ${snapshot.error}');
         }
 
         final report = snapshot.data;
@@ -339,10 +283,9 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, this.onRetry});
+  const _ErrorView({required this.message});
 
   final String message;
-  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -362,13 +305,6 @@ class _ErrorView extends StatelessWidget {
                   ),
               textAlign: TextAlign.center,
             ),
-            if (onRetry != null) ...[
-              const SizedBox(height: AppTheme.spaceMD),
-              FilledButton.tonal(
-                onPressed: onRetry,
-                child: const Text('Retry'),
-              ),
-            ],
           ],
         ),
       ),
