@@ -18,7 +18,6 @@ import 'widgets/route_options_sheet.dart';
 import 'widgets/onboarding_overlay.dart';
 import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
-import 'widgets/poi_browser_sheet.dart';
 import 'widgets/poi_hub_sheet.dart';
 import 'widgets/poi_detail_sheet.dart';
 import 'widgets/roadside_assistance_sheet.dart';
