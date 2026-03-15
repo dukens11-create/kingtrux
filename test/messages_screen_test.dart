@@ -74,7 +74,9 @@ void main() {
       await tester.pump();
 
       expect(find.text('Announcement'), findsOneWidget);
-      expect(find.text('Files'), findsWidgets);
+      // 'Files' appears twice: once as a quick-action button and once as a
+      // category row title, so we expect exactly 2 occurrences.
+      expect(find.text('Files'), findsNWidgets(2));
       expect(find.text('Static Link'), findsOneWidget);
     });
 
