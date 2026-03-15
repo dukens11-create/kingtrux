@@ -20,6 +20,7 @@ import 'widgets/truck_profile_sheet.dart';
 import 'widgets/layer_sheet.dart';
 import 'widgets/poi_browser_sheet.dart';
 import 'widgets/poi_detail_sheet.dart';
+import 'widgets/poi_hub_sheet.dart';
 import 'widgets/roadside_assistance_sheet.dart';
 import 'widgets/route_summary_card.dart';
 import 'widgets/voice_settings_sheet.dart';
@@ -822,7 +823,7 @@ class _MapScreenState extends State<MapScreen> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => const PoiBrowserSheet(),
+      builder: (context) => const PoiHubSheet(),
     );
   }
 

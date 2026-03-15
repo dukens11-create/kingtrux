@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../../models/poi.dart';
 import '../../state/app_state.dart';
@@ -347,6 +348,12 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
     Poi poi,
   ) {
     final isFav = state.favoritePois.contains(poi.id);
+    // Compute distance in miles from the driver's current GPS position.
+    final distLabel = _poiDistanceMiles(
+      userLat: state.myLat,
+      userLng: state.myLng,
+      poi: poi,
+    );
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: cs.primaryContainer,
@@ -357,7 +364,23 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
         ),
       ),
       title: Text(poi.name),
-      subtitle: Text(PoiDetailSheet.poiLabel(poi.type)),
+      subtitle: Row(
+        children: [
+          Text(PoiDetailSheet.poiLabel(poi.type)),
+          // Distance label (hidden when GPS location is unavailable).
+          if (distLabel != null) ...[
+            const SizedBox(width: AppTheme.spaceXS),
+            Text(
+              '· $distLabel',
+              key: Key('poi_dist_${poi.id}'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: cs.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
+        ],
+      ),
       trailing: IconButton(
         tooltip: isFav ? 'Remove from favorites' : 'Add to favorites',
         icon: Icon(
@@ -410,4 +433,29 @@ class _PoiBrowserSheetState extends State<PoiBrowserSheet> {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Distance helper
+// ---------------------------------------------------------------------------
+
+/// Returns a human-readable distance string in miles from the driver's
+/// current location to [poi], or `null` if location is unavailable.
+///
+/// Format: `"2.3 mi"`.  Returns `null` when either [userLat]/[userLng] is
+/// `null` so callers can easily hide the label.
+String? _poiDistanceMiles({
+  required double? userLat,
+  required double? userLng,
+  required Poi poi,
+}) {
+  if (userLat == null || userLng == null) return null;
+  final meters = Geolocator.distanceBetween(
+    userLat,
+    userLng,
+    poi.lat,
+    poi.lng,
+  );
+  final miles = meters * 0.000621371;
+  return '${miles.toStringAsFixed(1)} mi';
 }
