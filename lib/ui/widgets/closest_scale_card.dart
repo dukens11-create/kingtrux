@@ -50,8 +50,8 @@ class _ClosestScaleCardContent extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.spaceMD,
-          vertical: AppTheme.spaceXS + 2,
+          horizontal: AppTheme.spaceSM,
+          vertical: AppTheme.spaceXS,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -80,15 +80,6 @@ class _ClosestScaleCardContent extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (scale != null && distMeters != null) ...[
-                  Text(
-                    scale.name,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: cs.onSurface,
-                        ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
