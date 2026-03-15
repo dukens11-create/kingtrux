@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/scale_report.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
+import 'weigh_station_sign.dart';
 
 /// Persistent map overlay that displays the nearest police weight station
 /// to the driver's current GPS location, in any direction.
@@ -55,17 +56,11 @@ class _ClosestScaleCardContent extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Scale icon with optional status ring ─────────────────────
+            // ── WeighStationSign with optional status ring ───────────────
             Stack(
               alignment: Alignment.bottomRight,
               children: [
-                Icon(
-                  Icons.scale,
-                  size: 22,
-                  color: statusColor ?? (scale != null
-                      ? cs.primary
-                      : Colors.grey.shade500),
-                ),
+                WeighStationSign(showLabel: true, size: 32),
                 if (statusIcon != null)
                   Container(
                     width: 10,
@@ -84,15 +79,6 @@ class _ClosestScaleCardContent extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'POLICE WEIGHT STATION',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                        color: Colors.grey.shade600,
-                      ),
-                ),
                 if (scale != null && distMeters != null) ...[
                   Text(
                     scale.name,

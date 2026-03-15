@@ -112,9 +112,9 @@ class _MapScreenState extends State<MapScreen> {
 
   /// Generates and caches the custom scale marker icon.
   Future<void> _loadScaleMarkerIcon() async {
-    final icon = await buildCircleLetterMarker(
-      color: Colors.green,
-      letter: 'w',
+    final icon = await buildRoundedRectLetterMarker(
+      bgColor: const Color(0xFF0D7A6C),
+      letter: 'W',
     );
     if (mounted) {
       if (icon != null) {

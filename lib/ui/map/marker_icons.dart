@@ -77,5 +77,112 @@ Future<BitmapDescriptor?> buildCircleLetterMarker({
   }
 }
 
+/// Generates a rounded-rectangle map marker with a [bgColor] fill, a white
+/// outer border, a secondary white inner border (double-border effect), and
+/// a centered [letter] in white bold text.
+///
+/// This produces a sign-style marker (e.g. the DOT weigh-station "W" sign).
+/// The result is cached like [buildCircleLetterMarker].
+///
+/// Falls back to `null` on any error so callers can substitute a default icon.
+Future<BitmapDescriptor?> buildRoundedRectLetterMarker({
+  required Color bgColor,
+  required String letter,
+  double width = 60.0,
+  double height = 48.0,
+  double fontSize = 26.0,
+}) async {
+  final key = 'rr_${bgColor.value}_${letter}_${width}_${height}_$fontSize';
+  if (_cache.containsKey(key)) return _cache[key];
+
+  try {
+    const pixelRatio = 2.0;
+    final pw = width * pixelRatio;
+    final ph = height * pixelRatio;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    final outerBorder = (height * 0.06 * pixelRatio).clamp(3.0, 6.0);
+    final innerBorder = (height * 0.04 * pixelRatio).clamp(2.0, 4.0);
+    final cornerRadius = height * 0.18 * pixelRatio;
+
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, pw, ph),
+      Radius.circular(cornerRadius),
+    );
+
+    // Background fill.
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..color = bgColor
+        ..isAntiAlias = true,
+    );
+
+    // Outer white border.
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = outerBorder
+        ..isAntiAlias = true,
+    );
+
+    // Inner white border (double-border effect).
+    final innerInset = outerBorder + innerBorder + outerBorder * 0.6;
+    final innerRRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(innerInset, innerInset, pw - innerInset * 2, ph - innerInset * 2),
+      Radius.circular((cornerRadius - innerInset).clamp(2.0, cornerRadius)),
+    );
+    canvas.drawRRect(
+      innerRRect,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = innerBorder
+        ..isAntiAlias = true,
+    );
+
+    // Centered letter.
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: letter,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: fontSize * pixelRatio,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    textPainter.paint(
+      canvas,
+      Offset(
+        (pw - textPainter.width) / 2,
+        (ph - textPainter.height) / 2,
+      ),
+    );
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(pw.toInt(), ph.toInt());
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    if (byteData == null) return null;
+
+    final descriptor = BitmapDescriptor.bytes(
+      byteData.buffer.asUint8List(),
+      imagePixelRatio: pixelRatio,
+    );
+
+    _cache[key] = descriptor;
+    return descriptor;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// Clears the marker icon cache. Useful in tests.
 void clearMarkerIconCache() => _cache.clear();
