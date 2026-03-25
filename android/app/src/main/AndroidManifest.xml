@@ -9,6 +9,35 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
 
+    <!-- Android 11+ package visibility: required for url_launcher to detect
+         and launch external navigation apps (Google Maps, Sygic Truck, Waze). -->
+    <queries>
+        <!-- Google Maps native navigation URI -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="google.navigation" />
+        </intent>
+        <!-- Sygic Truck native URI -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="com.sygic.aura" />
+        </intent>
+        <!-- Waze native URI -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="waze" />
+        </intent>
+        <!-- Generic HTTP/HTTPS for web fallback URLs (Google Maps web, etc.) -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+    </queries>
+
     <application
         android:label="KINGTRUX"
         android:icon="@mipmap/ic_launcher">
