@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/route_result.dart';
 import '../../models/toll_preference.dart';
+import '../../services/external_nav_service.dart';
 import '../../services/trip_eta_service.dart';
 import '../../state/app_state.dart';
 import '../navigation_screen.dart';
@@ -310,14 +312,23 @@ class _RouteSectionLoader extends StatelessWidget {
   }
 }
 
-class _RouteDetails extends StatelessWidget {
+class _RouteDetails extends StatefulWidget {
   const _RouteDetails({required this.state});
   final AppState state;
+
+  @override
+  State<_RouteDetails> createState() => _RouteDetailsState();
+}
+
+class _RouteDetailsState extends State<_RouteDetails> {
+  /// Whether external navigation apps are currently being launched.
+  bool _launchingExternal = false;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final state = widget.state;
     final result = state.routeResult!;
 
     // Compute estimated arrival time based on route duration from now.
@@ -369,7 +380,9 @@ class _RouteDetails extends StatelessWidget {
               const SizedBox(height: AppTheme.spaceXS),
               _buildTollInfo(context, result, cs, tt),
               const SizedBox(height: AppTheme.spaceSM),
+              // ── In-app navigation button ───────────────────────────────
               FilledButton.icon(
+                key: const Key('start_navigation_btn'),
                 onPressed: () async {
                   await state.startNavigation();
                   if (context.mounted) {
@@ -383,6 +396,26 @@ class _RouteDetails extends StatelessWidget {
                 icon: const Icon(Icons.navigation_rounded, size: 18),
                 label: const Text('Start Navigation'),
               ),
+              const SizedBox(height: AppTheme.spaceXS),
+              // ── External navigation fallback ───────────────────────────
+              OutlinedButton.icon(
+                key: const Key('open_in_maps_btn'),
+                onPressed: state.destLat == null || state.destLng == null || _launchingExternal
+                    ? null
+                    : () => _onOpenExternalPressed(context, state),
+                icon: _launchingExternal
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.open_in_new_rounded, size: 16),
+                label: const Text('Open in…'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  textStyle: tt.bodySmall,
+                ),
+              ),
             ],
           ),
         ),
@@ -395,6 +428,37 @@ class _RouteDetails extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  /// Shows a bottom sheet letting the user pick an external navigation app.
+  Future<void> _onOpenExternalPressed(
+    BuildContext context,
+    AppState state,
+  ) async {
+    if (state.destLat == null || state.destLng == null) return;
+    HapticFeedback.selectionClick();
+
+    setState(() => _launchingExternal = true);
+    List<ExternalNavApp> apps;
+    try {
+      apps = await ExternalNavService.availableApps();
+    } finally {
+      if (mounted) setState(() => _launchingExternal = false);
+    }
+
+    if (!context.mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLG)),
+      ),
+      builder: (ctx) => _ExternalNavPicker(
+        apps: apps,
+        destLat: state.destLat!,
+        destLng: state.destLng!,
+      ),
     );
   }
 
@@ -448,3 +512,86 @@ class _RouteDetails extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// External navigation app picker
+// ---------------------------------------------------------------------------
+
+/// Bottom sheet that lists available external navigation apps and launches
+/// the user's selection.
+class _ExternalNavPicker extends StatelessWidget {
+  const _ExternalNavPicker({
+    required this.apps,
+    required this.destLat,
+    required this.destLng,
+  });
+
+  final List<ExternalNavApp> apps;
+  final double destLat;
+  final double destLng;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceMD),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: AppTheme.spaceMD),
+              decoration: BoxDecoration(
+                color: cs.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMD),
+              child: Text(
+                'Open in…',
+                style: tt.titleMedium?.copyWith(color: cs.onSurface),
+              ),
+            ),
+            const SizedBox(height: AppTheme.spaceSM),
+            ...apps.map(
+              (app) => ListTile(
+                leading: Icon(
+                  _iconForApp(app),
+                  color: cs.primary,
+                ),
+                title: Text(app.displayName),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  // Pop first, then launch so the sheet is dismissed cleanly
+                  // before the external app opens.
+                  Navigator.of(context).pop();
+                  ExternalNavService.launch(
+                    app: app,
+                    destLat: destLat,
+                    destLng: destLng,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _iconForApp(ExternalNavApp app) {
+    switch (app) {
+      case ExternalNavApp.googleMaps:
+        return Icons.map_rounded;
+      case ExternalNavApp.sygicTruck:
+        return Icons.local_shipping_rounded;
+      case ExternalNavApp.waze:
+        return Icons.navigation_rounded;
+    }
+  }
+}
