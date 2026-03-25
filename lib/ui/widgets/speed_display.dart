@@ -157,7 +157,7 @@ class _SpeedDisplayContent extends StatelessWidget {
 /// Returns the responsive width for the speed limit sign, clamped to a safe
 /// range so it looks proportionate on phones of all sizes.
 double _signWidth(double screenWidth) =>
-    (screenWidth * 0.18).clamp(70.0, 110.0);
+    (screenWidth * 0.25).clamp(100.0, 160.0);
 
 /// Standard US SPEED LIMIT sign – white rounded rectangle, black border,
 /// "SPEED" / "LIMIT" stacked above the large numeric limit.
@@ -175,13 +175,13 @@ class _SpeedLimitSign extends StatelessWidget {
     // a safe range so the sign is clearly readable on small devices without
     // overflowing on larger ones.
     final signW = _signWidth(screenWidth);
-    final borderW = (signW * 0.035).clamp(2.5, 5.0);
-    final hPad = (signW * 0.09).clamp(8.0, 16.0);
-    final vPad = (signW * 0.09).clamp(8.0, 14.0);
-    final radius = (signW * 0.09).clamp(6.0, 14.0);
-    final headerSize = (signW * 0.14).clamp(11.0, 20.0);
-    final numSize = (signW * 0.55).clamp(44.0, 82.0);
-    final innerSpacing = (signW * 0.04).clamp(2.0, 8.0);
+    final borderW = (signW * 0.045).clamp(3.0, 6.0);
+    final hPad = (signW * 0.10).clamp(10.0, 18.0);
+    final vPad = (signW * 0.12).clamp(12.0, 20.0);
+    final radius = (signW * 0.10).clamp(8.0, 18.0);
+    final headerSize = (signW * 0.16).clamp(14.0, 24.0);
+    final numSize = (signW * 0.62).clamp(56.0, 96.0);
+    final innerSpacing = (signW * 0.05).clamp(4.0, 10.0);
 
     return Container(
       width: signW,
