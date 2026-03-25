@@ -193,6 +193,22 @@ class PoiDetailSheet extends StatelessWidget {
         return Icons.fitness_center_rounded;
       case PoiType.roadsideAssistance:
         return Icons.emergency_rounded;
+      case PoiType.truckWash:
+        return Icons.local_car_wash_rounded;
+      case PoiType.hotel:
+        return Icons.hotel_rounded;
+      case PoiType.repairShop:
+        return Icons.build_rounded;
+      case PoiType.tires:
+        return Icons.tire_repair_rounded;
+      case PoiType.walmart:
+        return Icons.storefront_rounded;
+      case PoiType.facility:
+        return Icons.warehouse_rounded;
+      case PoiType.clearance:
+        return Icons.height_rounded;
+      case PoiType.truckDealer:
+        return Icons.directions_bus_rounded;
     }
   }
 
@@ -213,6 +229,22 @@ class PoiDetailSheet extends StatelessWidget {
         return 'Gym';
       case PoiType.roadsideAssistance:
         return 'Roadside Assistance';
+      case PoiType.truckWash:
+        return 'Truck Wash';
+      case PoiType.hotel:
+        return 'Hotel / Motel';
+      case PoiType.repairShop:
+        return 'Repair Shop';
+      case PoiType.tires:
+        return 'Tire Shop';
+      case PoiType.walmart:
+        return 'Walmart';
+      case PoiType.facility:
+        return 'Facility';
+      case PoiType.clearance:
+        return 'Clearance';
+      case PoiType.truckDealer:
+        return 'Truck Dealer';
     }
   }
 }

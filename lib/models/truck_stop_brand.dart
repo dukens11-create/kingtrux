@@ -5,6 +5,11 @@ enum TruckStopBrand {
   loves,
   pilot,
   flyingJ,
+  // Added in map-UI refactor
+  kwikTrip,
+  roadRanger,
+  one9,
+  amBest,
 }
 
 /// Human-readable display name for each [TruckStopBrand].
@@ -21,6 +26,14 @@ extension TruckStopBrandLabel on TruckStopBrand {
         return 'Pilot';
       case TruckStopBrand.flyingJ:
         return 'Flying J';
+      case TruckStopBrand.kwikTrip:
+        return 'KwikTrip / KwikStar';
+      case TruckStopBrand.roadRanger:
+        return 'Road Ranger';
+      case TruckStopBrand.one9:
+        return 'One9';
+      case TruckStopBrand.amBest:
+        return 'AM Best';
     }
   }
 
@@ -60,6 +73,29 @@ extension TruckStopBrandLabel on TruckStopBrand {
           'flyingj',
           'flyingjtravel',
           'pilotflyingj',
+        ];
+      case TruckStopBrand.kwikTrip:
+        return [
+          'kwiktrip',
+          'kwikstar',
+          'kwik trip',
+          'kwik star',
+        ];
+      case TruckStopBrand.roadRanger:
+        return [
+          'roadranger',
+          'road ranger',
+        ];
+      case TruckStopBrand.one9:
+        return [
+          'one9',
+          'one 9',
+        ];
+      case TruckStopBrand.amBest:
+        return [
+          'ambest',
+          'am best',
+          'americanstop',
         ];
     }
   }

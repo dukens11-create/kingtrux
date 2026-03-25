@@ -28,6 +28,8 @@ import 'widgets/road_sign_alert_settings_sheet.dart';
 import 'widgets/alert_banner.dart';
 import 'widgets/maneuver_banner.dart';
 import 'widgets/steps_list_sheet.dart';
+import 'widgets/map_top_chips_bar.dart';
+import 'widgets/map_filter_sheet.dart';
 import 'trip_screen.dart';
 import 'widgets/speed_display.dart';
 import 'widgets/closest_scale_card.dart';
@@ -284,12 +286,23 @@ class _MapScreenState extends State<MapScreen> {
                 polylines: _buildPolylines(state),
                 myLocationEnabled: true,
                 myLocationButtonEnabled: false,
+                // Custom zoom controls exist in the right control rail; disable
+                // the default Google Maps zoom buttons to avoid duplication.
+                zoomControlsEnabled: false,
                 padding: EdgeInsets.only(
                   top: MediaQuery.of(context).padding.top + kToolbarHeight,
                   // Generous bottom padding clears the quick-actions strip
                   // (~68 px) + destination CTA (~56 px) + safe-area bottom.
                   bottom: 200 + MediaQuery.of(context).padding.bottom,
                 ),
+              ),
+
+              // ── Top overlay chips (Places / Traffic Cams / DOT 511s) ───
+              Positioned(
+                top: MediaQuery.of(context).padding.top + kToolbarHeight,
+                left: 0,
+                right: 0,
+                child: const MapTopChipsBar(),
               ),
 
               // ── Map overlay buttons – right-side vertical control rail ──
@@ -688,6 +701,22 @@ class _MapScreenState extends State<MapScreen> {
         return BitmapDescriptor.hueGreen;
       case PoiType.roadsideAssistance:
         return BitmapDescriptor.hueRed;
+      case PoiType.truckWash:
+        return BitmapDescriptor.hueBlue;
+      case PoiType.hotel:
+        return BitmapDescriptor.hueMagenta;
+      case PoiType.repairShop:
+        return BitmapDescriptor.hueRed;
+      case PoiType.tires:
+        return BitmapDescriptor.hueOrange;
+      case PoiType.walmart:
+        return BitmapDescriptor.hueCyan;
+      case PoiType.facility:
+        return BitmapDescriptor.hueGreen;
+      case PoiType.clearance:
+        return BitmapDescriptor.hueYellow;
+      case PoiType.truckDealer:
+        return BitmapDescriptor.hueViolet;
     }
   }
 
@@ -815,7 +844,8 @@ class _MapScreenState extends State<MapScreen> {
     HapticFeedback.selectionClick();
     showModalBottomSheet(
       context: context,
-      builder: (context) => const LayerSheet(),
+      isScrollControlled: true,
+      builder: (context) => const MapFilterSheet(),
     );
   }
 
