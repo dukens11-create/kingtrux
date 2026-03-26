@@ -40,6 +40,7 @@ import 'widgets/kingtrux_logo.dart';
 import 'map/marker_icons.dart';
 import 'account_screen.dart';
 import 'messages_screen.dart';
+import 'more_screen.dart';
 import 'navigation_screen.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
@@ -257,6 +258,7 @@ class _MapScreenState extends State<MapScreen> {
           onSteps: _onStepsPressed,
           onRouteOptions: _onRouteOptionsPressed,
           onMessages: _onMessagesPressed,
+          onMore: _onMorePressed,
           isPro: state.isPro,
           isSettingDestination: _settingDestination,
           isNavigating: state.isNavigating,
@@ -1014,6 +1016,14 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _onMorePressed() {
+    HapticFeedback.selectionClick();
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const MoreScreen()),
+    );
+  }
+
   void _onTrafficCamsToggle() {
     _showComingSoon('Traffic Cams');
   }
@@ -1366,6 +1376,7 @@ class _MapToolbar extends StatelessWidget {
     required this.onSteps,
     required this.onRouteOptions,
     required this.onMessages,
+    required this.onMore,
     required this.isPro,
     required this.isSettingDestination,
     required this.isNavigating,
@@ -1382,6 +1393,7 @@ class _MapToolbar extends StatelessWidget {
   final VoidCallback onSteps;
   final VoidCallback onRouteOptions;
   final VoidCallback onMessages;
+  final VoidCallback onMore;
   final bool isPro;
   final bool isSettingDestination;
   final bool isNavigating;
@@ -1427,6 +1439,11 @@ class _MapToolbar extends StatelessWidget {
             icon: Icons.message_rounded,
             label: 'Messages',
             onPressed: onMessages,
+          ),
+          _ToolbarButton(
+            icon: Icons.more_horiz_rounded,
+            label: 'More',
+            onPressed: onMore,
           ),
           if (isNavigating)
             _ToolbarButton(
