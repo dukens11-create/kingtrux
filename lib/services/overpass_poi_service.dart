@@ -137,8 +137,10 @@ class OverpassPoiService {
     if (enabledTypes.contains(PoiType.truckStop)) {
       add('"highway"="services"');
       add('"amenity"="truck_stop"');
-      // Also capture branded fuel stops (TA, Petro, Love's, Pilot, Flying J).
-      const brandRegex = 'TA|TravelCenters|Petro|Love|Pilot|Flying.?J';
+      // Also capture branded fuel stops (TA, Petro, Love's, Pilot, Flying J,
+      // KwikTrip, Road Ranger, One9, AM Best).
+      const brandRegex =
+          'TA|TravelCenters|Petro|Love|Pilot|Flying.?J|Kwik.?Trip|KwikStar|Road.?Ranger|One.?9|AM.?Best';
       q.add('node["amenity"="fuel"]["brand"~"$brandRegex",i](around:$radius,$lat,$lng);');
       q.add('way["amenity"="fuel"]["brand"~"$brandRegex",i](around:$radius,$lat,$lng);');
       q.add('node["amenity"="fuel"]["operator"~"$brandRegex",i](around:$radius,$lat,$lng);');
@@ -147,6 +149,33 @@ class OverpassPoiService {
     if (enabledTypes.contains(PoiType.parking)) {
       add('"amenity"="parking"');
     }
+    if (enabledTypes.contains(PoiType.truckWash)) {
+      add('"amenity"="car_wash"');
+    }
+    if (enabledTypes.contains(PoiType.hotel)) {
+      add('"tourism"="hotel"');
+      add('"tourism"="motel"');
+    }
+    if (enabledTypes.contains(PoiType.repairShop)) {
+      add('"shop"="car_repair"');
+    }
+    if (enabledTypes.contains(PoiType.tires)) {
+      add('"shop"="tyres"');
+    }
+    if (enabledTypes.contains(PoiType.walmart)) {
+      q.add('node["shop"]["name"~"Walmart",i](around:$radius,$lat,$lng);');
+      q.add('way["shop"]["name"~"Walmart",i](around:$radius,$lat,$lng);');
+    }
+    if (enabledTypes.contains(PoiType.truckDealer)) {
+      add('"shop"="truck"');
+      const dealerBrandRegex =
+          'Volvo|Freightliner|Kenworth|Peterbilt|International|Mack';
+      q.add('node["shop"]["brand"~"$dealerBrandRegex",i](around:$radius,$lat,$lng);');
+      q.add('way["shop"]["brand"~"$dealerBrandRegex",i](around:$radius,$lat,$lng);');
+    }
+    // PoiType.facility and PoiType.clearance intentionally have no Overpass query
+    // yet; they are shown as "Coming soon" in the UI until dedicated queries and
+    // OSM tags are identified (to avoid duplicating truckStop results).
 
     return q;
   }
@@ -178,6 +207,19 @@ class OverpassPoiService {
           type = PoiType.truckStop;
         } else if (tags['amenity'] == 'parking') {
           type = PoiType.parking;
+        } else if (tags['amenity'] == 'car_wash') {
+          type = PoiType.truckWash;
+        } else if (tags['tourism'] == 'hotel' || tags['tourism'] == 'motel') {
+          type = PoiType.hotel;
+        } else if (tags['shop'] == 'car_repair') {
+          type = PoiType.repairShop;
+        } else if (tags['shop'] == 'tyres') {
+          type = PoiType.tires;
+        } else if (tags['shop'] == 'truck') {
+          type = PoiType.truckDealer;
+        } else if (tags['shop'] != null) {
+          final name = (tags['name'] as String? ?? '').toLowerCase();
+          if (name.contains('walmart')) type = PoiType.walmart;
         }
 
         if (type == null) continue;

@@ -7,6 +7,15 @@ enum PoiType {
   truckStop,
   parking,
   roadsideAssistance,
+  // Extended truck-driver categories added in map-UI refactor
+  truckWash,
+  hotel,
+  repairShop,
+  tires,
+  walmart,
+  facility,
+  clearance,
+  truckDealer,
 }
 
 /// Point of Interest model
