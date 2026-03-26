@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../services/here_geocoding_service.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
 
-/// Bottom sheet that lets the driver pick a destination either by typing an
-/// address or by long-pressing on the map (which sets the destination and
-/// dismisses the sheet automatically).
+/// Bottom sheet that lets the driver pick a destination by typing an address
+/// or place name.
 ///
 /// On a confirmed address, the sheet calls [AppState.setDestination] and
 /// [AppState.buildTruckRoute], then pops itself.
@@ -77,10 +75,6 @@ class _WhereToSheetState extends State<WhereToSheet> {
     } catch (_) {
       // Errors are handled inside buildTruckRoute / AppState.
     }
-  }
-
-  void _onMapLongPressTip() {
-    if (mounted) Navigator.of(context).pop('long_press');
   }
 
   @override
@@ -199,14 +193,7 @@ class _WhereToSheetState extends State<WhereToSheet> {
                   ),
                 ],
 
-                const SizedBox(height: AppTheme.spaceLG),
-                const Divider(),
-                const SizedBox(height: AppTheme.spaceSM),
-
-                // ── Map long-press tip ────────────────────────────────────
-                _MapLongPressTip(onDismiss: _onMapLongPressTip),
-
-                const SizedBox(height: AppTheme.spaceSM),
+                const SizedBox(height: AppTheme.spaceMD),
               ],
             ),
           ),
@@ -258,52 +245,9 @@ class _ResultCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Map long-press tip
-// ---------------------------------------------------------------------------
-
-class _MapLongPressTip extends StatelessWidget {
-  const _MapLongPressTip({required this.onDismiss});
-
-  final VoidCallback onDismiss;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(Icons.touch_app_rounded, size: 20, color: cs.primary),
-        const SizedBox(width: AppTheme.spaceSM),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Or long-press on the map', style: tt.labelLarge),
-              const SizedBox(height: AppTheme.spaceXS),
-              Text(
-                'Long-press anywhere on the map to drop a pin and set that point as your destination.',
-                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-              ),
-            ],
-          ),
-        ),
-        TextButton(
-          onPressed: onDismiss,
-          child: const Text('Use Map'),
-        ),
-      ],
-    );
-  }
-}
-
 /// Shows the [WhereToSheet] as a modal bottom sheet.
-///
-/// Returns `'long_press'` when the user tapped "Use Map" to indicate they want
-/// to long-press on the map instead.
-Future<String?> showWhereToSheet(BuildContext context) {
-  return showModalBottomSheet<String>(
+Future<void> showWhereToSheet(BuildContext context) {
+  return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,

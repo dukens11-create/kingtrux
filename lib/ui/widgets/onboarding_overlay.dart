@@ -19,7 +19,7 @@ const _callouts = [
   _Callout(
     icon: Icons.search_rounded,
     title: '"Where to?"',
-    body: 'Tap the "Where to?" bar at the top to search for a destination by address, or long-press anywhere on the map to drop a pin.',
+    body: 'Tap the "Where to?" bar at the top to search for a destination by address.',
   ),
   _Callout(
     icon: Icons.layers_rounded,

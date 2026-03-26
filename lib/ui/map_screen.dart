@@ -48,6 +48,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/nearby_place.dart';
 import '../services/external_nav_service.dart';
 
+/// Horizontal clearance (dp) reserved on the right side for the
+/// [_RightControlRail] so that top overlays don't occlude the controls.
+const double _kControlRailClearance = 60.0;
+
 /// Main map screen with Google Maps integration
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -315,9 +319,21 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-              // ── Compact top filter chips (Places / Traffic Cams / DOT 511s) ─
+              // ── Prominent "Where to?" search bar (top, always visible) ──
               Positioned(
                 top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceXS,
+                left: AppTheme.spaceMD,
+                right: _kControlRailClearance,
+                child: _WhereToSearchBar(onTap: _onWhereToCTAPressed),
+              ),
+
+              // ── Compact top filter chips (Places / Traffic Cams / DOT 511s) ─
+              Positioned(
+                top: MediaQuery.of(context).padding.top +
+                    kToolbarHeight +
+                    AppTheme.spaceXS +
+                    _WhereToSearchBar.height +
+                    AppTheme.spaceXS,
                 left: 0,
                 right: 0,
                 child: _MapTopChipsBar(
@@ -1059,11 +1075,7 @@ class _MapScreenState extends State<MapScreen> {
   // ---------------------------------------------------------------------------
   Future<void> _onWhereToCTAPressed() async {
     HapticFeedback.selectionClick();
-    final result = await showWhereToSheet(context);
-    // If the user chose "Use Map", activate tap-to-set mode.
-    if (result == 'long_press' && mounted) {
-      setState(() => _settingDestination = true);
-    }
+    await showWhereToSheet(context);
   }
 
   // ---------------------------------------------------------------------------
@@ -2065,6 +2077,56 @@ class _QuickActionButton extends StatelessWidget {
                     ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Prominent "Where to?" search bar (top overlay)
+// ---------------------------------------------------------------------------
+
+/// A tappable search-bar stub that sits just below the app bar and is always
+/// visible on the map.  Tapping it opens the full [WhereToSheet].
+class _WhereToSearchBar extends StatelessWidget {
+  const _WhereToSearchBar({required this.onTap});
+
+  final VoidCallback onTap;
+
+  /// Logical height used by the parent [Stack] to position widgets below this bar.
+  static const double height = 48.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Material(
+      color: cs.surface,
+      elevation: 3,
+      shadowColor: cs.shadow,
+      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+        child: SizedBox(
+          height: height,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMD),
+            child: Row(
+              children: [
+                Icon(Icons.search_rounded, color: cs.primary, size: 22),
+                const SizedBox(width: AppTheme.spaceSM),
+                Expanded(
+                  child: Text(
+                    'Where to?',
+                    style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios_rounded, color: cs.outline, size: 16),
+              ],
+            ),
           ),
         ),
       ),
