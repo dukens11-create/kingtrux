@@ -28,7 +28,6 @@ import 'widgets/road_sign_alert_settings_sheet.dart';
 import 'widgets/alert_banner.dart';
 import 'widgets/maneuver_banner.dart';
 import 'widgets/steps_list_sheet.dart';
-import 'widgets/map_top_chips_bar.dart';
 import 'widgets/map_filter_sheet.dart';
 import 'trip_screen.dart';
 import 'widgets/speed_display.dart';
@@ -291,18 +290,23 @@ class _MapScreenState extends State<MapScreen> {
                 zoomControlsEnabled: false,
                 padding: EdgeInsets.only(
                   top: MediaQuery.of(context).padding.top + kToolbarHeight,
-                  // Generous bottom padding clears the quick-actions strip
-                  // (~68 px) + destination CTA (~56 px) + safe-area bottom.
-                  bottom: 200 + MediaQuery.of(context).padding.bottom,
+                  // Bottom padding clears the compact bottom bar (~68 px)
+                  // plus safe-area bottom.
+                  bottom: 140 + MediaQuery.of(context).padding.bottom,
                 ),
               ),
 
-              // ── Top overlay chips (Places / Traffic Cams / DOT 511s) ───
+              // ── Compact top filter chips (Places / Traffic Cams / DOT 511s) ─
               Positioned(
-                top: MediaQuery.of(context).padding.top + kToolbarHeight,
+                top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceXS,
                 left: 0,
                 right: 0,
-                child: const MapTopChipsBar(),
+                child: _MapTopChipsBar(
+                  placesActive: state.pois.isNotEmpty,
+                  onPlaces: _onPoiBrowserPressed,
+                  onTrafficCams: _onTrafficCamsToggle,
+                  onDot511s: _onDot511sToggle,
+                ),
               ),
 
               // ── Map overlay buttons – right-side vertical control rail ──
@@ -334,10 +338,7 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
 
-              // ── Bottom panel: quick actions + destination CTA / route card ─
-              // The Column stacks (from bottom): quick-actions strip,
-              // then either the destination CTA (no route) or the route
-              // summary card (route loading / loaded).
+              // ── Bottom panel: compact bar + expandable quick actions ────
               if (!_settingDestination)
                 Positioned(
                   bottom: 0,
@@ -351,19 +352,17 @@ class _MapScreenState extends State<MapScreen> {
                       if (state.isLoadingRoute || state.routeResult != null)
                         RouteSummaryCard(settingDestination: _settingDestination),
 
-                      // Destination CTA (only when no route and not loading).
-                      if (!state.isLoadingRoute && state.routeResult == null)
-                        _BottomDestinationCta(onTap: _onWhereToCTAPressed),
-
-                      // Quick-actions strip – always visible in this panel.
-                      _QuickActionsBar(
-                        key: const Key('quick_actions_bar'),
+                      // Compact search bar + expandable quick-action grid.
+                      _MapBottomBar(
+                        key: const Key('map_bottom_bar'),
                         isWsEnabled: state.enabledPoiLayers.contains(PoiType.scale),
+                        onSearchTap: _onWhereToCTAPressed,
                         onDirection: _onWhereToCTAPressed,
                         onPlaces: _onPoiBrowserPressed,
                         onWs: _onWsTogglePressed,
                         onRestricted: _onRouteOptionsPressed,
-                        onToll: () => _showComingSoon('Toll routing'),
+                        onParking: _onParkingPressed,
+                        onFuel: _onFuelPressed,
                         onWeather: () => _showComingSoon('Weather'),
                         onCameras: () => _showComingSoon('Cameras'),
                       ),
@@ -371,18 +370,16 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
 
-              // ── Speed display (bottom-left, above bottom panel) ──────────
-              // Positioned above the quick-actions strip (~68 px) plus a
-              // comfortable buffer so it never overlaps the strip.
+              // ── Speed display (bottom-left, above bottom bar) ────────────
               const Positioned(
-                bottom: 200,
+                bottom: 140,
                 left: AppTheme.spaceMD,
                 child: SpeedDisplay(),
               ),
 
-              // ── Closest police weight station (bottom-right, above panel) ─
+              // ── Closest police weight station (bottom-right, above bar) ──
               const Positioned(
-                bottom: 200,
+                bottom: 140,
                 right: AppTheme.spaceMD,
                 child: ClosestScaleCard(),
               ),
@@ -898,6 +895,22 @@ class _MapScreenState extends State<MapScreen> {
       context,
       MaterialPageRoute<void>(builder: (_) => const MessagesScreen()),
     );
+  }
+
+  void _onTrafficCamsToggle() {
+    _showComingSoon('Traffic Cams');
+  }
+
+  void _onDot511sToggle() {
+    _showComingSoon('DOT 511s');
+  }
+
+  void _onParkingPressed() {
+    _showComingSoon('Parking');
+  }
+
+  void _onFuelPressed() {
+    _showComingSoon('Fuel');
   }
 
   /// Called when the user taps the map. Only acts when destination-setting
@@ -1796,106 +1809,8 @@ class _RightControlRail extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Horizontal quick-actions strip
-// ---------------------------------------------------------------------------
 
-/// A horizontally scrollable strip of labeled icon buttons shown above the
-/// bottom destination panel.  Surfaces the most-used map actions so they are
-/// always one tap away.
-class _QuickActionsBar extends StatelessWidget {
-  const _QuickActionsBar({
-    super.key,
-    required this.isWsEnabled,
-    required this.onDirection,
-    required this.onPlaces,
-    required this.onWs,
-    required this.onRestricted,
-    required this.onToll,
-    required this.onWeather,
-    required this.onCameras,
-  });
-
-  final bool isWsEnabled;
-  final VoidCallback onDirection;
-  final VoidCallback onPlaces;
-  final VoidCallback onWs;
-  final VoidCallback onRestricted;
-  final VoidCallback onToll;
-  final VoidCallback onWeather;
-  final VoidCallback onCameras;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surface,
-      elevation: AppTheme.elevationCard,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            vertical: AppTheme.spaceXS,
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSM),
-            child: Row(
-              children: [
-                _QuickActionButton(
-                  key: const Key('quick_action_direction'),
-                  icon: Icons.directions_rounded,
-                  label: 'Direction',
-                  onTap: onDirection,
-                ),
-                _QuickActionButton(
-                  key: const Key('quick_action_places'),
-                  icon: Icons.place_rounded,
-                  label: 'Places',
-                  onTap: onPlaces,
-                ),
-                _QuickActionButton(
-                  key: const Key('quick_action_ws'),
-                  icon: Icons.scale_rounded,
-                  label: 'WS',
-                  onTap: onWs,
-                  // Highlight when the weigh-station layer is active.
-                  isActive: isWsEnabled,
-                ),
-                _QuickActionButton(
-                  key: const Key('quick_action_restricted'),
-                  icon: Icons.no_transfer_rounded,
-                  label: 'Restricted',
-                  onTap: onRestricted,
-                ),
-                _QuickActionButton(
-                  key: const Key('quick_action_toll'),
-                  icon: Icons.monetization_on_outlined,
-                  label: 'Toll',
-                  onTap: onToll,
-                ),
-                _QuickActionButton(
-                  key: const Key('quick_action_weather'),
-                  icon: Icons.wb_cloudy_outlined,
-                  label: 'Weather',
-                  onTap: onWeather,
-                ),
-                _QuickActionButton(
-                  key: const Key('quick_action_cameras'),
-                  icon: Icons.videocam_outlined,
-                  label: 'Cameras',
-                  onTap: onCameras,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A single labeled icon button used inside [_QuickActionsBar].
+/// A single labeled icon button used inside [_QuickActionsGrid].
 class _QuickActionButton extends StatelessWidget {
   const _QuickActionButton({
     super.key,
@@ -1948,56 +1863,381 @@ class _QuickActionButton extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Bottom destination call-to-action panel
+// Compact top filter-chips bar (Places / Traffic Cams / DOT 511s)
 // ---------------------------------------------------------------------------
 
-/// Shown at the bottom of the map when no route is active.  Prompts the user
-/// to set a destination and opens the [WhereToSheet] on tap.
-class _BottomDestinationCta extends StatelessWidget {
-  const _BottomDestinationCta({required this.onTap});
+/// A horizontally scrollable row of compact [FilterChip] toggles shown just
+/// below the app bar.  Each chip surfaces a key map-layer category; tapping
+/// opens the relevant feature or shows a "coming soon" notice.
+class _MapTopChipsBar extends StatelessWidget {
+  const _MapTopChipsBar({
+    super.key,
+    required this.placesActive,
+    required this.onPlaces,
+    required this.onTrafficCams,
+    required this.onDot511s,
+  });
 
-  final VoidCallback onTap;
+  final bool placesActive;
+  final VoidCallback onPlaces;
+  final VoidCallback onTrafficCams;
+  final VoidCallback onDot511s;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      // Right padding leaves room for the right-side control rail (~54 dp).
+      padding: const EdgeInsets.only(
+        left: AppTheme.spaceMD,
+        right: 60,
+      ),
+      child: Row(
+        children: [
+          FilterChip(
+            avatar: const Icon(Icons.place_rounded, size: 16),
+            label: const Text('Places'),
+            selected: placesActive,
+            onSelected: (_) => onPlaces(),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: AppTheme.spaceXS),
+          FilterChip(
+            avatar: const Icon(Icons.videocam_outlined, size: 16),
+            label: const Text('Traffic Cams'),
+            selected: false,
+            onSelected: (_) => onTrafficCams(),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: AppTheme.spaceXS),
+          FilterChip(
+            avatar: const Icon(Icons.info_outlined, size: 16),
+            label: const Text('DOT 511s'),
+            selected: false,
+            onSelected: (_) => onDot511s(),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compact collapsed/expandable map bottom bar
+// ---------------------------------------------------------------------------
+
+/// A compact bottom bar that is always visible above the [_MapToolbar].
+///
+/// **Collapsed state** (default): shows a tappable search field and a
+/// chevron/expand button.
+///
+/// **Expanded state**: the search field remains and an animated panel
+/// reveals a 4 × 2 grid of quick-action buttons (Truck Stops, Weigh
+/// Stations, Parking, Fuel + Directions, Restricted, Cameras, Weather).
+class _MapBottomBar extends StatefulWidget {
+  const _MapBottomBar({
+    super.key,
+    required this.isWsEnabled,
+    required this.onSearchTap,
+    required this.onDirection,
+    required this.onPlaces,
+    required this.onWs,
+    required this.onRestricted,
+    required this.onParking,
+    required this.onFuel,
+    required this.onWeather,
+    required this.onCameras,
+  });
+
+  final bool isWsEnabled;
+  final VoidCallback onSearchTap;
+  final VoidCallback onDirection;
+  final VoidCallback onPlaces;
+  final VoidCallback onWs;
+  final VoidCallback onRestricted;
+  final VoidCallback onParking;
+  final VoidCallback onFuel;
+  final VoidCallback onWeather;
+  final VoidCallback onCameras;
+
+  @override
+  State<_MapBottomBar> createState() => _MapBottomBarState();
+}
+
+class _MapBottomBarState extends State<_MapBottomBar> {
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Material(
-      key: const Key('bottom_destination_cta'),
-      color: cs.surfaceContainerLow,
-      elevation: AppTheme.elevationCard,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppTheme.spaceMD,
-            vertical: AppTheme.spaceSM + 2,
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.local_shipping_rounded,
-                color: cs.primary,
-                size: 22,
-              ),
-              const SizedBox(width: AppTheme.spaceSM),
-              Expanded(
-                child: Text(
-                  'Set destination for truck routes',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: cs.onSurface,
-                      ),
+      color: cs.surface,
+      elevation: AppTheme.elevationSheet,
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(AppTheme.radiusLG),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Padding(
+              padding: const EdgeInsets.only(top: AppTheme.spaceXS),
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              Icon(
-                Icons.search_rounded,
-                color: cs.onSurfaceVariant,
-                size: 22,
+            ),
+            // Search bar row
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.spaceMD,
+                AppTheme.spaceXS,
+                AppTheme.spaceSM,
+                AppTheme.spaceXS,
               ),
-            ],
-          ),
+              child: Row(
+                children: [
+                  // Tappable search field
+                  Expanded(
+                    child: InkWell(
+                      onTap: widget.onSearchTap,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.spaceMD,
+                          vertical: AppTheme.spaceXS + 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                          border: Border.all(
+                            color: cs.outlineVariant,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.local_shipping_rounded,
+                              size: 18,
+                              color: cs.primary,
+                            ),
+                            const SizedBox(width: AppTheme.spaceSM),
+                            Expanded(
+                              child: Text(
+                                'Set destination for truck routes',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Icon(
+                              Icons.search_rounded,
+                              size: 18,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.spaceXS),
+                  // Expand / collapse toggle
+                  Tooltip(
+                    message: _expanded ? 'Collapse' : 'Quick actions',
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _expanded = !_expanded);
+                      },
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                          border: Border.all(
+                            color: cs.outlineVariant,
+                            width: 1,
+                          ),
+                        ),
+                        child: AnimatedRotation(
+                          turns: _expanded ? 0.5 : 0,
+                          duration: const Duration(milliseconds: 200),
+                          child: Icon(
+                            Icons.expand_less_rounded,
+                            size: 22,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Expandable quick-actions grid
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeInOut,
+              child: _expanded
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppTheme.spaceSM,
+                        0,
+                        AppTheme.spaceSM,
+                        AppTheme.spaceSM,
+                      ),
+                      child: _QuickActionsGrid(
+                        isWsEnabled: widget.isWsEnabled,
+                        onDirection: widget.onDirection,
+                        onPlaces: widget.onPlaces,
+                        onWs: widget.onWs,
+                        onRestricted: widget.onRestricted,
+                        onParking: widget.onParking,
+                        onFuel: widget.onFuel,
+                        onCameras: widget.onCameras,
+                        onWeather: widget.onWeather,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
         ),
       ),
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Quick-actions grid (used by _MapBottomBar expanded state)
+// ---------------------------------------------------------------------------
+
+/// A 4 × 2 grid of compact labeled icon buttons.
+///
+/// Row 1 (primary categories): Truck Stops, Weigh Sta., Parking, Fuel.
+/// Row 2 (routing & utilities): Directions, Restricted, Cameras, Weather.
+class _QuickActionsGrid extends StatelessWidget {
+  const _QuickActionsGrid({
+    required this.isWsEnabled,
+    required this.onDirection,
+    required this.onPlaces,
+    required this.onWs,
+    required this.onRestricted,
+    required this.onParking,
+    required this.onFuel,
+    required this.onCameras,
+    required this.onWeather,
+  });
+
+  final bool isWsEnabled;
+  final VoidCallback onDirection;
+  final VoidCallback onPlaces;
+  final VoidCallback onWs;
+  final VoidCallback onRestricted;
+  final VoidCallback onParking;
+  final VoidCallback onFuel;
+  final VoidCallback onCameras;
+  final VoidCallback onWeather;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Row 1 – primary categories
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionButton(
+                key: const Key('quick_action_places'),
+                icon: Icons.local_shipping_rounded,
+                label: 'Truck Stops',
+                onTap: onPlaces,
+              ),
+            ),
+            Expanded(
+              child: _QuickActionButton(
+                key: const Key('quick_action_ws'),
+                icon: Icons.scale_rounded,
+                label: 'Weigh Sta.',
+                onTap: onWs,
+                isActive: isWsEnabled,
+              ),
+            ),
+            Expanded(
+              child: _QuickActionButton(
+                key: const Key('quick_action_parking'),
+                icon: Icons.local_parking_rounded,
+                label: 'Parking',
+                onTap: onParking,
+              ),
+            ),
+            Expanded(
+              child: _QuickActionButton(
+                key: const Key('quick_action_fuel'),
+                icon: Icons.local_gas_station_rounded,
+                label: 'Fuel',
+                onTap: onFuel,
+              ),
+            ),
+          ],
+        ),
+        // Row 2 – routing & utilities
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionButton(
+                key: const Key('quick_action_direction'),
+                icon: Icons.directions_rounded,
+                label: 'Directions',
+                onTap: onDirection,
+              ),
+            ),
+            Expanded(
+              child: _QuickActionButton(
+                key: const Key('quick_action_restricted'),
+                icon: Icons.no_transfer_rounded,
+                label: 'Restricted',
+                onTap: onRestricted,
+              ),
+            ),
+            Expanded(
+              child: _QuickActionButton(
+                key: const Key('quick_action_cameras'),
+                icon: Icons.videocam_outlined,
+                label: 'Cameras',
+                onTap: onCameras,
+              ),
+            ),
+            Expanded(
+              child: _QuickActionButton(
+                key: const Key('quick_action_weather'),
+                icon: Icons.wb_cloudy_outlined,
+                label: 'Weather',
+                onTap: onWeather,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 
