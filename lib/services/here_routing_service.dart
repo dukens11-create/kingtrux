@@ -7,6 +7,21 @@ import '../models/truck_profile.dart';
 import '../models/route_result.dart';
 import '../models/navigation_maneuver.dart';
 
+/// Thrown when [HereRoutingService] is invoked but no HERE API key has been
+/// configured (i.e. [Config.hereApiKey] is empty).
+///
+/// Callers (UI layer) should catch this specifically to display a
+/// user-friendly prompt rather than a raw technical error message.
+class HereApiKeyMissingException implements Exception {
+  const HereApiKeyMissingException();
+
+  @override
+  String toString() =>
+      'Truck routing requires a HERE API key.\n'
+      'Pass --dart-define=HERE_API_KEY=<your_key> at build/run time '
+      '(see HERE_NAVIGATE_SETUP.md for instructions).';
+}
+
 /// Service for calculating truck routes using HERE API v8
 class HereRoutingService {
   /// Validates [profile] for use in a HERE Routing API request.
@@ -57,7 +72,7 @@ class HereRoutingService {
     bool avoidUnpaved = false,
   }) async {
     if (Config.hereApiKey.isEmpty) {
-      throw Exception('HERE API key not configured. Please set HERE_API_KEY environment variable.');
+      throw const HereApiKeyMissingException();
     }
 
     final validationError = validateTruckProfileForRouting(truckProfile);

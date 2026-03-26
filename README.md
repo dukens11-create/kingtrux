@@ -13,12 +13,13 @@ A Flutter-based mobile application for truck drivers with advanced routing, POI 
   - Apple sign-in (iOS)
 - **Admin Login** — email-allowlist-based admin gating with a protected Admin Area screen
 - **Real-time GPS tracking** using Google Maps Flutter SDK
-- **Truck-optimised map UI** (working state: 2026-03-04):
-  - Standard AppBar with KINGTRUX title, search, settings and sign-out actions
-  - **"Where to?"** search button in the top bar to open destination search
-  - Persistent **BottomAppBar** toolbar: My Location, Set Destination, Truck Profile, Layers, Route Options
-  - Route summary card at the bottom with route distance, ETA, and toll cost estimate
-  - **Start Navigation** button after a route is calculated
+- **TruckPath-style map-first UI**:
+  - Map is the primary full-screen view
+  - Compact search bar + expandable quick-action grid at the bottom
+  - Clean right-side control rail (zoom, layers, map type, location, filters)
+  - Category filter chips below the app bar
+  - **Two-step POI interaction**: tap a marker → compact preview card with Navigate / Save / Call / Details; tap Details → full POI sheet
+  - **Tabbed POI Hub sheet** (Quick / Stops / Services / List) with live distance-sorted lists
 - **Truck Profile** — configure your vehicle dimensions and restrictions:
   - Height, width, length, weight, axle count, and hazmat flag
   - Imperial (ft / short tons) and metric (m / t) display units
@@ -28,9 +29,9 @@ A Flutter-based mobile application for truck drivers with advanced routing, POI 
   - Configurable truck profile (height, weight, width, length, axles, hazmat)
   - Route optimization considering truck restrictions
   - **Toll vs Toll-Free selection** — driver toggle with estimated toll cost display
+  - **Graceful fallback** when HERE API key is absent: user-friendly notice, app stays fully functional
 - **Points of Interest (POI) discovery** via OpenStreetMap Overpass API
-  - Fuel stations
-  - Rest areas
+  - Fuel stations, Truck Stops, Rest Areas, Parking, Gyms, Weigh Stations, Roadside Assistance
 - **Real-time weather updates** at current location using OpenWeather API
 - **Interactive map interface** with route visualization
 - **Location-based services** with comprehensive permission handling
@@ -185,6 +186,34 @@ The key is read by `AppDelegate.swift` and passed to `GMSServices.provideAPIKey`
 
 > Android and iOS share the same API key. Ensure both **Maps SDK for Android** and
 > **Maps SDK for iOS** are enabled for this key in Google Cloud Console.
+
+#### HERE API Key Placeholder (Android values XML)
+
+A placeholder entry for the HERE API key is committed in
+`android/app/src/main/res/values/api_keys.xml` so the string resource exists
+in the project tree:
+
+```xml
+<string name="here_api_key" translatable="false">YOUR_HERE_API_KEY_HERE</string>
+```
+
+> **Important**: This placeholder is never read by native Android code — the
+> Dart layer reads the key via `String.fromEnvironment('HERE_API_KEY')` in
+> `lib/config.dart`.  **Do not commit a real HERE key** to this file; pass it
+> at build/run time instead (see below).
+
+To inject your real HERE key at run time:
+```bash
+flutter run --dart-define=HERE_API_KEY=<your_key>
+```
+
+When the key is absent the app starts normally and displays a user-facing
+message ("Truck routing is unavailable: HERE API key not configured") when the
+driver attempts to calculate a truck route.  All other features (map, POI
+discovery, search) remain fully functional.
+
+See [HERE_NAVIGATE_SETUP.md](HERE_NAVIGATE_SETUP.md) for full credential and
+CI/CD setup instructions.
 
 ## Login Page
 

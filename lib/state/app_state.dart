@@ -841,6 +841,11 @@ class AppState extends ChangeNotifier {
         _startRouteMonitoring();
         _lookupDestinationState(destLat!, destLng!);
       }
+    } on HereApiKeyMissingException {
+      routeError =
+          'Truck routing is not available: HERE API key not configured.\n'
+          'Pass --dart-define=HERE_API_KEY=<key> at build/run time.\n'
+          'See HERE_NAVIGATE_SETUP.md for setup instructions.';
     } catch (e) {
       routeError = e.toString();
     } finally {
@@ -1100,6 +1105,12 @@ class AppState extends ChangeNotifier {
         final lastStop = trip.stops.last;
         _lookupDestinationState(lastStop.lat, lastStop.lng);
       }
+    } on HereApiKeyMissingException {
+      tripRouteError =
+          'Truck routing is not available: HERE API key not configured.\n'
+          'Pass --dart-define=HERE_API_KEY=<key> at build/run time.\n'
+          'See HERE_NAVIGATE_SETUP.md for setup instructions.';
+      routeResult = null;
     } catch (e) {
       tripRouteError = e.toString();
       routeResult = null;

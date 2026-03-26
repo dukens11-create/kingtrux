@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/poi.dart';
 import '../models/scale_report.dart';
+import '../services/here_routing_service.dart';
 import '../services/map_preferences_service.dart';
 import '../state/app_state.dart';
 import 'theme/app_theme.dart';
@@ -42,6 +43,7 @@ import 'navigation_screen.dart';
 import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
 import 'settings_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Main map screen with Google Maps integration
 class MapScreen extends StatefulWidget {
@@ -84,12 +86,18 @@ class _MapScreenState extends State<MapScreen> {
   // ── POI error tracking ────────────────────────────────────────────────────
   /// Last seen [AppState.poiError] value used to detect changes for snackbar.
   String? _lastPoiError;
+  /// Last seen [AppState.routeError] value used to detect changes for snackbar.
+  String? _lastRouteError;
   /// Cached reference to [AppState] for use in [dispose].
   AppState? _appState;
 
   // ── Scale pass prompt ──────────────────────────────────────────────────────
   /// Prevents showing the scale-pass prompt dialog more than once at a time.
   bool _showingScalePassPrompt = false;
+
+  // ── POI preview card ───────────────────────────────────────────────────────
+  /// The POI currently shown in the compact preview card, or null when hidden.
+  Poi? _previewPoi;
 
   // ── Custom marker icons ────────────────────────────────────────────────────
   /// Cached green-circle-with-w icon for [PoiType.scale] markers.
@@ -349,20 +357,61 @@ class _MapScreenState extends State<MapScreen> {
                       if (state.isLoadingRoute || state.routeResult != null)
                         RouteSummaryCard(settingDestination: _settingDestination),
 
-                      // Compact search bar + expandable quick-action grid.
-                      _MapBottomBar(
-                        key: const Key('map_bottom_bar'),
-                        isWsEnabled: state.enabledPoiLayers.contains(PoiType.scale),
-                        onSearchTap: _onWhereToCTAPressed,
-                        onDirection: _onWhereToCTAPressed,
-                        onPlaces: _onPoiBrowserPressed,
-                        onWs: _onWsTogglePressed,
-                        onRestricted: _onRouteOptionsPressed,
-                        onParking: _onParkingPressed,
-                        onFuel: _onFuelPressed,
-                        onWeather: () => _showComingSoon('Weather'),
-                        onCameras: () => _showComingSoon('Cameras'),
-                      ),
+                      // POI preview card replaces bottom bar when a marker is
+                      // tapped; dismiss by tapping the map or the × button.
+                      if (_previewPoi != null)
+                        _PoiPreviewCard(
+                          key: const Key('poi_preview_card'),
+                          poi: _previewPoi!,
+                          myLat: state.myLat,
+                          myLng: state.myLng,
+                          isFavorite: state.favoritePois.contains(_previewPoi!.id),
+                          onClose: _dismissPoiPreview,
+                          onDetails: () => _openFullPoiDetails(_previewPoi!),
+                          onNavigate: () async {
+                            final poi = _previewPoi!;
+                            _dismissPoiPreview();
+                            state.setDestination(poi.lat, poi.lng);
+                            try {
+                              await state.buildTruckRoute();
+                            } on HereApiKeyMissingException {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text(
+                                      'Truck routing unavailable: HERE API key not set.',
+                                    ),
+                                    backgroundColor:
+                                        Theme.of(context).colorScheme.error,
+                                    duration: const Duration(seconds: 8),
+                                  ),
+                                );
+                              }
+                            } catch (_) {
+                              // routeError surfaced via _onAppStateChanged.
+                            }
+                          },
+                          onFavorite: () {
+                            HapticFeedback.selectionClick();
+                            state.toggleFavorite(_previewPoi!.id);
+                          },
+                        )
+                      else
+                        // Compact search bar + expandable quick-action grid.
+                        _MapBottomBar(
+                          key: const Key('map_bottom_bar'),
+                          isWsEnabled:
+                              state.enabledPoiLayers.contains(PoiType.scale),
+                          onSearchTap: _onWhereToCTAPressed,
+                          onDirection: _onWhereToCTAPressed,
+                          onPlaces: _onPoiBrowserPressed,
+                          onWs: _onWsTogglePressed,
+                          onRestricted: _onRouteOptionsPressed,
+                          onParking: _onParkingPressed,
+                          onFuel: _onFuelPressed,
+                          onWeather: () => _showComingSoon('Weather'),
+                          onCameras: () => _showComingSoon('Cameras'),
+                        ),
                     ],
                   ),
                 ),
@@ -855,10 +904,21 @@ class _MapScreenState extends State<MapScreen> {
 
   void _onPoiMarkerTap(Poi poi) {
     HapticFeedback.selectionClick();
+    setState(() => _previewPoi = poi);
+  }
+
+  /// Opens the full [PoiDetailSheet] for [poi] and clears the preview card.
+  void _openFullPoiDetails(Poi poi) {
+    setState(() => _previewPoi = null);
     showModalBottomSheet<void>(
       context: context,
       builder: (context) => PoiDetailSheet(poi: poi),
     );
+  }
+
+  /// Dismisses the POI preview card without opening full details.
+  void _dismissPoiPreview() {
+    setState(() => _previewPoi = null);
   }
 
   void _onGoProPressed() {
@@ -897,6 +957,11 @@ class _MapScreenState extends State<MapScreen> {
   /// mode is active; all other taps are ignored so normal map interaction
   /// (panning, zooming, marker taps) is unaffected.
   void _onMapTap(LatLng position) {
+    // Dismiss POI preview card on any map tap.
+    if (_previewPoi != null) {
+      setState(() => _previewPoi = null);
+      return;
+    }
     if (!_settingDestination) return;
     _setDestinationAt(position);
   }
@@ -1028,9 +1093,11 @@ class _MapScreenState extends State<MapScreen> {
   void _onAppStateChanged() {
     if (!mounted) return;
     final state = context.read<AppState>();
-    final err = state.poiError;
-    if (err != null && err != _lastPoiError) {
-      _lastPoiError = err;
+
+    // ── POI load errors ────────────────────────────────────────────────────
+    final poiErr = state.poiError;
+    if (poiErr != null && poiErr != _lastPoiError) {
+      _lastPoiError = poiErr;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
@@ -1040,8 +1107,29 @@ class _MapScreenState extends State<MapScreen> {
           duration: const Duration(seconds: 6),
         ),
       );
-    } else if (err == null) {
+    } else if (poiErr == null) {
       _lastPoiError = null;
+    }
+
+    // ── Route errors (e.g. missing HERE API key) ───────────────────────────
+    final routeErr = state.routeError;
+    if (routeErr != null && routeErr != _lastRouteError) {
+      _lastRouteError = routeErr;
+      final isKeyMissing = routeErr.contains('HERE API key not configured');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isKeyMissing
+                ? 'Truck routing unavailable: HERE API key not set. '
+                    'See HERE_NAVIGATE_SETUP.md.'
+                : 'Route error. Check your connection and try again.',
+          ),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          duration: const Duration(seconds: 8),
+        ),
+      );
+    } else if (routeErr == null) {
+      _lastRouteError = null;
     }
 
     // Show scale-pass prompt when the driver crosses a police weight station.
@@ -1093,6 +1181,19 @@ class _MapScreenState extends State<MapScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Route calculated')),
+        );
+      }
+    } on HereApiKeyMissingException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Truck routing is unavailable: HERE API key not configured. '
+              'See HERE_NAVIGATE_SETUP.md for setup instructions.',
+            ),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 8),
+          ),
         );
       }
     } catch (e) {
@@ -2220,4 +2321,210 @@ class _QuickActionsGrid extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// POI preview card (shown when a map marker is tapped)
+// ---------------------------------------------------------------------------
 
+/// A compact "sneak peek" card shown at the bottom of the map when the driver
+/// taps a POI marker.
+///
+/// Provides one-tap access to the most common actions (Navigate, Favourite,
+/// Call) and a "Full Details" button that slides up the complete
+/// [PoiDetailSheet].  Tap anywhere on the map (or the × button) to dismiss.
+class _PoiPreviewCard extends StatelessWidget {
+  const _PoiPreviewCard({
+    super.key,
+    required this.poi,
+    required this.myLat,
+    required this.myLng,
+    required this.isFavorite,
+    required this.onClose,
+    required this.onDetails,
+    required this.onNavigate,
+    required this.onFavorite,
+  });
+
+  final Poi poi;
+  final double? myLat;
+  final double? myLng;
+  final bool isFavorite;
+  final VoidCallback onClose;
+  final VoidCallback onDetails;
+  final VoidCallback onNavigate;
+  final VoidCallback onFavorite;
+
+  /// Formats [meters] as a human-readable distance string.
+  static String _formatDistance(double meters) {
+    if (meters < 1000) return '${meters.round()} m';
+    final km = meters / 1000;
+    return '${km.toStringAsFixed(1)} km';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    // Calculate straight-line distance if we have current location.
+    final double? distMeters =
+        (myLat != null && myLng != null)
+            ? Geolocator.distanceBetween(myLat!, myLng!, poi.lat, poi.lng)
+            : null;
+
+    final phone = poi.tags['phone'] as String?;
+    final address = poi.tags['addr:full'] as String? ??
+        poi.tags['addr:street'] as String?;
+
+    return Material(
+      color: cs.surface,
+      elevation: AppTheme.elevationSheet,
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(AppTheme.radiusLG),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.spaceMD,
+            AppTheme.spaceSM,
+            AppTheme.spaceMD,
+            AppTheme.spaceMD,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppTheme.spaceSM),
+
+              // Header row: icon + name/type + distance + close
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: cs.primaryContainer,
+                    child: Icon(
+                      PoiDetailSheet.poiIcon(poi.type),
+                      color: cs.onPrimaryContainer,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.spaceMD),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          poi.name,
+                          style: tt.titleMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Row(
+                          children: [
+                            Text(
+                              PoiDetailSheet.poiLabel(poi.type),
+                              style: tt.bodySmall?.copyWith(
+                                color: cs.primary,
+                              ),
+                            ),
+                            if (distMeters != null) ...[
+                              Text(
+                                '  ·  ',
+                                style:
+                                    tt.bodySmall?.copyWith(color: cs.outline),
+                              ),
+                              Text(
+                                _formatDistance(distMeters),
+                                style: tt.bodySmall
+                                    ?.copyWith(color: cs.onSurfaceVariant),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (address != null)
+                          Text(
+                            address,
+                            style: tt.bodySmall
+                                ?.copyWith(color: cs.onSurfaceVariant),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
+                  ),
+                  // Close button
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    tooltip: 'Dismiss',
+                    onPressed: onClose,
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppTheme.spaceSM),
+
+              // Action buttons row
+              Row(
+                children: [
+                  // Navigate
+                  Expanded(
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.navigation_rounded, size: 16),
+                      label: const Text('Go'),
+                      onPressed: onNavigate,
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.spaceXS),
+
+                  // Favorite / Save
+                  IconButton.outlined(
+                    tooltip: isFavorite ? 'Remove favorite' : 'Save',
+                    icon: Icon(
+                      isFavorite
+                          ? Icons.star_rounded
+                          : Icons.star_border_rounded,
+                      color: isFavorite ? Colors.amber : null,
+                    ),
+                    onPressed: onFavorite,
+                  ),
+
+                  // Call – only shown when phone number is available.
+                  if (phone != null && phone.isNotEmpty) ...[
+                    const SizedBox(width: AppTheme.spaceXS),
+                    IconButton.outlined(
+                      tooltip: 'Call',
+                      icon: const Icon(Icons.phone_rounded),
+                      onPressed: () async {
+                        final uri = Uri(scheme: 'tel', path: phone);
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri);
+                        }
+                      },
+                    ),
+                  ],
+
+                  const Spacer(),
+
+                  // Full details
+                  TextButton.icon(
+                    icon: const Icon(Icons.info_outline_rounded, size: 16),
+                    label: const Text('Details'),
+                    onPressed: onDetails,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
