@@ -57,6 +57,9 @@ import '../services/units_service.dart';
 import '../services/firestore_scale_report_service.dart';
 import '../services/weigh_station_ahead_service.dart';
 import '../services/weight_station_overlay_service.dart';
+import '../config.dart';
+import '../models/nearby_place.dart';
+import '../services/google_places_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -101,6 +104,8 @@ class AppState extends ChangeNotifier {
       WeightStationOverlayService();
   late final WeighStationAheadService _weighStationAheadService =
       WeighStationAheadService(_poiService);
+  final GooglePlacesService _placesService =
+      GooglePlacesService(apiKey: Config.placesApiKey);
   final _uuid = const Uuid();
   StreamSubscription<Position>? _routeMonitorSub;
   StreamSubscription<Position>? _speedMonitorSub;
@@ -433,6 +438,21 @@ class AppState extends ChangeNotifier {
 
   /// `true` while [loadRoadsideProviders] is running.
   bool isLoadingRoadside = false;
+
+  // ---------------------------------------------------------------------------
+  // Nearby truck stops / truck fuel (Google Places Nearby Search)
+  // ---------------------------------------------------------------------------
+
+  /// Nearby truck stops and fuel stations fetched via Google Places API.
+  /// Empty until [loadNearbyTruckStops] is called.
+  List<NearbyPlace> nearbyPlaces = [];
+
+  /// `true` while [loadNearbyTruckStops] is running.
+  bool isLoadingNearbyPlaces = false;
+
+  /// Error message from the last [loadNearbyTruckStops] call, or `null` on
+  /// success (or when not yet attempted).
+  String? nearbyPlacesError;
 
   // Subscription / entitlement state
   /// `true` when the user has an active KINGTRUX Pro entitlement.
@@ -1003,6 +1023,58 @@ class AppState extends ChangeNotifier {
       );
     } finally {
       isLoadingRoadside = false;
+      notifyListeners();
+    }
+  }
+
+  /// Fetch nearby truck stops and truck fuel stations using the Google Places
+  /// Nearby Search API.
+  ///
+  /// Populates [nearbyPlaces] with up to 20 results within [radiusMeters].
+  /// Requires [Config.placesApiKey] to be set; does nothing and returns
+  /// immediately when the key is not configured.
+  ///
+  /// [searchLat] / [searchLng] override the search center; when omitted the
+  /// current GPS location ([myLat] / [myLng]) is used.
+  ///
+  /// On `ZERO_RESULTS` the list is cleared with no error.
+  /// On network / API errors the error is logged and [nearbyPlacesError] is
+  /// set so the UI can show a non-blocking message.
+  Future<void> loadNearbyTruckStops({
+    int radiusMeters = 30000,
+    double? searchLat,
+    double? searchLng,
+  }) async {
+    if (!Config.placesApiKeyConfigured) {
+      debugPrint(
+        'GooglePlaces: PLACES_API_KEY not configured; skipping nearby search',
+      );
+      return;
+    }
+    final lat = searchLat ?? myLat;
+    final lng = searchLng ?? myLng;
+    if (lat == null || lng == null) {
+      debugPrint('GooglePlaces: location not available; skipping nearby search');
+      return;
+    }
+
+    isLoadingNearbyPlaces = true;
+    nearbyPlacesError = null;
+    notifyListeners();
+
+    try {
+      final results = await _placesService.searchNearbyTruckStops(
+        lat: lat,
+        lng: lng,
+        radiusMeters: radiusMeters,
+      );
+      nearbyPlaces = results;
+    } catch (e, st) {
+      debugPrint('GooglePlaces: loadNearbyTruckStops error: $e\n$st');
+      nearbyPlacesError = e.toString().replaceFirst('Exception: ', '');
+      nearbyPlaces = [];
+    } finally {
+      isLoadingNearbyPlaces = false;
       notifyListeners();
     }
   }

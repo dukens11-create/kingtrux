@@ -23,6 +23,15 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+// Google Places API key – read from local.properties so the key is never
+// committed to source control.  To configure locally:
+//   1. Open (or create) android/local.properties
+//   2. Add the line:  placesApiKey=YOUR_PLACES_API_KEY
+// CI/CD: set the PLACES_API_KEY environment variable; the build system (e.g.
+// Codemagic / GitHub Actions) can write the value into local.properties or
+// pass it via --dart-define=PLACES_API_KEY=<key> at flutter build time.
+def placesApiKey = localProperties.getProperty('placesApiKey', '')
+
 android {
     namespace "com.kingtrux.app"
     compileSdk 36

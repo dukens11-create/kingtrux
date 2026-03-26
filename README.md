@@ -215,7 +215,50 @@ discovery, search) remain fully functional.
 See [HERE_NAVIGATE_SETUP.md](HERE_NAVIGATE_SETUP.md) for full credential and
 CI/CD setup instructions.
 
-## Login Page
+#### Google Places API Key (Nearby Truck Stops)
+
+The **Nearby Truck Stops** feature uses the Google Places Nearby Search API to
+display truck stops and fuel stations on the map.
+
+**Step 1 – Enable the API in Google Cloud Console**
+
+1. Open [Google Cloud Console → APIs & Services → Library](https://console.cloud.google.com/apis/library).
+2. Search for **Places API** and click **Enable**.
+3. Ensure billing is active for the project (Places API requires a billing account).
+
+**Step 2 – Create / configure an API key**
+
+You can reuse the same key used for Google Maps as long as it has the Places
+API enabled and any key restrictions include the Places API scope.
+
+**Step 3 – Pass the key at build / run time**
+
+```bash
+flutter run --dart-define=PLACES_API_KEY=YOUR_PLACES_API_KEY
+```
+
+The key is read by `Config.placesApiKey` (see `lib/config.dart`).
+
+**Android – `local.properties` (optional, for local development)**
+
+Add the key to `android/local.properties` (this file is git-ignored):
+
+```properties
+placesApiKey=YOUR_PLACES_API_KEY
+```
+
+This value is read by `android/app/build.gradle` and made available as a
+`BuildConfig` field.  However, the Dart layer always reads the key via
+`--dart-define`, so this step is **optional** and only needed if you plan to
+access the key from Kotlin/Java native code.
+
+**Graceful degradation**
+
+When `PLACES_API_KEY` is absent the nearby truck-stop search is silently skipped
+and no Places markers appear on the map.  All other features remain fully
+functional.
+
+
 
 ### Overview
 The login / account page (`lib/ui/kingtrux_login_page.dart`) shows:
