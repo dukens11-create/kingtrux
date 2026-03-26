@@ -36,17 +36,17 @@ class _MoreScreenState extends State<MoreScreen>
         padding: const EdgeInsets.only(bottom: AppTheme.spaceLG),
         children: [
           // ── Profile header card ─────────────────────────────────────────
-          _ProfileHeaderCard(),
+          const _ProfileHeaderCard(),
           // ── Membership promo card ───────────────────────────────────────
-          _MembershipPromoCard(),
+          const _MembershipPromoCard(),
           // ── Fuel discounts promo card ───────────────────────────────────
-          _FuelDiscountsCard(),
+          const _FuelDiscountsCard(),
           // ── My Impact section ───────────────────────────────────────────
           _MyImpactSection(tabController: _impactTabController),
           // ── Services grid ───────────────────────────────────────────────
-          _ServicesSectionGrid(),
+          const _ServicesSectionGrid(),
           // ── More grid ───────────────────────────────────────────────────
-          _MoreSectionGrid(),
+          const _MoreSectionGrid(),
         ],
       ),
     );
@@ -58,6 +58,8 @@ class _MoreScreenState extends State<MoreScreen>
 // ---------------------------------------------------------------------------
 
 class _ProfileHeaderCard extends StatelessWidget {
+  const _ProfileHeaderCard();
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -167,6 +169,8 @@ class _ProfileStat extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _MembershipPromoCard extends StatelessWidget {
+  const _MembershipPromoCard();
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -227,6 +231,8 @@ class _MembershipPromoCard extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _FuelDiscountsCard extends StatelessWidget {
+  const _FuelDiscountsCard();
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -419,6 +425,8 @@ class _ImpactStatCard extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ServicesSectionGrid extends StatelessWidget {
+  const _ServicesSectionGrid();
+
   static const List<_GridItem> _items = [
     _GridItem(Icons.card_giftcard_rounded, 'Refer and Earn'),
     _GridItem(Icons.navigation_rounded, 'Fleet Navigation'),
@@ -476,8 +484,10 @@ class _ServicesSectionGrid extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _MoreSectionGrid extends StatelessWidget {
+  const _MoreSectionGrid();
+
   static const List<_GridItem> _items = [
-    _GridItem(Icons.assignment_late_rounded, 'File an Insurance Cla...'),
+    _GridItem(Icons.assignment_late_rounded, 'File an Insurance Claim'),
     _GridItem(Icons.store_rounded, 'List My Business'),
     _GridItem(Icons.science_rounded, 'Join App Beta Testers'),
     _GridItem(Icons.flash_on_rounded, 'Northland Quick Claim'),
