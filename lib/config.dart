@@ -65,6 +65,27 @@ class Config {
   static const String googleMapsAndroidApiKey =
       String.fromEnvironment('GOOGLE_MAPS_ANDROID_API_KEY', defaultValue: '');
 
+  // ---------------------------------------------------------------------------
+  // Google Places API key
+  // Injected at build time via --dart-define=PLACES_API_KEY=<key>
+  // The same Google Cloud project as Maps can be used; ensure the
+  // "Places API" is enabled for the key in Google Cloud Console.
+  // ---------------------------------------------------------------------------
+
+  /// Google Places API key used for Nearby Search (truck stops / fuel).
+  ///
+  /// Pass at build/run time:
+  ///   flutter run --dart-define=PLACES_API_KEY=your_places_key
+  ///
+  /// When empty, nearby truck-stop search is silently skipped and no markers
+  /// are added for Places results.
+  static const String placesApiKey =
+      String.fromEnvironment('PLACES_API_KEY', defaultValue: '');
+
+  /// Returns `true` when the Places API key appears to be configured
+  /// (non-empty).
+  static bool get placesApiKeyConfigured => placesApiKey.isNotEmpty;
+
   /// Placeholder value used in source control for the Google Maps Android key.
   /// Compared at runtime to detect un-replaced placeholder builds.
   static const String _googleMapsAndroidPlaceholder =

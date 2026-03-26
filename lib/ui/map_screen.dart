@@ -45,6 +45,8 @@ import 'paywall_screen.dart';
 import 'preview_gallery_page.dart';
 import 'settings_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../models/nearby_place.dart';
+import '../services/external_nav_service.dart';
 
 /// Main map screen with Google Maps integration
 class MapScreen extends StatefulWidget {
@@ -103,6 +105,14 @@ class _MapScreenState extends State<MapScreen> {
   // ── Custom marker icons ────────────────────────────────────────────────────
   /// Cached green-circle-with-w icon for [PoiType.scale] markers.
   BitmapDescriptor? _scaleMarkerIcon;
+
+  // ── Nearby places debounce ─────────────────────────────────────────────────
+  /// Debounce timer for refreshing nearby truck stops on map movement.
+  Timer? _nearbyPlacesDebounce;
+
+  /// Last camera center used for a nearby-places fetch (avoids redundant
+  /// requests when the camera barely moves).
+  LatLng? _lastNearbyPlacesFetchCenter;
 
   @override
   void initState() {
@@ -289,6 +299,7 @@ class _MapScreenState extends State<MapScreen> {
                 onTap: _onMapTap,
                 onLongPress: _onMapLongPress,
                 onCameraMove: _onCameraMove,
+                onCameraIdle: _onCameraIdle,
                 markers: _buildMarkers(state),
                 polylines: _buildPolylines(state),
                 myLocationEnabled: true,
@@ -729,6 +740,24 @@ class _MapScreenState extends State<MapScreen> {
       );
     }
 
+    // Nearby truck stops / fuel stations from Google Places API.
+    for (final place in state.nearbyPlaces) {
+      markers.add(
+        Marker(
+          markerId: MarkerId('places_${place.placeId}'),
+          position: LatLng(place.lat, place.lng),
+          infoWindow: InfoWindow(
+            title: place.name,
+            snippet: place.vicinity ?? 'Tap to navigate',
+            onTap: () => _onNearbyPlaceTap(place),
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueCyan,
+          ),
+        ),
+      );
+    }
+
     return markers;
   }
 
@@ -928,6 +957,33 @@ class _MapScreenState extends State<MapScreen> {
     setState(() => _previewPoi = poi);
   }
 
+  /// Called when the user taps the InfoWindow of a nearby truck stop / fuel
+  /// station marker sourced from the Google Places API.
+  ///
+  /// Opens external turn-by-turn navigation to the selected place via
+  /// [ExternalNavService.openGoogleMaps].  Shows a snackbar if navigation
+  /// cannot be launched.
+  Future<void> _onNearbyPlaceTap(NearbyPlace place) async {
+    HapticFeedback.selectionClick();
+    try {
+      final launched = await ExternalNavService.openGoogleMaps(
+        destLat: place.lat,
+        destLng: place.lng,
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open navigation app')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Navigation error: $e')),
+        );
+      }
+    }
+  }
+
   /// Opens the full [PoiDetailSheet] for [poi] and clears the preview card.
   void _openFullPoiDetails(Poi poi) {
     setState(() => _previewPoi = null);
@@ -1090,6 +1146,57 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  /// Called when the camera finishes moving. Debounces nearby-places requests
+  /// so we don't hammer the Places API on every pixel of camera movement.
+  void _onCameraIdle() {
+    _nearbyPlacesDebounce?.cancel();
+    _nearbyPlacesDebounce = Timer(const Duration(seconds: 2), () async {
+      if (!mounted) return;
+      final controller = _mapController;
+      if (controller == null) return;
+
+      final visibleRegion = await controller.getVisibleRegion();
+      final center = LatLng(
+        (visibleRegion.northeast.latitude + visibleRegion.southwest.latitude) /
+            2,
+        (visibleRegion.northeast.longitude +
+                visibleRegion.southwest.longitude) /
+            2,
+      );
+
+      // Skip if the center has barely moved (< 1 km) to avoid redundant requests.
+      final last = _lastNearbyPlacesFetchCenter;
+      if (last != null) {
+        final distanceMeters = Geolocator.distanceBetween(
+          last.latitude,
+          last.longitude,
+          center.latitude,
+          center.longitude,
+        );
+        if (distanceMeters < 1000) return;
+      }
+      _lastNearbyPlacesFetchCenter = center;
+
+      if (!mounted) return;
+      final appState = context.read<AppState>();
+      await appState.loadNearbyTruckStops(
+        searchLat: center.latitude,
+        searchLng: center.longitude,
+      );
+
+      if (!mounted) return;
+      final err = appState.nearbyPlacesError;
+      if (err != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Nearby stops: $err'),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    });
+  }
+
   /// Moves the camera to track the user's location when [_followMode] is true.
   /// Called from the Consumer builder on every AppState rebuild.
   void _maybeMoveCamera(AppState state) {
@@ -1232,6 +1339,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _mapInitTimer?.cancel();
+    _nearbyPlacesDebounce?.cancel();
     _mapController?.dispose();
     // Remove the AppState change listener added in initState.
     _appState?.removeListener(_onAppStateChanged);
