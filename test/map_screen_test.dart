@@ -88,27 +88,14 @@ void main() {
       expect(find.text('Where to?'), findsOneWidget);
     });
 
-    testWidgets('sheet shows "Use Map" tip to set destination by long-press',
+    testWidgets('sheet does not show long-press / "Use Map" tip',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildSheet());
       await tester.tap(find.byKey(const Key('open_sheet')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Or long-press on the map'), findsOneWidget);
-      expect(find.text('Use Map'), findsOneWidget);
-    });
-
-    testWidgets('tapping "Use Map" closes the sheet',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(buildSheet());
-      await tester.tap(find.byKey(const Key('open_sheet')));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Use Map'));
-      await tester.pumpAndSettle();
-
-      // Sheet is dismissed; the text field should no longer be in the tree.
-      expect(find.byKey(const Key('where_to_field')), findsNothing);
+      expect(find.text('Or long-press on the map'), findsNothing);
+      expect(find.text('Use Map'), findsNothing);
     });
   });
 
