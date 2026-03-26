@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  API key placeholders for KingTrux.
+  Do NOT commit real key values here – this file is tracked by git.
+
+  Google Maps key:
+    Injected via manifestPlaceholders in android/app/build.gradle.
+    Pass at build/run time with --dart-define=GOOGLE_MAPS_ANDROID_API_KEY=<key>
+    or via CI (see .github/workflows/android-build.yml).
+
+  HERE API key:
+    Used for truck routing (HERE Routing REST API v8).
+    Pass at build/run time with --dart-define=HERE_API_KEY=<key>
+    (see HERE_NAVIGATE_SETUP.md for full instructions).
+    When omitted the app remains fully functional but truck routing
+    will show a user-facing notice and fall back gracefully.
+    The Dart-side value is read from lib/config.dart via
+    String.fromEnvironment('HERE_API_KEY').
+-->
+<resources>
+    <!--
+      Placeholder – replace with your actual HERE API key at build time.
+      See HERE_NAVIGATE_SETUP.md §2 "Passing credentials at build / run time".
+      Never commit a real key value here.
+    -->
+    <string name="here_api_key" translatable="false">YOUR_HERE_API_KEY_HERE</string>
+</resources>

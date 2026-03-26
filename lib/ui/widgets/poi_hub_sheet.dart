@@ -1,32 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../../models/poi.dart';
 import '../../state/app_state.dart';
 import '../navigation_screen.dart';
 import '../theme/app_theme.dart';
 import 'poi_browser_sheet.dart';
+import 'poi_detail_sheet.dart';
 import 'where_to_sheet.dart';
 
-/// POI Hub bottom sheet.
+/// POI Hub bottom sheet — TruckPath-style tabbed entry point.
 ///
-/// Replaces the plain [PoiBrowserSheet] as the entry-point when the driver
-/// taps the **POIs** button.  The sheet presents:
+/// Presents four tabs so the driver can quickly find what they need:
 ///
-/// 1. A search-style destination header that opens the [WhereToSheet] flow.
-/// 2. A compact route-summary row (when a route is loaded) with
-///    **Clear Trip** and **Go** action buttons.
-/// 3. A 4×2 grid of POI-category quick-action tiles (Truck Stops, Weigh
-///    Stations, Parking, Fuel, Rest Areas, Walmarts, Truck Washes, More).
-/// 4. Placeholder "Extras" cards (Discounts, Weather, Share My Experience).
+/// 1. **Quick** – category grid (tap a tile to filter the map and open
+///    the full browser) plus extras, matching the previous hub layout.
+/// 2. **Stops** – live list of nearby truck stops, fuel stations, and rest
+///    areas loaded into [AppState.pois], sorted by straight-line distance.
+/// 3. **Services** – nearby parking lots, gyms, weigh stations, and
+///    roadside assistance providers.
+/// 4. **List** – all loaded POIs in a single distance-sorted list, giving a
+///    combined view similar to TruckPath's result list.
 ///
-/// Tapping a tile for a supported [PoiType] enables that layer (if not already
-/// on) and opens [PoiBrowserSheet] pre-filtered to that category.
-///
-/// Tapping a tile for a not-yet-implemented category (Walmarts, Truck Washes)
-/// shows a "Coming soon" [SnackBar].
-///
-/// Tapping **More** opens the full [PoiBrowserSheet] without any filter change.
+/// All existing [PoiType] categories are still reachable; no features are
+/// removed.
 class PoiHubSheet extends StatelessWidget {
   const PoiHubSheet({super.key});
 
@@ -34,75 +32,109 @@ class PoiHubSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppState>(
       builder: (context, state, _) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.72,
-          minChildSize: 0.45,
-          maxChildSize: 0.95,
-          expand: false,
-          builder: (context, scrollController) {
-            final cs = Theme.of(context).colorScheme;
-            return Column(
-              children: [
-                // ── Drag handle ────────────────────────────────────────
-                const SizedBox(height: AppTheme.spaceSM),
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: AppTheme.spaceSM),
-
-                // ── Scrollable body ────────────────────────────────────
-                Expanded(
-                  child: ListView(
-                    controller: scrollController,
-                    padding: const EdgeInsets.fromLTRB(
-                      AppTheme.spaceMD,
-                      0,
-                      AppTheme.spaceMD,
-                      AppTheme.spaceLG,
+        return DefaultTabController(
+          length: 4,
+          child: DraggableScrollableSheet(
+            initialChildSize: 0.72,
+            minChildSize: 0.45,
+            maxChildSize: 0.95,
+            expand: false,
+            builder: (context, scrollController) {
+              final cs = Theme.of(context).colorScheme;
+              return Column(
+                children: [
+                  // ── Drag handle ────────────────────────────────────────
+                  const SizedBox(height: AppTheme.spaceSM),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: cs.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    children: [
-                      // ── Search / destination header ──────────────────
-                      _SearchHeader(onTap: () => _openWhereTo(context)),
-                      const SizedBox(height: AppTheme.spaceMD),
+                  ),
+                  const SizedBox(height: AppTheme.spaceSM),
 
-                      // ── Route summary row (visible when route loaded) ─
-                      if (state.routeResult != null) ...[
-                        _RouteSummaryRow(state: state),
-                        const SizedBox(height: AppTheme.spaceMD),
-                      ],
+                  // ── Search / destination header ──────────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.spaceMD,
+                    ),
+                    child: _SearchHeader(
+                      onTap: () => _openWhereTo(context),
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.spaceXS),
 
-                      // ── Category grid ────────────────────────────────
-                      Text(
-                        'FIND NEARBY',
-                        key: const Key('poi_hub_find_nearby_label'),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
-                          color: cs.primary,
-                        ),
-                      ),
-                      const SizedBox(height: AppTheme.spaceSM),
-                      _CategoryGrid(
-                        key: const Key('poi_hub_category_grid'),
-                        onCategoryTap: (category) =>
-                            _onCategoryTap(context, state, category),
-                      ),
-                      const SizedBox(height: AppTheme.spaceLG),
-
-                      // ── Placeholder extras ───────────────────────────
-                      const _ExtrasSection(),
+                  // ── Tab bar ──────────────────────────────────────────
+                  TabBar(
+                    isScrollable: false,
+                    labelPadding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.spaceXS,
+                    ),
+                    tabs: const [
+                      Tab(text: 'Quick'),
+                      Tab(text: 'Stops'),
+                      Tab(text: 'Services'),
+                      Tab(text: 'List'),
                     ],
                   ),
-                ),
-              ],
-            );
-          },
+
+                  // ── Tab content ──────────────────────────────────────
+                  Expanded(
+                    child: TabBarView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        // Tab 0 – Quick (category grid)
+                        _QuickTab(
+                          state: state,
+                          scrollController: scrollController,
+                          onCategoryTap: (cat) =>
+                              _onCategoryTap(context, state, cat),
+                        ),
+
+                        // Tab 1 – Stops
+                        _PoiListTab(
+                          key: const Key('poi_hub_tab_stops'),
+                          state: state,
+                          filterTypes: const {
+                            PoiType.truckStop,
+                            PoiType.fuel,
+                            PoiType.restArea,
+                          },
+                          emptyLabel: 'No truck stops, fuel, or rest areas loaded.\n'
+                              'Tap a category on the Quick tab to load nearby stops.',
+                        ),
+
+                        // Tab 2 – Services
+                        _PoiListTab(
+                          key: const Key('poi_hub_tab_services'),
+                          state: state,
+                          filterTypes: const {
+                            PoiType.parking,
+                            PoiType.gym,
+                            PoiType.scale,
+                            PoiType.roadsideAssistance,
+                          },
+                          emptyLabel: 'No services loaded.\n'
+                              'Tap a category on the Quick tab to load nearby services.',
+                        ),
+
+                        // Tab 3 – List (all results)
+                        _PoiListTab(
+                          key: const Key('poi_hub_tab_list'),
+                          state: state,
+                          filterTypes: null, // all types
+                          emptyLabel: 'No POIs loaded yet.\n'
+                              'Use the Quick tab or the Layers button to load nearby POIs.',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         );
       },
     );
@@ -182,6 +214,197 @@ class PoiHubSheet extends StatelessWidget {
         content: Text('$name — Coming soon'),
         behavior: SnackBarBehavior.floating,
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Quick tab
+// ---------------------------------------------------------------------------
+
+/// The "Quick" tab: shows the [_RouteSummaryRow] (if a route is active),
+/// the [_CategoryGrid], and the [_ExtrasSection].  Mirrors the previous
+/// [PoiHubSheet] layout so no functionality is removed.
+class _QuickTab extends StatelessWidget {
+  const _QuickTab({
+    required this.state,
+    required this.scrollController,
+    required this.onCategoryTap,
+  });
+
+  final AppState state;
+  final ScrollController scrollController;
+  final void Function(_PoiCategory) onCategoryTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return ListView(
+      controller: scrollController,
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spaceMD,
+        AppTheme.spaceSM,
+        AppTheme.spaceMD,
+        AppTheme.spaceLG,
+      ),
+      children: [
+        // Route summary row (visible when route loaded)
+        if (state.routeResult != null) ...[
+          _RouteSummaryRow(state: state),
+          const SizedBox(height: AppTheme.spaceMD),
+        ],
+
+        // Category grid
+        Text(
+          'FIND NEARBY',
+          key: const Key('poi_hub_find_nearby_label'),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+            color: cs.primary,
+          ),
+        ),
+        const SizedBox(height: AppTheme.spaceSM),
+        _CategoryGrid(
+          key: const Key('poi_hub_category_grid'),
+          onCategoryTap: onCategoryTap,
+        ),
+        const SizedBox(height: AppTheme.spaceLG),
+
+        // Extras
+        const _ExtrasSection(),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// POI list tab (Stops / Services / List)
+// ---------------------------------------------------------------------------
+
+/// A scrollable list of [Poi] objects filtered by [filterTypes] and sorted
+/// by straight-line distance from the current location.
+///
+/// Pass `filterTypes = null` to show ALL loaded POIs (used by the "List" tab).
+class _PoiListTab extends StatelessWidget {
+  const _PoiListTab({
+    super.key,
+    required this.state,
+    required this.filterTypes,
+    required this.emptyLabel,
+  });
+
+  final AppState state;
+  final Set<PoiType>? filterTypes;
+  final String emptyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final myLat = state.myLat;
+    final myLng = state.myLng;
+
+    // Filter and sort POIs.
+    final all = state.pois;
+    final filtered = filterTypes == null
+        ? List<Poi>.from(all)
+        : all.where((p) => filterTypes!.contains(p.type)).toList();
+
+    if (myLat != null && myLng != null) {
+      filtered.sort((a, b) {
+        final da = Geolocator.distanceBetween(myLat, myLng, a.lat, a.lng);
+        final db = Geolocator.distanceBetween(myLat, myLng, b.lat, b.lng);
+        return da.compareTo(db);
+      });
+    }
+
+    if (filtered.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(AppTheme.spaceLG),
+        child: Center(
+          child: Text(
+            emptyLabel,
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spaceSM,
+        vertical: AppTheme.spaceXS,
+      ),
+      itemCount: filtered.length,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final poi = filtered[index];
+        final dist = (myLat != null && myLng != null)
+            ? Geolocator.distanceBetween(myLat, myLng, poi.lat, poi.lng)
+            : null;
+        return _PoiListTile(poi: poi, distanceMeters: dist);
+      },
+    );
+  }
+}
+
+/// A single row in the POI list tabs.
+class _PoiListTile extends StatelessWidget {
+  const _PoiListTile({required this.poi, this.distanceMeters});
+
+  final Poi poi;
+  final double? distanceMeters;
+
+  static String _formatDist(double meters) {
+    if (meters < 1000) return '${meters.round()} m';
+    final km = meters / 1000;
+    return '${km.toStringAsFixed(1)} km';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return ListTile(
+      key: Key('poi_list_tile_${poi.id}'),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spaceSM,
+        vertical: AppTheme.spaceXS,
+      ),
+      leading: CircleAvatar(
+        backgroundColor: cs.primaryContainer,
+        child: Icon(
+          PoiDetailSheet.poiIcon(poi.type),
+          size: 18,
+          color: cs.onPrimaryContainer,
+        ),
+      ),
+      title: Text(poi.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        PoiDetailSheet.poiLabel(poi.type),
+        style: TextStyle(color: cs.primary, fontSize: 12),
+      ),
+      trailing: distanceMeters != null
+          ? Text(
+              _formatDist(distanceMeters!),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+            )
+          : null,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        showModalBottomSheet<void>(
+          context: context,
+          builder: (_) => ChangeNotifierProvider.value(
+            value: context.read<AppState>(),
+            child: PoiDetailSheet(poi: poi),
+          ),
+        );
+      },
     );
   }
 }
@@ -607,3 +830,4 @@ class _PlaceholderCard extends StatelessWidget {
     );
   }
 }
+
