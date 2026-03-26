@@ -427,11 +427,12 @@ class _MapScreenState extends State<MapScreen> {
               ),
 
               // ── Closest police weight station (bottom-right, above bar) ──
-              const Positioned(
-                bottom: 140,
-                right: AppTheme.spaceMD,
-                child: ClosestScaleCard(),
-              ),
+              if (state.showWeightStationOverlay)
+                const Positioned(
+                  bottom: 140,
+                  right: AppTheme.spaceMD,
+                  child: ClosestScaleCard(),
+                ),
 
               // ── Alert banner (below status bar + app bar) ────────────────
               Positioned(
