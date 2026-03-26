@@ -24,6 +24,10 @@ class SpeedDisplay extends StatelessWidget {
       builder: (context, state, _) {
         // No GPS fix yet – hide entirely.
         if (state.myLat == null) return const SizedBox.shrink();
+
+        // Hide while stopped – avoids clutter when parked or idling.
+        if (state.currentSpeedMph < 1.0) return const SizedBox.shrink();
+
         return _SpeedDisplayContent(state: state);
       },
     );
@@ -67,8 +71,8 @@ class _SpeedDisplayContent extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.spaceMD,
-          vertical: AppTheme.spaceXS + 2,
+          horizontal: AppTheme.spaceSM,
+          vertical: 4,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -83,7 +87,7 @@ class _SpeedDisplayContent extends StatelessWidget {
                   children: [
                     _SpeedLimitSign(limitMph: limitMph),
                     if (showTruckBadge) ...[
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       _TruckLimitBadge(
                         limitMph: truckLimitMph,
                         stateCode: state.currentUsState,
@@ -110,15 +114,15 @@ class _SpeedDisplayContent extends StatelessWidget {
                   children: [
                     Text(
                       speedMph.toStringAsFixed(0),
-                      style: tt.titleMedium?.copyWith(
+                      style: tt.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: speedColor,
                       ),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
+                        horizontal: 4,
+                        vertical: 1,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -157,7 +161,7 @@ class _SpeedDisplayContent extends StatelessWidget {
 /// Returns the responsive width for the speed limit sign, clamped to a safe
 /// range so it looks proportionate on phones of all sizes.
 double _signWidth(double screenWidth) =>
-    (screenWidth * 0.18).clamp(70.0, 110.0);
+    (screenWidth * 0.13).clamp(50.0, 76.0);
 
 /// Standard US SPEED LIMIT sign – white rounded rectangle, black border,
 /// "SPEED" / "LIMIT" stacked above the large numeric limit.
@@ -248,7 +252,7 @@ class _TruckLimitBadge extends StatelessWidget {
     final suffix = (limitMph == null && stateCode != null) ? ' ($stateCode)' : '';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(999),
@@ -256,7 +260,7 @@ class _TruckLimitBadge extends StatelessWidget {
       ),
       child: Text(
         '$limitLabel$suffix',
-        style: tt.labelMedium?.copyWith(
+        style: tt.bodySmall?.copyWith(
           fontWeight: FontWeight.bold,
           color: limitMph != null ? Colors.black : Colors.grey.shade600,
         ),
