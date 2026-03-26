@@ -56,6 +56,7 @@ import '../services/destination_persistence_service.dart';
 import '../services/units_service.dart';
 import '../services/firestore_scale_report_service.dart';
 import '../services/weigh_station_ahead_service.dart';
+import '../services/weight_station_overlay_service.dart';
 
 /// Application state management using ChangeNotifier
 class AppState extends ChangeNotifier {
@@ -96,6 +97,8 @@ class AppState extends ChangeNotifier {
   final DestinationPersistenceService _destinationPersistenceService =
       DestinationPersistenceService();
   final UnitsService _unitsService = UnitsService();
+  final WeightStationOverlayService _weightStationOverlayService =
+      WeightStationOverlayService();
   late final WeighStationAheadService _weighStationAheadService =
       WeighStationAheadService(_poiService);
   final _uuid = const Uuid();
@@ -232,6 +235,12 @@ class AppState extends ChangeNotifier {
   ///
   /// Persisted between sessions via [RouteOptionsService].
   bool avoidUnpaved = false;
+
+  /// When `true`, the closest weight-station overlay card is shown on the map.
+  ///
+  /// Defaults to `false` (hidden).  Persisted between sessions via
+  /// [WeightStationOverlayService].
+  bool showWeightStationOverlay = false;
 
   // ---------------------------------------------------------------------------
   // Speed monitoring state
@@ -615,6 +624,12 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading metric units preference: $e');
+    }
+    try {
+      showWeightStationOverlay = await _weightStationOverlayService.load();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading weight station overlay preference: $e');
     }
     try {
       await refreshMyLocation();
@@ -1509,6 +1524,15 @@ class AppState extends ChangeNotifier {
       (Object e) => debugPrint('Error saving avoidUnpaved: $e'),
     );
     await _recalculateActiveRoute();
+  }
+
+  /// Toggle the weight-station overlay visibility and persist the choice.
+  void setShowWeightStationOverlay(bool value) {
+    showWeightStationOverlay = value;
+    notifyListeners();
+    _weightStationOverlayService.save(value).catchError(
+      (Object e) => debugPrint('Error saving weight station overlay: $e'),
+    );
   }
 
   /// Recalculate the route from the current position and restart navigation.

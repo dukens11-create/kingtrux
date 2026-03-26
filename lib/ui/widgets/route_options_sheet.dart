@@ -96,6 +96,29 @@ class RouteOptionsSheet extends StatelessWidget {
 
                 const Divider(),
 
+                // ── Map Overlays ─────────────────────────────────────────────
+                Text('Map Overlays', style: tt.titleSmall),
+                SwitchListTile(
+                  secondary: Icon(
+                    Icons.scale_rounded,
+                    color: state.showWeightStationOverlay
+                        ? cs.primary
+                        : cs.outline,
+                  ),
+                  title: const Text('Show Weight Station Overlay'),
+                  subtitle: const Text(
+                    'Shows the closest weigh station card on the map while driving',
+                  ),
+                  value: state.showWeightStationOverlay,
+                  onChanged: (value) {
+                    HapticFeedback.selectionClick();
+                    state.setShowWeightStationOverlay(value);
+                  },
+                  contentPadding: EdgeInsets.zero,
+                ),
+
+                const Divider(),
+
                 // ── Hazmat (mirrors truck profile) ──────────────────────────
                 ListTile(
                   leading: Icon(

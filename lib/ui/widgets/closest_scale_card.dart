@@ -50,8 +50,8 @@ class _ClosestScaleCardContent extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.spaceMD,
-          vertical: AppTheme.spaceXS + 2,
+          horizontal: AppTheme.spaceSM,
+          vertical: 4,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -60,11 +60,11 @@ class _ClosestScaleCardContent extends StatelessWidget {
             Stack(
               alignment: Alignment.bottomRight,
               children: [
-                WeighStationSign(showLabel: true, size: 32),
+                WeighStationSign(showLabel: false, size: 22),
                 if (statusIcon != null)
                   Container(
-                    width: 10,
-                    height: 10,
+                    width: 8,
+                    height: 8,
                     decoration: BoxDecoration(
                       color: statusColor,
                       shape: BoxShape.circle,
@@ -73,7 +73,7 @@ class _ClosestScaleCardContent extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(width: AppTheme.spaceXS + 2),
+            const SizedBox(width: AppTheme.spaceXS),
             // ── Text ──────────────────────────────────────────────────────
             Column(
               mainAxisSize: MainAxisSize.min,
@@ -82,10 +82,10 @@ class _ClosestScaleCardContent extends StatelessWidget {
                 if (scale != null && distMeters != null) ...[
                   Text(
                     scale.name,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: cs.onSurface,
-                        ),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
@@ -94,26 +94,23 @@ class _ClosestScaleCardContent extends StatelessWidget {
                     children: [
                       Text(
                         _formatDistance(distMeters),
-                        style:
-                            Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: cs.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: cs.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       if (report != null) ...[
                         const SizedBox(width: 4),
-                        Icon(statusIcon, size: 10, color: statusColor),
+                        Icon(statusIcon, size: 9, color: statusColor),
                         const SizedBox(width: 2),
                         Text(
                           '${_statusLabel(report.status)} · ${_timeAgo(report.reportedAt)}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelSmall
-                              ?.copyWith(
-                                color: statusColor,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 9,
-                              ),
+                          style: TextStyle(
+                            color: statusColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 9,
+                          ),
                         ),
                       ],
                     ],
@@ -121,9 +118,10 @@ class _ClosestScaleCardContent extends StatelessWidget {
                 ] else ...[
                   Text(
                     'No weight station found',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.grey.shade600,
-                        ),
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: Colors.grey.shade600,
+                    ),
                   ),
                 ],
               ],
