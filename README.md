@@ -2,9 +2,6 @@
 
 A Flutter-based mobile application for truck drivers with advanced routing, POI discovery, and weather integration.
 
-> **After merging this PR:** run `flutter clean && flutter pub get` to clear stale
-> caches before rebuilding.  Full instructions are in [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md#post-mergepost-pull-cache-cleanup).
-
 ## Features
 - **Multi-provider Authentication** via Firebase Auth:
   - Email/Password (create account, sign in, password reset)

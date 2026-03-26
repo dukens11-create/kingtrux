@@ -19,7 +19,8 @@ Thank you for your interest in contributing to KINGTRUX! This guide covers how t
    ```bash
    flutter run \
      --dart-define=HERE_API_KEY=your_here_key \
-     --dart-define=OPENWEATHER_API_KEY=your_openweather_key
+     --dart-define=OPENWEATHER_API_KEY=your_openweather_key \
+     --dart-define=PLACES_API_KEY=your_places_key
    ```
 4. For Android, add your Google Maps API key to `android/app/src/main/AndroidManifest.xml`.
 
