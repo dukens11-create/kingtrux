@@ -2486,7 +2486,7 @@ class _PoiPreviewCard extends StatelessWidget {
 
                   // Favorite / Save
                   IconButton.outlined(
-                    tooltip: isFavorite ? 'Remove favourite' : 'Save',
+                    tooltip: isFavorite ? 'Remove favorite' : 'Save',
                     icon: Icon(
                       isFavorite
                           ? Icons.star_rounded
