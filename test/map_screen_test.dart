@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kingtrux/config.dart';
 import 'package:kingtrux/services/map_preferences_service.dart';
+import 'package:kingtrux/state/app_state.dart';
+import 'package:kingtrux/ui/widgets/destination_search_bar.dart';
 import 'package:kingtrux/ui/widgets/where_to_sheet.dart';
 import 'package:kingtrux/ui/widgets/onboarding_overlay.dart';
 import 'package:kingtrux/ui/theme/app_theme.dart';
@@ -11,6 +14,18 @@ import 'package:kingtrux/ui/map/marker_icons.dart';
 
 /// Duration used for animation settle waits in widget tests.
 const _animationDuration = Duration(milliseconds: 400);
+
+// ---------------------------------------------------------------------------
+// Minimal AppState stub used by DestinationSearchBar → WhereToSheet tests.
+// ---------------------------------------------------------------------------
+
+class _StubAppState extends AppState {
+  @override
+  Future<void> buildTruckRoute() async {}
+
+  @override
+  Future<void> refreshMyLocation() async {}
+}
 
 void main() {
   // ---------------------------------------------------------------------------
@@ -336,6 +351,83 @@ void main() {
     testWidgets('WS label text is visible', (WidgetTester tester) async {
       await tester.pumpWidget(_buildQuickActionsBarHost());
       expect(find.text('WS'), findsOneWidget);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // DestinationSearchBar – reusable widget tests
+  // ---------------------------------------------------------------------------
+  group('DestinationSearchBar widget', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    Widget _buildBar({VoidCallback? onTap}) {
+      return MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: DestinationSearchBar(onTap: onTap ?? () {}),
+        ),
+      );
+    }
+
+    testWidgets('renders "Set destination for truck routes" text',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(_buildBar());
+      expect(find.text('Set destination for truck routes'), findsOneWidget);
+    });
+
+    testWidgets('has destination_search_bar key', (WidgetTester tester) async {
+      await tester.pumpWidget(_buildBar());
+      expect(find.byKey(const Key('destination_search_bar')), findsOneWidget);
+    });
+
+    testWidgets('has semantics label', (WidgetTester tester) async {
+      await tester.pumpWidget(_buildBar());
+      expect(
+        find.bySemanticsLabel('Set destination for truck routes'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tapping calls onTap callback', (WidgetTester tester) async {
+      var tapped = false;
+      await tester.pumpWidget(_buildBar(onTap: () => tapped = true));
+      await tester.tap(find.byKey(const Key('destination_search_bar')));
+      await tester.pump();
+      expect(tapped, isTrue);
+    });
+
+    testWidgets('tapping opens WhereToSheet with "Where to?" text',
+        (WidgetTester tester) async {
+      final state = _StubAppState();
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AppState>.value(
+          value: state,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: Builder(
+                builder: (ctx) => DestinationSearchBar(
+                  onTap: () => showModalBottomSheet<void>(
+                    context: ctx,
+                    isScrollControlled: true,
+                    builder: (_) => ChangeNotifierProvider<AppState>.value(
+                      value: state,
+                      child: const WhereToSheet(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('destination_search_bar')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Where to?'), findsOneWidget);
     });
   });
 
