@@ -34,6 +34,7 @@ import 'trip_screen.dart';
 import 'widgets/speed_display.dart';
 import 'widgets/closest_scale_card.dart';
 import 'widgets/compass_indicator.dart';
+import 'widgets/destination_search_bar.dart';
 import 'widgets/where_to_sheet.dart';
 import 'widgets/route_guidance_banner.dart';
 import 'widgets/kingtrux_logo.dart';
@@ -321,12 +322,12 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
 
-              // ── Prominent "Where to?" search bar (top, always visible) ──
+              // ── Prominent "Set destination" search bar (top, always visible) ──
               Positioned(
                 top: MediaQuery.of(context).padding.top + kToolbarHeight + AppTheme.spaceXS,
                 left: AppTheme.spaceMD,
                 right: _kControlRailClearance,
-                child: _WhereToSearchBar(onTap: _onWhereToCTAPressed),
+                child: DestinationSearchBar(onTap: _onWhereToCTAPressed),
               ),
 
               // ── Compact top filter chips (Places / Traffic Cams / DOT 511s) ─
@@ -334,7 +335,7 @@ class _MapScreenState extends State<MapScreen> {
                 top: MediaQuery.of(context).padding.top +
                     kToolbarHeight +
                     AppTheme.spaceXS +
-                    _WhereToSearchBar.height +
+                    DestinationSearchBar.height +
                     AppTheme.spaceXS,
                 left: 0,
                 right: 0,
@@ -2094,56 +2095,6 @@ class _QuickActionButton extends StatelessWidget {
                     ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Prominent "Where to?" search bar (top overlay)
-// ---------------------------------------------------------------------------
-
-/// A tappable search-bar stub that sits just below the app bar and is always
-/// visible on the map.  Tapping it opens the full [WhereToSheet].
-class _WhereToSearchBar extends StatelessWidget {
-  const _WhereToSearchBar({required this.onTap});
-
-  final VoidCallback onTap;
-
-  /// Logical height used by the parent [Stack] to position widgets below this bar.
-  static const double height = 48.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    return Material(
-      color: cs.surface,
-      elevation: 3,
-      shadowColor: cs.shadow,
-      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-        child: SizedBox(
-          height: height,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMD),
-            child: Row(
-              children: [
-                Icon(Icons.search_rounded, color: cs.primary, size: 22),
-                const SizedBox(width: AppTheme.spaceSM),
-                Expanded(
-                  child: Text(
-                    'Where to?',
-                    style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                ),
-                Icon(Icons.arrow_forward_ios_rounded, color: cs.outline, size: 16),
-              ],
-            ),
           ),
         ),
       ),

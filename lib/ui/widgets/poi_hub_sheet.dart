@@ -6,6 +6,7 @@ import '../../models/poi.dart';
 import '../../state/app_state.dart';
 import '../navigation_screen.dart';
 import '../theme/app_theme.dart';
+import 'destination_search_bar.dart';
 import 'poi_browser_sheet.dart';
 import 'poi_detail_sheet.dart';
 import 'where_to_sheet.dart';
@@ -60,7 +61,7 @@ class PoiHubSheet extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppTheme.spaceMD,
                     ),
-                    child: _SearchHeader(
+                    child: DestinationSearchBar(
                       onTap: () => _openWhereTo(context),
                     ),
                   ),
@@ -463,54 +464,6 @@ enum _PoiCategory {
       case _PoiCategory.more:
         return Icons.apps_rounded;
     }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Search / destination header
-// ---------------------------------------------------------------------------
-
-class _SearchHeader extends StatelessWidget {
-  const _SearchHeader({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return InkWell(
-      key: const Key('poi_hub_search_header'),
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusLG),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.spaceMD,
-          vertical: AppTheme.spaceMD,
-        ),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(AppTheme.radiusLG),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.search_rounded, color: cs.primary, size: 22),
-            const SizedBox(width: AppTheme.spaceSM),
-            Expanded(
-              child: Text(
-                'Set destination for truck routes',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded,
-                color: cs.onSurfaceVariant, size: 20),
-          ],
-        ),
-      ),
-    );
   }
 }
 

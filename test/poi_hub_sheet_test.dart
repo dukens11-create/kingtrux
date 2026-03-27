@@ -139,9 +139,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.byKey(const Key('poi_hub_search_header')),
+        find.byKey(const Key('destination_search_bar')),
         findsOneWidget,
       );
+      expect(find.text('Set destination for truck routes'), findsOneWidget);
     });
 
     testWidgets('shows EXTRAS placeholder section',
