@@ -100,10 +100,11 @@ void main() {
     });
 
     test('returns null for unrecognised brand', () {
-      final brand = TruckStopFilterService.detectBrand(
-        {'brand': 'Shell', 'name': 'Shell Gas Station'},
+      // Use a string that contains no known brand match-terms.
+      final unknown = TruckStopFilterService.detectBrand(
+        {'brand': 'UnknownBrandXYZ'},
       );
-      expect(brand, isNull);
+      expect(unknown, isNull);
     });
 
     test('returns null for empty tags', () {
@@ -122,6 +123,84 @@ void main() {
         {'name': 'Flying J Travel Center'},
       );
       expect(brand, TruckStopBrand.flyingJ);
+    });
+
+    // New brands added for brand-image feature
+    test("detects Roady's via name tag", () {
+      expect(
+        TruckStopFilterService.detectBrand({'name': "Roady's Truck Stop"}),
+        TruckStopBrand.roadys,
+      );
+    });
+
+    test('detects Sapp Bros via brand tag', () {
+      expect(
+        TruckStopFilterService.detectBrand({'brand': 'Sapp Bros'}),
+        TruckStopBrand.sappBros,
+      );
+    });
+
+    test('detects Maverik via name tag', () {
+      expect(
+        TruckStopFilterService.detectBrand({'name': 'Maverik'}),
+        TruckStopBrand.maverik,
+      );
+    });
+
+    test("detects Casey's via brand tag", () {
+      expect(
+        TruckStopFilterService.detectBrand({'brand': "Casey's General Store"}),
+        TruckStopBrand.caseys,
+      );
+    });
+
+    test('detects Shell via brand tag', () {
+      expect(
+        TruckStopFilterService.detectBrand({'brand': 'Shell'}),
+        TruckStopBrand.shell,
+      );
+    });
+
+    test('detects BP via brand tag', () {
+      expect(
+        TruckStopFilterService.detectBrand({'brand': 'BP'}),
+        TruckStopBrand.bp,
+      );
+    });
+
+    test('detects Total via brand tag', () {
+      expect(
+        TruckStopFilterService.detectBrand({'brand': 'TotalEnergies'}),
+        TruckStopBrand.total,
+      );
+    });
+
+    test('detects Petro Canada via brand tag', () {
+      expect(
+        TruckStopFilterService.detectBrand({'brand': 'Petro-Canada'}),
+        TruckStopBrand.petroCanada,
+      );
+    });
+
+    test('detects Esso via brand tag', () {
+      expect(
+        TruckStopFilterService.detectBrand({'brand': 'Esso'}),
+        TruckStopBrand.esso,
+      );
+    });
+
+    test('detects Road Ranger via name tag', () {
+      expect(
+        TruckStopFilterService.detectBrand({'name': 'Road Ranger Truck Stop'}),
+        TruckStopBrand.roadRanger,
+      );
+    });
+
+    test('detects Kwik Trip via operator tag', () {
+      expect(
+        TruckStopFilterService.detectBrand({'operator': 'Kwik Trip'}),
+        TruckStopBrand.kwikTrip,
+      );
     });
   });
 
@@ -153,7 +232,7 @@ void main() {
       expect(
         TruckStopFilterService.matchesAnyBrand(
           Set.of(TruckStopBrand.values),
-          {'brand': 'BP'},
+          {'brand': 'UnknownBrandXYZ'},
         ),
         isFalse,
       );
@@ -164,14 +243,27 @@ void main() {
   // TruckStopBrand enum
   // ---------------------------------------------------------------------------
   group('TruckStopBrand', () {
-    test('all five brands are defined', () {
-      expect(TruckStopBrand.values, hasLength(5));
+    test('all brands are defined', () {
+      expect(TruckStopBrand.values, hasLength(18));
       expect(TruckStopBrand.values, containsAll([
         TruckStopBrand.ta,
         TruckStopBrand.petro,
         TruckStopBrand.loves,
         TruckStopBrand.pilot,
         TruckStopBrand.flyingJ,
+        TruckStopBrand.kwikTrip,
+        TruckStopBrand.roadRanger,
+        TruckStopBrand.one9,
+        TruckStopBrand.amBest,
+        TruckStopBrand.roadys,
+        TruckStopBrand.sappBros,
+        TruckStopBrand.maverik,
+        TruckStopBrand.caseys,
+        TruckStopBrand.shell,
+        TruckStopBrand.bp,
+        TruckStopBrand.total,
+        TruckStopBrand.petroCanada,
+        TruckStopBrand.esso,
       ]));
     });
 

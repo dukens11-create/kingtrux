@@ -41,6 +41,7 @@ flutter:
     - assets/images/map_bg.png
     - assets/logo/kingtrux_shield.png
     - assets/icon/kingtrux_icon.png
+    - assets/logos/
 
 flutter_launcher_icons:
   android: true

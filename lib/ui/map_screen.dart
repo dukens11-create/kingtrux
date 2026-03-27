@@ -39,6 +39,9 @@ import 'widgets/where_to_sheet.dart';
 import 'widgets/route_guidance_banner.dart';
 import 'widgets/kingtrux_logo.dart';
 import 'map/marker_icons.dart';
+import '../models/truck_stop_brand.dart';
+import '../services/truck_stop_filter_service.dart';
+import 'widgets/truck_stop_brand_logo.dart';
 import 'account_screen.dart';
 import 'messages_screen.dart';
 import 'more_screen.dart';
@@ -112,6 +115,9 @@ class _MapScreenState extends State<MapScreen> {
   /// Cached green-circle-with-w icon for [PoiType.scale] markers.
   BitmapDescriptor? _scaleMarkerIcon;
 
+  /// Cached brand logo markers for [PoiType.truckStop] POIs, keyed by brand.
+  final Map<TruckStopBrand, BitmapDescriptor> _truckStopBrandMarkers = {};
+
   // ── Nearby places debounce ─────────────────────────────────────────────────
   /// Debounce timer for refreshing nearby truck stops on map movement.
   Timer? _nearbyPlacesDebounce;
@@ -125,6 +131,7 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     _logMapInitStart();
     _loadScaleMarkerIcon();
+    _loadTruckStopBrandMarkers();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final appState = context.read<AppState>();
       _appState = appState;
@@ -153,6 +160,27 @@ class _MapScreenState extends State<MapScreen> {
         );
       }
     }
+  }
+
+  /// Pre-generates and caches brand logo markers for all [TruckStopBrand]
+  /// values that have a bundled asset.  Called once from [initState].
+  Future<void> _loadTruckStopBrandMarkers() async {
+    for (final brand in TruckStopBrand.values) {
+      final assetPath = truckStopBrandAssetPath(brand);
+      if (assetPath == null) continue;
+      final icon = await buildBrandLogoMarker(assetPath);
+      if (icon != null && mounted) {
+        setState(() => _truckStopBrandMarkers[brand] = icon);
+      }
+    }
+  }
+
+  /// Returns the cached brand logo [BitmapDescriptor] for a truck stop [poi],
+  /// or `null` if no logo is available for that brand.
+  BitmapDescriptor? _truckStopMarkerIcon(Poi poi) {
+    final brand = TruckStopFilterService.detectBrand(poi.tags);
+    if (brand == null) return null;
+    return _truckStopBrandMarkers[brand];
   }
 
   // ── Map diagnostics helpers ────────────────────────────────────────────────
@@ -727,6 +755,19 @@ class _MapScreenState extends State<MapScreen> {
       if (!state.enabledPoiLayers.contains(poi.type)) continue;
       // Respect per-brand filter for truck stop POIs.
       if (!state.isTruckStopBrandVisible(poi)) continue;
+
+      // Determine marker icon: brand logo for truck stops, scale icon for
+      // weigh stations, default hue-coloured pin otherwise.
+      final BitmapDescriptor icon;
+      if (poi.type == PoiType.truckStop) {
+        icon = _truckStopMarkerIcon(poi) ??
+            BitmapDescriptor.defaultMarkerWithHue(_getPoiColor(poi.type));
+      } else if (poi.type == PoiType.scale && _scaleMarkerIcon != null) {
+        icon = _scaleMarkerIcon!;
+      } else {
+        icon = BitmapDescriptor.defaultMarkerWithHue(_getPoiColor(poi.type));
+      }
+
       markers.add(
         Marker(
           markerId: MarkerId('poi_${poi.id}'),
@@ -735,9 +776,7 @@ class _MapScreenState extends State<MapScreen> {
             title: poi.name,
             snippet: PoiDetailSheet.poiLabel(poi.type),
           ),
-          icon: poi.type == PoiType.scale && _scaleMarkerIcon != null
-              ? _scaleMarkerIcon!
-              : BitmapDescriptor.defaultMarkerWithHue(_getPoiColor(poi.type)),
+          icon: icon,
           onTap: () => _onPoiMarkerTap(poi),
         ),
       );

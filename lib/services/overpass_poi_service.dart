@@ -138,9 +138,10 @@ class OverpassPoiService {
       add('"highway"="services"');
       add('"amenity"="truck_stop"');
       // Also capture branded fuel stops (TA, Petro, Love's, Pilot, Flying J,
-      // KwikTrip, Road Ranger, One9, AM Best).
+      // KwikTrip, Road Ranger, One9, AM Best, Roady's, Sapp Bros, Maverik,
+      // Casey's, Shell, BP, Total, Petro Canada, Esso).
       const brandRegex =
-          'TA|TravelCenters|Petro|Love|Pilot|Flying.?J|Kwik.?Trip|KwikStar|Road.?Ranger|One.?9|AM.?Best';
+          'TA|TravelCenters|Petro|Love|Pilot|Flying.?J|Kwik.?Trip|KwikStar|Road.?Ranger|One.?9|AM.?Best|Roady|Sapp.?Bros|Maverik|Casey|Shell|BP|Total|Esso';
       q.add('node["amenity"="fuel"]["brand"~"$brandRegex",i](around:$radius,$lat,$lng);');
       q.add('way["amenity"="fuel"]["brand"~"$brandRegex",i](around:$radius,$lat,$lng);');
       q.add('node["amenity"="fuel"]["operator"~"$brandRegex",i](around:$radius,$lat,$lng);');
