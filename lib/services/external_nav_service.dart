@@ -1,4 +1,9 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:url_launcher/url_launcher.dart';
+
+import '../utils/external_navigation.dart';
 
 /// Provides helpers for launching external turn-by-turn navigation apps.
 ///
@@ -129,6 +134,60 @@ class ExternalNavService {
       case ExternalNavApp.waze:
         return openWaze(destLat: destLat, destLng: destLng);
     }
+  }
+
+  // ── System-chooser route handoff ─────────────────────────────────────────
+
+  /// Hands off the full route to an external navigation app using the
+  /// platform system chooser.
+  ///
+  /// **Android** – launches a Google Maps directions URL via
+  /// [LaunchMode.externalApplication], which triggers the Android intent
+  /// chooser so the user can pick Google Maps, Waze, or any other installed
+  /// navigation app.
+  ///
+  /// **iOS** – first tries the native `maps://` scheme (Apple Maps); falls
+  /// back to the Google Maps HTTPS URL if Apple Maps is not available.
+  ///
+  /// When [waypoints] is non-empty, all intermediate stops are included in
+  /// the Google Maps URL in order (A→B→C).  Apple Maps does not support
+  /// multi-stop routes via URL scheme, so only the final destination is sent
+  /// on iOS.
+  ///
+  /// [originLat]/[originLng] are the driver's current GPS coordinates.
+  /// When provided they are passed as the route origin so the external app
+  /// starts from the same position as the in-app route.
+  ///
+  /// Returns `true` if a URL was launched successfully.
+  static Future<bool> navigateWithRoute({
+    required double destLat,
+    required double destLng,
+    double? originLat,
+    double? originLng,
+    List<({double lat, double lng})> waypoints = const [],
+  }) async {
+    // On iOS prefer Apple Maps (native maps:// scheme).
+    if (!kIsWeb && Platform.isIOS) {
+      final appleUri = ExternalNavigationUrl.appleMaps(
+        destLat: destLat,
+        destLng: destLng,
+      );
+      if (await canLaunchUrl(appleUri)) {
+        return launchUrl(appleUri, mode: LaunchMode.externalApplication);
+      }
+    }
+
+    // Android (and iOS fallback): Google Maps HTTPS URL.
+    // LaunchMode.externalApplication on Android triggers the system intent
+    // chooser, allowing the user to pick among installed navigation apps.
+    final googleUri = ExternalNavigationUrl.googleMaps(
+      destLat: destLat,
+      destLng: destLng,
+      originLat: originLat,
+      originLng: originLng,
+      waypoints: waypoints,
+    );
+    return launchUrl(googleUri, mode: LaunchMode.externalApplication);
   }
 }
 
