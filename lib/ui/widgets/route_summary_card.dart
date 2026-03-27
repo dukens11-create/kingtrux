@@ -397,20 +397,20 @@ class _RouteDetailsState extends State<_RouteDetails> {
                 label: const Text('Start Navigation'),
               ),
               const SizedBox(height: AppTheme.spaceXS),
-              // ── External navigation fallback ───────────────────────────
+              // ── External navigation (system chooser) ──────────────────
               OutlinedButton.icon(
-                key: const Key('open_in_maps_btn'),
+                key: const Key('navigate_btn'),
                 onPressed: state.destLat == null || state.destLng == null || _launchingExternal
                     ? null
-                    : () => _onOpenExternalPressed(context, state),
+                    : () => _onNavigatePressed(context, state),
                 icon: _launchingExternal
                     ? const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.open_in_new_rounded, size: 16),
-                label: const Text('Open in…'),
+                    : const Icon(Icons.navigation_rounded, size: 16),
+                label: const Text('Navigate'),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   textStyle: tt.bodySmall,
@@ -431,8 +431,12 @@ class _RouteDetailsState extends State<_RouteDetails> {
     );
   }
 
-  /// Shows a bottom sheet letting the user pick an external navigation app.
-  Future<void> _onOpenExternalPressed(
+  /// Launches external turn-by-turn navigation using the platform system chooser.
+  ///
+  /// Passes the full route (origin + waypoints + destination) to the external
+  /// app.  On Android this triggers the system intent chooser; on iOS Apple
+  /// Maps is opened by default (with a Google Maps URL fallback).
+  Future<void> _onNavigatePressed(
     BuildContext context,
     AppState state,
   ) async {
@@ -440,26 +444,35 @@ class _RouteDetailsState extends State<_RouteDetails> {
     HapticFeedback.selectionClick();
 
     setState(() => _launchingExternal = true);
-    List<ExternalNavApp> apps;
     try {
-      apps = await ExternalNavService.availableApps();
+      // Build intermediate waypoints from multi-stop route stops.
+      // routeStops contains all user-defined stops in order, where the last
+      // stop is the final destination (its lat/lng equals destLat/destLng).
+      // Waypoints are all stops except the last one, so the destination is
+      // not duplicated in the waypoints list.
+      final stops = state.routeStops;
+      final waypoints = stops.length > 1
+          ? stops
+              .sublist(0, stops.length - 1)
+              .map((s) => (lat: s.lat, lng: s.lng))
+              .toList()
+          : <({double lat, double lng})>[];
+
+      final launched = await ExternalNavService.navigateWithRoute(
+        destLat: state.destLat!,
+        destLng: state.destLng!,
+        originLat: state.myLat,
+        originLng: state.myLng,
+        waypoints: waypoints,
+      );
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open navigation app')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _launchingExternal = false);
     }
-
-    if (!context.mounted) return;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLG)),
-      ),
-      builder: (ctx) => _ExternalNavPicker(
-        apps: apps,
-        destLat: state.destLat!,
-        destLng: state.destLng!,
-      ),
-    );
   }
 
   Widget _buildTollInfo(
@@ -512,86 +525,4 @@ class _RouteDetailsState extends State<_RouteDetails> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// External navigation app picker
-// ---------------------------------------------------------------------------
 
-/// Bottom sheet that lists available external navigation apps and launches
-/// the user's selection.
-class _ExternalNavPicker extends StatelessWidget {
-  const _ExternalNavPicker({
-    required this.apps,
-    required this.destLat,
-    required this.destLng,
-  });
-
-  final List<ExternalNavApp> apps;
-  final double destLat;
-  final double destLng;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceMD),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: AppTheme.spaceMD),
-              decoration: BoxDecoration(
-                color: cs.outlineVariant,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceMD),
-              child: Text(
-                'Open in…',
-                style: tt.titleMedium?.copyWith(color: cs.onSurface),
-              ),
-            ),
-            const SizedBox(height: AppTheme.spaceSM),
-            ...apps.map(
-              (app) => ListTile(
-                leading: Icon(
-                  _iconForApp(app),
-                  color: cs.primary,
-                ),
-                title: Text(app.displayName),
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  // Pop first, then launch so the sheet is dismissed cleanly
-                  // before the external app opens.
-                  Navigator.of(context).pop();
-                  ExternalNavService.launch(
-                    app: app,
-                    destLat: destLat,
-                    destLng: destLng,
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  IconData _iconForApp(ExternalNavApp app) {
-    switch (app) {
-      case ExternalNavApp.googleMaps:
-        return Icons.map_rounded;
-      case ExternalNavApp.sygicTruck:
-        return Icons.local_shipping_rounded;
-      case ExternalNavApp.waze:
-        return Icons.navigation_rounded;
-    }
-  }
-}
