@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/commercial_speed_settings.dart';
 import '../../state/app_state.dart';
 import '../theme/app_theme.dart';
 
@@ -91,6 +92,7 @@ class _SpeedDisplayContent extends StatelessWidget {
                       _TruckLimitBadge(
                         limitMph: truckLimitMph,
                         stateCode: state.currentUsState,
+                        unit: state.commercialSpeedSettings.unit,
                       ),
                     ],
                   ],
@@ -239,16 +241,45 @@ class _SpeedLimitSign extends StatelessWidget {
 /// When [limitMph] is `null` the badge shows "–" (with optional
 /// [stateCode]) to communicate that the feature is enabled but the state-
 /// specific limit is not yet known.
+///
+/// The displayed value is converted to [unit] (mph or km/h) and the
+/// appropriate unit label is appended so the driver always sees the limit in
+/// their preferred unit.
 class _TruckLimitBadge extends StatelessWidget {
-  const _TruckLimitBadge({required this.limitMph, this.stateCode});
+  const _TruckLimitBadge({
+    required this.limitMph,
+    this.stateCode,
+    this.unit = SpeedUnit.mph,
+  });
 
   final double? limitMph;
   final String? stateCode;
 
+  /// Display unit chosen by the driver in commercial speed settings.
+  final SpeedUnit unit;
+
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final limitLabel = limitMph != null ? limitMph!.toStringAsFixed(0) : '–';
+
+    String limitLabel;
+    String unitLabel;
+    if (limitMph != null) {
+      if (unit == SpeedUnit.kmh) {
+        final kmh = CommercialSpeedSettings.msToKmh(
+          CommercialSpeedSettings.mphToMs(limitMph!),
+        );
+        limitLabel = kmh.toStringAsFixed(0);
+        unitLabel = 'km/h';
+      } else {
+        limitLabel = limitMph!.toStringAsFixed(0);
+        unitLabel = 'mph';
+      }
+    } else {
+      limitLabel = '–';
+      unitLabel = unit == SpeedUnit.kmh ? 'km/h' : 'mph';
+    }
+
     final suffix = (limitMph == null && stateCode != null) ? ' ($stateCode)' : '';
 
     return Container(
@@ -259,7 +290,7 @@ class _TruckLimitBadge extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade400, width: 1),
       ),
       child: Text(
-        '$limitLabel$suffix',
+        '$limitLabel $unitLabel$suffix',
         style: tt.bodySmall?.copyWith(
           fontWeight: FontWeight.bold,
           color: limitMph != null ? Colors.black : Colors.grey.shade600,

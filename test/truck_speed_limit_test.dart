@@ -258,4 +258,64 @@ void main() {
       expect(loaded.enableStateLimits, isTrue);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Unit conversion for truck badge display (mph ↔ km/h)
+  // ---------------------------------------------------------------------------
+  group('Truck badge unit conversion', () {
+    // TX = 70 mph → km/h display
+    test('TX 70 mph displays as ~113 km/h when unit is kmh', () {
+      const limitMph = 70.0;
+      final kmh = CommercialSpeedSettings.msToKmh(
+        CommercialSpeedSettings.mphToMs(limitMph),
+      );
+      expect(kmh, closeTo(112.654, 0.5));
+      expect(kmh.toStringAsFixed(0), '113');
+    });
+
+    // CA = 55 mph → km/h display
+    test('CA 55 mph displays as ~89 km/h when unit is kmh', () {
+      const limitMph = 55.0;
+      final kmh = CommercialSpeedSettings.msToKmh(
+        CommercialSpeedSettings.mphToMs(limitMph),
+      );
+      expect(kmh, closeTo(88.514, 0.5));
+      expect(kmh.toStringAsFixed(0), '89');
+    });
+
+    // ON = 62 mph → km/h display
+    test('ON 62 mph displays as ~100 km/h when unit is kmh', () {
+      const limitMph = 62.0;
+      final kmh = CommercialSpeedSettings.msToKmh(
+        CommercialSpeedSettings.mphToMs(limitMph),
+      );
+      expect(kmh, closeTo(99.779, 0.5));
+      expect(kmh.toStringAsFixed(0), '100');
+    });
+
+    // BC = 62 mph → km/h display (same as ON)
+    test('BC 62 mph displays as ~100 km/h when unit is kmh', () {
+      final service = TruckSpeedLimitService();
+      final limitMph = service.limitForState('BC')!;
+      final kmh = CommercialSpeedSettings.msToKmh(
+        CommercialSpeedSettings.mphToMs(limitMph),
+      );
+      expect(kmh.toStringAsFixed(0), '100');
+    });
+
+    test('round-trip mph → ms → mph is lossless', () {
+      const limitMph = 65.0;
+      final ms = CommercialSpeedSettings.mphToMs(limitMph);
+      expect(CommercialSpeedSettings.msToMph(ms), closeTo(limitMph, 0.001));
+    });
+
+    test('km/h display value matches expected for AB (68 mph ≈ 109 km/h)', () {
+      final service = TruckSpeedLimitService();
+      final limitMph = service.limitForState('AB')!;
+      final kmh = CommercialSpeedSettings.msToKmh(
+        CommercialSpeedSettings.mphToMs(limitMph),
+      );
+      expect(kmh.toStringAsFixed(0), '109');
+    });
+  });
 }
