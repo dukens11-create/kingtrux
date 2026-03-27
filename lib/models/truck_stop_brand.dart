@@ -1,7 +1,17 @@
 /// Major truck stop brands supported by the brand-filter feature.
+///
+/// **Ordering matters**: more-specific brand names must appear before shorter
+/// ones whose match-terms are substrings of the longer brands.  For example,
+/// `petroCanada` before `petro` (otherwise "petrocanada" would be claimed by
+/// the `'petro'` term), and `total` before `ta` (otherwise "total" / "totalenergies"
+/// would be claimed by the two-letter `'ta'` term).
 enum TruckStopBrand {
-  ta,
+  // petroCanada before petro: 'petrocanada'.contains('petro') == true
+  petroCanada,
   petro,
+  // total before ta: 'total'.contains('ta') == true
+  total,
+  ta,
   loves,
   pilot,
   flyingJ,
@@ -10,6 +20,14 @@ enum TruckStopBrand {
   roadRanger,
   one9,
   amBest,
+  // Added for brand-image feature
+  roadys,
+  sappBros,
+  maverik,
+  caseys,
+  shell,
+  bp,
+  esso,
 }
 
 /// Human-readable display name for each [TruckStopBrand].
@@ -34,6 +52,24 @@ extension TruckStopBrandLabel on TruckStopBrand {
         return 'One9';
       case TruckStopBrand.amBest:
         return 'AM Best';
+      case TruckStopBrand.roadys:
+        return "Roady's";
+      case TruckStopBrand.sappBros:
+        return 'Sapp Bros';
+      case TruckStopBrand.maverik:
+        return 'Maverik';
+      case TruckStopBrand.caseys:
+        return "Casey's";
+      case TruckStopBrand.shell:
+        return 'Shell';
+      case TruckStopBrand.bp:
+        return 'BP';
+      case TruckStopBrand.total:
+        return 'Total';
+      case TruckStopBrand.petroCanada:
+        return 'Petro Canada';
+      case TruckStopBrand.esso:
+        return 'Esso';
     }
   }
 
@@ -78,24 +114,64 @@ extension TruckStopBrandLabel on TruckStopBrand {
         return [
           'kwiktrip',
           'kwikstar',
-          'kwik trip',
-          'kwik star',
         ];
       case TruckStopBrand.roadRanger:
         return [
           'roadranger',
-          'road ranger',
         ];
       case TruckStopBrand.one9:
         return [
           'one9',
-          'one 9',
         ];
       case TruckStopBrand.amBest:
         return [
           'ambest',
-          'am best',
           'americanstop',
+        ];
+      case TruckStopBrand.roadys:
+        return [
+          'roadys',
+          'roadystruckstop',
+        ];
+      case TruckStopBrand.sappBros:
+        return [
+          'sappbros',
+          'sappbrothers',
+        ];
+      case TruckStopBrand.maverik:
+        return [
+          'maverik',
+          'maveriknc',
+        ];
+      case TruckStopBrand.caseys:
+        return [
+          'caseys',
+          'casey',
+          'caseysgeneral',
+          'caseygeneralstores',
+        ];
+      case TruckStopBrand.shell:
+        return [
+          'shell',
+        ];
+      case TruckStopBrand.bp:
+        return [
+          'bp',
+          'britishpetroleum',
+        ];
+      case TruckStopBrand.total:
+        return [
+          'total',
+          'totalenergies',
+          'totalaccess',
+        ];
+      case TruckStopBrand.petroCanada:
+        return [
+          'petrocanada',
+        ];
+      case TruckStopBrand.esso:
+        return [
+          'esso',
         ];
     }
   }

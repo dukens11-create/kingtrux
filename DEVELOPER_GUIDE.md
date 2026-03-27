@@ -452,3 +452,94 @@ External APIs (HERE, OpenWeather, Overpass)
 ```
 
 The app uses the Provider pattern with ChangeNotifier for state management. All state changes trigger UI rebuilds automatically via `notifyListeners()`.
+
+---
+
+## Truck Stop Brand Logos
+
+### Asset location
+
+All brand logo PNGs live in `assets/logos/` and are declared as a directory
+bundle in `pubspec.yaml`:
+
+```yaml
+flutter:
+  assets:
+    - assets/logos/
+```
+
+### Required filenames
+
+| Brand | File |
+|-------|------|
+| Pilot / Flying J | `pilot.png` |
+| Love's | `loves.png` |
+| TA (TravelCenters of America) | `ta.png` |
+| Petro | `petro.png` |
+| Roady's | `roadys.png` |
+| Sapp Bros | `sapp_bros.png` |
+| Road Ranger | `road_ranger.png` |
+| Kwik Trip / KwikStar | `kwik_trip.png` |
+| Maverik | `maverik.png` |
+| Casey's | `caseys.png` |
+| Shell | `shell.png` |
+| BP | `bp.png` |
+| Total / TotalEnergies | `total.png` |
+| Petro Canada | `petro_canada.png` |
+| Esso | `esso.png` |
+
+Placeholder colored PNGs are committed so the project builds and tests pass
+out-of-the-box.  Replace them with official artwork (subject to brand usage
+rights) at any time — no code changes required.
+
+### How to add a new brand
+
+1. **Add the PNG** to `assets/logos/<brand_slug>.png`.
+
+2. **Extend the enum** in `lib/models/truck_stop_brand.dart`:
+   ```dart
+   enum TruckStopBrand {
+     // …existing values…
+     myNewBrand,
+   }
+   ```
+
+3. **Add a display name** in the `TruckStopBrandLabel.displayName` switch.
+
+4. **Add match terms** in the `TruckStopBrandLabel.matchTerms` switch.  All
+   terms must already be normalized (lowercase, non-alphanumeric stripped).
+
+5. **Map the asset path** in `truckStopBrandAssetPath()` in
+   `lib/ui/widgets/truck_stop_brand_logo.dart`:
+   ```dart
+   case TruckStopBrand.myNewBrand:
+     return 'assets/logos/my_new_brand.png';
+   ```
+
+6. **Run the tests** to verify detection works:
+   ```bash
+   flutter test test/truck_stop_brand_test.dart
+   flutter test test/truck_stop_brand_logo_test.dart
+   ```
+
+### Where logos appear
+
+| Location | Detail |
+|----------|--------|
+| **Map markers** | Truck stop POI markers show the brand logo in a circular icon; falls back to the default cyan pin when brand is unknown or marker generation fails. |
+| **POI list / cards** | `_PoiListTile` in `poi_hub_sheet.dart` renders a 40 × 40 `TruckStopBrandLogo` as the list-tile leading widget for `PoiType.truckStop` entries. |
+
+### Widget reference
+
+`TruckStopBrandLogo` (`lib/ui/widgets/truck_stop_brand_logo.dart`)
+
+```dart
+TruckStopBrandLogo(
+  brand: TruckStopBrand.pilot,
+  size: 40,   // optional, defaults to 40
+)
+```
+
+When the asset is unavailable (brand without a PNG, or image load error) the
+widget automatically falls back to a generic truck icon in a circular
+`primaryContainer` background.

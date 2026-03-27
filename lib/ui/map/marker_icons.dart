@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 /// Cache of previously generated [BitmapDescriptor] instances keyed by a
@@ -186,3 +187,86 @@ Future<BitmapDescriptor?> buildRoundedRectLetterMarker({
 
 /// Clears the marker icon cache. Useful in tests.
 void clearMarkerIconCache() => _cache.clear();
+
+/// Generates a circular map marker that displays the PNG asset at [assetPath]
+/// centered inside a white circular background.
+///
+/// [size] is the diameter in logical pixels of the resulting marker (default
+/// 48 dp).  The result is cached like [buildCircleLetterMarker] and falls back
+/// to `null` on any error so callers can substitute a default icon.
+Future<BitmapDescriptor?> buildBrandLogoMarker(
+  String assetPath, {
+  double size = 48.0,
+}) async {
+  final key = 'brand_logo_${assetPath}_$size';
+  if (_cache.containsKey(key)) return _cache[key];
+
+  try {
+    const pixelRatio = 2.0;
+    final physicalSize = size * pixelRatio;
+    final radius = physicalSize / 2;
+
+    // Load the asset bytes.
+    final data = await rootBundle.load(assetPath);
+    final codec = await ui.instantiateImageCodec(
+      data.buffer.asUint8List(),
+      targetWidth: (physicalSize - 8).toInt(),
+      targetHeight: (physicalSize - 8).toInt(),
+    );
+    final frame = await codec.getNextFrame();
+    final logoImage = frame.image;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    // White circular background.
+    canvas.drawCircle(
+      Offset(radius, radius),
+      radius,
+      Paint()
+        ..color = Colors.white
+        ..isAntiAlias = true,
+    );
+
+    // Clip subsequent drawing to the circle.
+    canvas.save();
+    canvas.clipPath(
+      Path()
+        ..addOval(
+          Rect.fromCircle(center: Offset(radius, radius), radius: radius - 1),
+        ),
+    );
+
+    // Draw the logo, centered, with a small inset so it fits inside the circle.
+    const inset = 4.0;
+    canvas.drawImageRect(
+      logoImage,
+      Rect.fromLTWH(
+        0,
+        0,
+        logoImage.width.toDouble(),
+        logoImage.height.toDouble(),
+      ),
+      Rect.fromLTWH(inset, inset, physicalSize - inset * 2, physicalSize - inset * 2),
+      Paint()..isAntiAlias = true,
+    );
+    canvas.restore();
+
+    final picture = recorder.endRecording();
+    final image =
+        await picture.toImage(physicalSize.toInt(), physicalSize.toInt());
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    if (byteData == null) return null;
+
+    final descriptor = BitmapDescriptor.bytes(
+      byteData.buffer.asUint8List(),
+      imagePixelRatio: pixelRatio,
+    );
+
+    _cache[key] = descriptor;
+    return descriptor;
+  } catch (_) {
+    return null;
+  }
+}

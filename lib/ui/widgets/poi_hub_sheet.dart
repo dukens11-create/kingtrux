@@ -3,12 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../../models/poi.dart';
+import '../../models/truck_stop_brand.dart';
+import '../../services/truck_stop_filter_service.dart';
 import '../../state/app_state.dart';
 import '../navigation_screen.dart';
 import '../theme/app_theme.dart';
 import 'destination_search_bar.dart';
 import 'poi_browser_sheet.dart';
 import 'poi_detail_sheet.dart';
+import 'truck_stop_brand_logo.dart';
 import 'where_to_sheet.dart';
 
 /// POI Hub bottom sheet — TruckPath-style tabbed entry point.
@@ -369,20 +372,27 @@ class _PoiListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+
+    // For truck stops, show the brand logo (40×40) when one is available.
+    Widget leading;
+    if (poi.type == PoiType.truckStop) {
+      final brand = TruckStopFilterService.detectBrand(poi.tags);
+      if (brand != null) {
+        leading = TruckStopBrandLogo(brand: brand, size: 40);
+      } else {
+        leading = _FallbackPoiLeading(cs: cs, poi: poi);
+      }
+    } else {
+      leading = _FallbackPoiLeading(cs: cs, poi: poi);
+    }
+
     return ListTile(
       key: Key('poi_list_tile_${poi.id}'),
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AppTheme.spaceSM,
         vertical: AppTheme.spaceXS,
       ),
-      leading: CircleAvatar(
-        backgroundColor: cs.primaryContainer,
-        child: Icon(
-          PoiDetailSheet.poiIcon(poi.type),
-          size: 18,
-          color: cs.onPrimaryContainer,
-        ),
-      ),
+      leading: leading,
       title: Text(poi.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         PoiDetailSheet.poiLabel(poi.type),
@@ -406,6 +416,26 @@ class _PoiListTile extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Default leading widget for non-truck-stop POI list tiles.
+class _FallbackPoiLeading extends StatelessWidget {
+  const _FallbackPoiLeading({required this.cs, required this.poi});
+
+  final ColorScheme cs;
+  final Poi poi;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      backgroundColor: cs.primaryContainer,
+      child: Icon(
+        PoiDetailSheet.poiIcon(poi.type),
+        size: 18,
+        color: cs.onPrimaryContainer,
+      ),
     );
   }
 }
