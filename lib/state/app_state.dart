@@ -145,6 +145,18 @@ class AppState extends ChangeNotifier {
   double? destLat;
   double? destLng;
 
+  // ---------------------------------------------------------------------------
+  // Multi-stop route state ("Set destination for truck routes" flow)
+  // ---------------------------------------------------------------------------
+
+  /// Ordered list of destination stops for the current truck route.
+  ///
+  /// The driver starts from their current GPS location.  Stop [0] is the
+  /// first destination, stop [1] the next, etc.  When this list is
+  /// non-empty, [buildTruckRoute] routes through all stops in order instead
+  /// of using the single [destLat]/[destLng] fallback.
+  List<TripStop> routeStops = [];
+
   // Truck configuration
   TruckProfile truckProfile = TruckProfile.defaultProfile();
 
@@ -640,6 +652,18 @@ class AppState extends ChangeNotifier {
       debugPrint('Error loading destination: $e');
     }
     try {
+      final stops = await _destinationPersistenceService.loadStops();
+      if (stops.isNotEmpty) {
+        routeStops = stops;
+        // Keep destLat/destLng in sync with the last stop.
+        destLat = stops.last.lat;
+        destLng = stops.last.lng;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error loading route stops: $e');
+    }
+    try {
       useMetricUnits = await _unitsService.load();
       notifyListeners();
     } catch (e) {
@@ -709,13 +733,75 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Set destination and prepare for routing
+  /// Set destination and prepare for routing.
+  ///
+  /// Calling this (e.g. via long-press on the map) switches to single-stop
+  /// mode: any pending [routeStops] are cleared so that [buildTruckRoute]
+  /// uses only this single destination.
   void setDestination(double lat, double lng) {
     destLat = lat;
     destLng = lng;
+    routeStops = [];
     notifyListeners();
     _destinationPersistenceService.save(lat, lng).catchError(
       (Object e) => debugPrint('Error saving destination: $e'),
+    );
+    _destinationPersistenceService.clearStops().catchError(
+      (Object e) => debugPrint('Error clearing route stops: $e'),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Multi-stop route stop management
+  // ---------------------------------------------------------------------------
+
+  /// Append a stop to [routeStops] and persist the updated list.
+  ///
+  /// [label] is the human-readable address / place name to display in the
+  /// stops list.
+  void addRouteStop(double lat, double lng, {String? label}) {
+    final stop = TripStop(
+      id: _uuid.v4(),
+      label: label,
+      lat: lat,
+      lng: lng,
+      createdAt: DateTime.now(),
+    );
+    routeStops = [...routeStops, stop];
+    // Keep destLat/destLng pointing at the last stop for backward-compat.
+    destLat = lat;
+    destLng = lng;
+    notifyListeners();
+    _destinationPersistenceService.saveStops(routeStops).catchError(
+      (Object e) => debugPrint('Error saving route stops: $e'),
+    );
+  }
+
+  /// Remove the stop at [index] from [routeStops] and persist the change.
+  void removeRouteStop(int index) {
+    if (index < 0 || index >= routeStops.length) return;
+    final updated = List<TripStop>.of(routeStops)..removeAt(index);
+    routeStops = updated;
+    // Update destLat/destLng to the new last stop (or null if empty).
+    if (routeStops.isNotEmpty) {
+      destLat = routeStops.last.lat;
+      destLng = routeStops.last.lng;
+    } else {
+      destLat = null;
+      destLng = null;
+    }
+    notifyListeners();
+    _destinationPersistenceService.saveStops(routeStops).catchError(
+      (Object e) => debugPrint('Error saving route stops: $e'),
+    );
+  }
+
+  /// Remove all stops from [routeStops] and clear the persisted list.
+  void clearRouteStops() {
+    routeStops = [];
+    notifyListeners();
+    _destinationPersistenceService.clearStops().catchError(
+      (Object e) => debugPrint('Error clearing route stops: $e'),
     );
   }
 
@@ -848,10 +934,27 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Calculate truck route from current location to destination
+  /// Calculate truck route from current location through all [routeStops].
+  ///
+  /// When [routeStops] is non-empty the route is built by stitching legs
+  /// through every stop in order (GPS → stop[0] → stop[1] → … → stop[n-1]).
+  /// When [routeStops] is empty the method falls back to the single
+  /// [destLat]/[destLng] destination (e.g. set via long-press on the map).
+  ///
+  /// If GPS is unavailable an error message is set and the method returns
+  /// immediately without attempting a network request.
   Future<void> buildTruckRoute() async {
-    if (myLat == null || myLng == null || destLat == null || destLng == null) {
-      routeError = 'Location or destination not set';
+    if (myLat == null || myLng == null) {
+      routeError = 'Current location not available. Enable GPS and try again.';
+      routeResult = null;
+      notifyListeners();
+      return;
+    }
+
+    // Determine whether we are in multi-stop or single-destination mode.
+    final usingStops = routeStops.isNotEmpty;
+    if (!usingStops && (destLat == null || destLng == null)) {
+      routeError = 'Destination not set';
       routeResult = null;
       notifyListeners();
       return;
@@ -862,19 +965,45 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      routeResult = await _routingService.getTruckRoute(
-        originLat: myLat!,
-        originLng: myLng!,
-        destLat: destLat!,
-        destLng: destLng!,
-        truckProfile: truckProfile,
-        avoidTolls: tollPreference == TollPreference.tollFree,
-        avoidFerries: avoidFerries,
-        avoidUnpaved: avoidUnpaved,
-      );
-      if (routeResult != null) {
-        _startRouteMonitoring();
-        _lookupDestinationState(destLat!, destLng!);
+      if (usingStops) {
+        // Build a synthetic origin stop from the current GPS position, then
+        // prepend it to the routeStops list so TripRoutingService can stitch
+        // consecutive leg-by-leg requests.
+        final origin = TripStop(
+          id: 'gps_origin',
+          label: 'Current Location',
+          lat: myLat!,
+          lng: myLng!,
+          createdAt: DateTime.now(),
+        );
+        final stops = [origin, ...routeStops];
+        routeResult = await _tripRoutingService.buildTripRoute(
+          stops: stops,
+          truckProfile: truckProfile,
+          avoidTolls: tollPreference == TollPreference.tollFree,
+          avoidFerries: avoidFerries,
+          avoidUnpaved: avoidUnpaved,
+        );
+        if (routeResult != null) {
+          _startRouteMonitoring();
+          final last = routeStops.last;
+          _lookupDestinationState(last.lat, last.lng);
+        }
+      } else {
+        routeResult = await _routingService.getTruckRoute(
+          originLat: myLat!,
+          originLng: myLng!,
+          destLat: destLat!,
+          destLng: destLng!,
+          truckProfile: truckProfile,
+          avoidTolls: tollPreference == TollPreference.tollFree,
+          avoidFerries: avoidFerries,
+          avoidUnpaved: avoidUnpaved,
+        );
+        if (routeResult != null) {
+          _startRouteMonitoring();
+          _lookupDestinationState(destLat!, destLng!);
+        }
       }
     } on HereApiKeyMissingException {
       routeError =
@@ -1086,9 +1215,13 @@ class AppState extends ChangeNotifier {
     routeError = null;
     destLat = null;
     destLng = null;
+    routeStops = [];
     notifyListeners();
     _destinationPersistenceService.clear().catchError(
       (Object e) => debugPrint('Error clearing destination: $e'),
+    );
+    _destinationPersistenceService.clearStops().catchError(
+      (Object e) => debugPrint('Error clearing route stops: $e'),
     );
   }
 
@@ -1569,7 +1702,7 @@ class AppState extends ChangeNotifier {
   Future<void> _recalculateActiveRoute() async {
     if (activeTrip != null && (activeTrip!.stops.length) >= 2) {
       await buildTripRoute();
-    } else if (destLat != null && destLng != null) {
+    } else if (routeStops.isNotEmpty || (destLat != null && destLng != null)) {
       await buildTruckRoute();
     }
   }
