@@ -906,6 +906,31 @@ The **underspeed threshold** (default **10 mph**) can be changed programmaticall
 3. When the speed state transitions (e.g., correct → overspeeding) a colour-coded `AlertBanner` is shown and, for overspeed/underspeed, a TTS voice alert is triggered.
 4. Alerts fire instantly on threshold crossing; they do not repeat until the state changes again.
 
+### Commercial Truck Speed Limits (USA & Canada)
+
+KINGTRUX includes built-in commercial truck speed limits for all 50 US states + DC and all 13 Canadian provinces/territories.
+
+#### Enabling state/province limits
+
+1. Tap the **truck icon** (🚛) on the map screen → **Commercial Speed Limit**.
+2. Enable **"Use state truck speed limits"**.
+3. While navigating, the truck limit badge under the road-speed sign updates automatically as you cross state or provincial borders.  The displayed value respects your chosen unit (mph or km/h).
+
+#### How region limits override the manual max speed
+
+| Condition | Effective limit used |
+|-----------|---------------------|
+| `enableStateLimits = true` AND region limit found | Region limit (state/province) |
+| `enableStateLimits = true` AND region limit not found | Manual max speed |
+| `enableStateLimits = false` | Manual max speed always |
+
+#### Disclaimer
+
+> **These limits are conservative defaults compiled from state and provincial DOT regulations as of 2024.**
+> Where a state or province distinguishes between road types (e.g. interstate vs. undivided highway), the **lower** limit is used.
+> Limits may vary by specific roadway, vehicle class, time of day, or jurisdiction.
+> **Always follow posted signs and applicable local laws.**  KingTrux speed limit data is for informational purposes only and does not constitute legal advice.
+
 
 
 | Field | Description | Range |
