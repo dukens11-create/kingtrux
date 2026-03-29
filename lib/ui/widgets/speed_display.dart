@@ -119,6 +119,7 @@ class _SpeedDisplayContent extends StatelessWidget {
                       style: tt.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: speedColor,
+                        fontSize: 13,
                       ),
                     ),
                     Container(
@@ -133,7 +134,10 @@ class _SpeedDisplayContent extends StatelessWidget {
                       ),
                       child: Text(
                         'mph',
-                        style: tt.labelSmall?.copyWith(color: speedColor),
+                        style: tt.labelSmall?.copyWith(
+                          color: speedColor,
+                          fontSize: 10,
+                        ),
                       ),
                     ),
                   ],
